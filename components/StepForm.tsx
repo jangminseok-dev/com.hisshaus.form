@@ -30,16 +30,22 @@ const RECHECK = '입력한 내용을 다시 확인해 주세요.'
 const clamp = (i: number, total: number) => Math.min(Math.max(i, 0), total - 1)
 
 /**
- * 방문 기록 칸에 적는 값. 어느 양식의 몇째 묶음인지 담는다.
- * Next 가 칸에 넣어 둔 값(__NA 등)을 지우면 뒤로 가기가 깨지므로 있던 값에 더해서 쓴다.
+ * 묶음을 어떻게 옮기나. push: 방문 기록에 칸을 쌓는다(다음). replace: 지금 칸을 고쳐 쓴다(앞에 쌓은 칸이 없을 때의 이전,
+ * 서버가 거절한 뒤의 복구). pop: 브라우저가 이미 옮겼다(뒤로·앞으로 가기).
  */
-function stepState(formId: string, step: number) {
-  return { ...(history.state ?? {}), hhForm: formId, hhStep: step }
-}
+type Move = 'push' | 'replace' | 'pop'
 
-/** 묶음 하나씩 넘기며 쓰는 화면. 신청서와 검사지가 같이 쓴다. 저장은 onDraft 를 받은 부모 몫이다. */
+/**
+ * 묶음 하나씩 넘기며 쓰는 화면. 신청서와 검사지가 같이 쓴다. 저장은 onDraft 를 받은 부모 몫이다.
+ *
+ * 방문 기록: 이 화면이 만지는 모든 칸의 state 는 `hhForm`(양식)·`hhSid`(신청 ID)·`hhStep`(묶음 번호)·`hhPos`(위치)를 담는다.
+ * 위치는 이 양식 세션에서 첫 칸이 0 이고 `pushState` 할 때마다 1 씩 는다. 뒤로·앞으로 가기가 몇 칸을 건너뛰든,
+ * 새로 고침으로 돌아오든, 도착한 칸이 스스로 묶음과 위치를 말해 주므로 쌓은 칸을 따로 세지 않는다.
+ * 같은 양식·같은 신청의 칸이 아니면(다른 양식, 지난 신청, 양식 앞 페이지) 따르지 않는다.
+ */
 export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit, onBackFromFirst }: StepFormProps) {
   const total = form.groups.length
+  const sid = initial.submissionId
   const [answers, setAnswers] = useState<Answers>(initial.answers)
   const [index, setIndex] = useState(() => clamp(initial.groupIndex, total))
   const [showErrors, setShowErrors] = useState(false)
@@ -50,12 +56,16 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   // 올릴 때마다 첫 오류 문항으로 한 번 간다.
   const [reveal, setReveal] = useState(0)
 
-  // state 와 같은 답을 ref 로도 쥔다. 제출을 기다린 뒤나 한 번에 여러 입력이 와도 가장 나중 답을 읽으려는 것이다.
+  // 답과 보이는 묶음은 state 와 같은 값을 ref 로도 쥔다. 제출을 기다린 뒤나 popstate 처럼 그린 값이 한 박자 늦을 수 있는
+  // 자리에서 가장 나중 값을 읽으려는 것이다. 쓰는 곳은 moveTo 와 change 뿐이다.
   const answersRef = useRef(initial.answers)
+  const indexRef = useRef(index)
+  // 지금 방문 기록 칸의 위치(hhPos).
+  const posRef = useRef(0)
   // 다시 그려지기 전에 또 눌려도 한 번만 보내려고 동기로 확인하는 자리.
   const submittingRef = useRef(false)
-  // 이 화면이 방문 기록에 쌓은 칸 가운데 지금 위치 뒤에 남은 수.
-  const pushed = useRef(0)
+  // 화면이 떠 있나. 제출을 기다리는 사이 다른 페이지로 갔으면 그 페이지의 방문 기록 칸과 초안을 건드리지 않는다.
+  const aliveRef = useRef(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
   const noticeRef = useRef<HTMLParagraphElement>(null)
@@ -73,64 +83,71 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   // 선택 표시는 지금 필수인지로 정한다. requiredIf 로 필수가 된 문항(2순위 시간대)은 선택이 아니다.
   const asShown = (q: Question): Question => ({ ...q, required: isRequired(q, answers) })
 
-  function emit(next: Answers, groupIndex: number) {
-    onDraft({ answers: next, groupIndex, submissionId: initial.submissionId })
+  function emit() {
+    onDraft({ answers: answersRef.current, groupIndex: indexRef.current, submissionId: sid })
   }
 
-  /** 다른 묶음을 보인다. 오류 표시와 앞 안내는 새 묶음에 가져가지 않는다. */
-  function showGroup(next: number) {
-    setIndex(next)
+  /** 방문 기록 칸에 적을 state. Next 가 칸에 넣어 둔 값(__NA 등)을 지우면 뒤로 가기가 깨지므로 있던 값에 더해서 쓴다. */
+  function entryState(step: number, pos: number) {
+    return { ...(history.state ?? {}), hhForm: form.id, hhSid: sid, hhStep: step, hhPos: pos }
+  }
+
+  /**
+   * 묶음을 옮기는 일은 전부 여기서 한다: 방문 기록 칸, 보이는 묶음, 초안, 오류 표시.
+   * (맨 위로 올리고 제목에 포커스를 두는 것은 보이는 묶음이 바뀐 뒤 index 이펙트가 한다.)
+   * pop 은 브라우저가 이미 칸을 옮겼으니 도착한 칸의 위치를 받아 적는다.
+   */
+  function moveTo(target: number, how: Move, popPos = 0) {
+    if (how === 'push') {
+      posRef.current += 1
+      history.pushState(entryState(target, posRef.current), '')
+    } else if (how === 'replace') {
+      history.replaceState(entryState(target, posRef.current), '')
+    } else {
+      posRef.current = popPos
+    }
+    indexRef.current = target
+    setIndex(target)
     setShowErrors(false)
     setNotice('')
+    emit()
   }
 
   function change(q: Question, value: Answer) {
-    const next = { ...answersRef.current, [q.id]: value }
-    answersRef.current = next
-    setAnswers(next)
+    answersRef.current = { ...answersRef.current, [q.id]: value }
+    setAnswers(answersRef.current)
     setNotice('')
-    emit(next, index)
-  }
-
-  function goNext() {
-    const next = index + 1
-    history.pushState(stepState(form.id, next), '')
-    pushed.current += 1
-    showGroup(next)
-    emit(answersRef.current, next)
+    emit()
   }
 
   function goBack() {
-    if (index === 0) {
+    if (indexRef.current === 0) {
       onBackFromFirst?.()
-    } else if (pushed.current > 0) {
-      // 묶음은 popstate 가 바꾼다. 브라우저 뒤로 가기와 같은 길이다.
+    } else if (posRef.current > 0) {
+      // 앞에 이 화면이 쌓은 칸이 있다. 묶음은 popstate 가 바꾼다(브라우저 뒤로 가기와 같은 길이다).
       history.back()
     } else {
-      // 가운데서 복원돼 이 화면이 쌓은 칸이 없다. 칸을 더 쌓지 않고 지금 칸을 앞 묶음으로 고친다.
-      const prev = index - 1
-      history.replaceState(stepState(form.id, prev), '')
-      showGroup(prev)
-      emit(answersRef.current, prev)
+      // 앞에 이 화면이 쌓은 칸이 없다(가운데서 복원됐거나 여러 칸을 한 번에 돌아왔다). 지금 칸을 앞 묶음으로 고쳐 쓴다.
+      moveTo(indexRef.current - 1, 'replace')
     }
   }
 
-  /** 서버가 거절했다. 새 오늘로 전체를 다시 보고 오류가 있는 첫 묶음으로 옮긴다. */
+  /**
+   * 서버가 거절했다. 새 오늘로 전체를 다시 보고 오류가 있는 첫 묶음으로 옮긴다.
+   * 알려진 한계: 이렇게 칸의 묶음을 고쳐 쓰면 앞 칸과 묶음이 이어지지 않아서 이어지는 ‹ 한 번이 같은 묶음으로 헛돌거나
+   * 묶음을 건너뛸 수 있다. 화면이 열려 있는 사이 자정을 넘겨 서버만 거절하는 경우에만 생긴다.
+   */
   function recheck() {
-    const current = answersRef.current
     const now = todayKst()
     setFreshToday(now)
-    const first = validateForm(form, current, now)[0]
+    const first = validateForm(form, answersRef.current, now)[0]
     if (!first) {
       setNotice(RECHECK)
       return
     }
     const target = form.groups.findIndex((g) => g.questions.some((q) => q.id === first.questionId))
-    if (target !== index) {
-      history.replaceState(stepState(form.id, target), '')
-      emit(current, target)
-    }
-    showGroup(target)
+    // 보내는 사이 브라우저 뒤로 가기로 묶음이 바뀌었을 수 있다. 누른 때 그린 값이 아니라 지금 값과 견준다.
+    if (target !== indexRef.current) moveTo(target, 'replace')
     setShowErrors(true)
     setReveal((n) => n + 1)
   }
@@ -143,7 +160,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
       return
     }
     if (!isLast) {
-      goNext()
+      moveTo(indexRef.current + 1, 'push')
       return
     }
     submittingRef.current = true
@@ -156,6 +173,8 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
     } catch {
       result = 'failed'
     }
+    // 기다리는 사이 화면이 내려갔으면 다른 페이지의 방문 기록 칸·초안을 건드리지 않는다.
+    if (!aliveRef.current) return
     // ok 면 부모가 화면을 바꾼다. 그때까지 버튼을 막아 둔다.
     if (result === 'ok') return
     submittingRef.current = false
@@ -164,24 +183,31 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
     else recheck()
   }
 
-  // 처음 그릴 때 지금 방문 기록 칸에 묶음 번호를 적는다(처음 그릴 때의 번호만 쓴다).
-  // 새로 고침 뒤에도 칸에 남아 있어서, 앞 칸으로 가는 뒤로 가기가 그 묶음을 알아본다.
   useEffect(() => {
-    history.replaceState(stepState(form.id, index), '')
+    aliveRef.current = true
+    return () => {
+      aliveRef.current = false
+    }
   }, [])
 
-  // 브라우저 뒤로·앞으로 가기. 최신 묶음 번호를 보려고 그릴 때마다 다시 건다.
+  // 처음 그릴 때 지금 방문 기록 칸에 보이는 묶음과 위치를 적는다. 새로 고침·탭 복원으로 같은 양식·같은 신청의 칸에
+  // 돌아왔으면 그 위치를 이어받는다(앞 칸도 브라우저에 남아 있어서 ‹ 가 history.back 을 쓸 수 있다). 아니면 이 화면이 첫 칸이다.
+  useEffect(() => {
+    const here = history.state
+    const mine = here?.hhForm === form.id && here?.hhSid === sid && Number.isInteger(here?.hhPos)
+    posRef.current = mine ? here.hhPos : 0
+    history.replaceState(entryState(indexRef.current, posRef.current), '')
+  }, [])
+
+  // 브라우저 뒤로·앞으로 가기. 몇 칸을 건너뛰어도 도착한 칸이 묶음과 위치를 말해 준다. 그릴 때마다 다시 거는 것은
+  // 최신 onDraft 로 부르려는 것이다.
   useEffect(() => {
     function onPopState(event: PopStateEvent) {
-      const state = event.state
-      if (typeof state?.hhStep !== 'number') return
-      // 다른 양식이 쌓은 칸(예: 신청서 칸으로 한 번에 건너뛴 경우)은 이 양식이 따르지 않는다.
-      if (typeof state.hhForm === 'string' && state.hhForm !== form.id) return
-      const next = clamp(state.hhStep, total)
-      if (next === index) return
-      pushed.current = Math.max(0, pushed.current + (next > index ? 1 : -1))
-      showGroup(next)
-      emit(answersRef.current, next)
+      const s = event.state
+      // 다른 양식의 칸, 지난 신청의 칸, 양식 앞 페이지의 칸은 따르지 않는다.
+      if (s?.hhForm !== form.id || s?.hhSid !== sid) return
+      if (!Number.isInteger(s.hhStep) || !Number.isInteger(s.hhPos)) return
+      moveTo(clamp(s.hhStep, total), 'pop', s.hhPos)
     }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
@@ -220,7 +246,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
           className={styles.back}
           aria-label="이전"
           data-action="back"
-          disabled={index === 0 && !onBackFromFirst}
+          disabled={submitting || (index === 0 && !onBackFromFirst)}
           onClick={goBack}
         >
           ‹

@@ -57,6 +57,25 @@ const fillGuardian = () => {
 /** scrollIntoView 가 불린 요소들(불린 순서). */
 const scrolledTo = () => vi.mocked(Element.prototype.scrollIntoView).mock.contexts
 
+/** StepForm 이 방문 기록 칸에 적는 state. 같은 양식·같은 신청(ID)의 step 번째 묶음이 pos 번째 칸이다. */
+const entry = (step: number, pos: number, over: Record<string, unknown> = {}) => ({
+  hhForm: 'apply',
+  hhSid: ID,
+  hhStep: step,
+  hhPos: pos,
+  ...over,
+})
+const popstate = (state: unknown) => act(() => void window.dispatchEvent(new PopStateEvent('popstate', { state })))
+
+/** 테스트가 풀어 줄 때까지 끝나지 않는 Promise. */
+function deferred<T>() {
+  let resolve!: (v: T) => void
+  const promise = new Promise<T>((r) => {
+    resolve = r
+  })
+  return { promise, resolve }
+}
+
 beforeEach(() => {
   // 앞 테스트가 쌓은 방문 기록 칸의 값이 이 테스트의 시작 상태에 섞이지 않게 한다.
   history.replaceState(null, '')
@@ -69,14 +88,16 @@ afterEach(() => {
 
 describe('화면 틀', () => {
   it('위 막대에 이전 버튼·묶음 제목·진행이 있고 진행 막대는 장식이다', () => {
-    const { container } = setup()
+    setup()
     expect(screen.getByRole('button', { name: '이전' })).toBe(action('back'))
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('보호자')
+    const title = screen.getByRole('heading', { level: 2 })
+    expect(title).toHaveTextContent('보호자')
     expect(screen.getByText('1 / 3')).toBeInTheDocument()
     expect(groupId()).toBe('guardian')
-    const decoration = container.querySelectorAll('[aria-hidden="true"]')
-    expect(decoration).toHaveLength(1)
-    expect(decoration[0]).toHaveTextContent('')
+    // 진행 막대는 위 막대 바로 아래에 있다. 읽히지 않고 글이 없는 장식이다.
+    const progress = title.parentElement!.nextElementSibling
+    expect(progress).toHaveAttribute('aria-hidden', 'true')
+    expect(progress).toHaveTextContent('')
   })
 
   it('묶음에 note 가 있으면 제목 아래에 보인다', () => {
@@ -241,7 +262,7 @@ describe('이전·방문 기록', () => {
     expect(groupId()).toBe('guardian')
     expect(back).not.toHaveBeenCalled()
     expect(push).not.toHaveBeenCalled()
-    expect(history.state).toMatchObject({ hhStep: 0 })
+    expect(history.state).toMatchObject(entry(0, 0))
     expect(onDraft).toHaveBeenLastCalledWith({ answers: GUARDIAN, groupIndex: 0, submissionId: ID })
     expect(screen.getByLabelText('보호자 성함')).toHaveValue('김하나')
 
@@ -280,40 +301,94 @@ describe('이전·방문 기록', () => {
     await waitFor(() => expect(groupId()).toBe('guardian'))
   })
 
-  it('새로 고침 전에 쌓인 칸으로 돌아간 뒤에도 새로 쌓은 칸의 이전은 방문 기록을 되돌린다', async () => {
-    // 새로 고침 전에 쌓은 칸(0 → 1)이 브라우저에 남아 있다. 새로 고침으로 돌아온 화면은 그 칸을 세지 못한다.
-    history.replaceState({ hhForm: 'apply', hhStep: 0 }, '')
-    history.pushState({ hhForm: 'apply', hhStep: 1 }, '')
-    setup({ initial: draft(1, GUARDIAN) })
-    expect(groupId()).toBe('pet')
-
-    act(() => history.back())
-    await waitFor(() => expect(groupId()).toBe('guardian'))
-
-    fireEvent.click(action('next'))
-    expect(groupId()).toBe('pet')
-
+  it('새로 고침으로 복원되면 앞 칸이 남아 있으니 이전은 history.back 을 쓴다', async () => {
+    // 새로 고침·탭 복원은 앞 칸을 브라우저에 남긴다. 지금 칸이 같은 양식·같은 신청의 세 번째 칸(hhPos 2)이다.
+    history.replaceState(entry(0, 0), '')
+    history.pushState(entry(1, 1), '')
+    history.pushState(entry(2, 2), '')
     const back = vi.spyOn(history, 'back')
+    const replace = vi.spyOn(history, 'replaceState')
+    const { onBackFromFirst } = setup({ initial: draft(2, validAnswers(applyForm)) })
+    expect(history.state).toMatchObject(entry(2, 2)) // 위치를 이어받는다(0 으로 되돌리지 않는다)
+    replace.mockClear()
+
     fireEvent.click(action('back'))
-    expect(back).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(groupId()).toBe('pet'))
+    fireEvent.click(action('back'))
     await waitFor(() => expect(groupId()).toBe('guardian'))
+
+    // 칸을 고쳐 쓰지 않고 방문 기록을 되돌렸다. 도착한 칸이 스스로 위치를 말해 준다.
+    expect(back).toHaveBeenCalledTimes(2)
+    expect(replace).not.toHaveBeenCalled()
+    expect(history.state).toMatchObject(entry(0, 0))
+
+    // 첫 묶음에 닿으면 앱 쪽 이전이다.
+    fireEvent.click(action('back'))
+    expect(onBackFromFirst).toHaveBeenCalledTimes(1)
+    expect(back).toHaveBeenCalledTimes(2)
   })
 
-  it('이 양식의 묶음 번호가 아닌 popstate 는 따르지 않는다', () => {
+  it('여러 칸을 한 번에 뒤로 가도 이전은 앞 묶음으로 간다', async () => {
+    // 양식 앞 페이지(intro) 다음 칸에서 시작해 두 묶음을 넘어갔다가 history.go(-2) 로 한 번에 돌아온다.
+    history.replaceState({ page: 'intro' }, '')
+    history.pushState(null, '')
+    setup({ form: surveyForm, initial: draft(5, validAnswers(surveyForm)), submitLabel: '제출하기' })
+    fireEvent.click(action('next'))
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('h')
+
+    act(() => history.go(-2))
+    await waitFor(() => expect(groupId()).toBe('f'))
+    expect(history.state).toMatchObject(entry(5, 0, { hhForm: 'survey' }))
+
+    // 앞에 이 화면이 쌓은 칸이 없으니(위치 0) 양식 앞 페이지로 나가지 않고 지금 칸을 앞 묶음으로 고친다.
+    const back = vi.spyOn(history, 'back')
+    fireEvent.click(action('back'))
+    expect(groupId()).toBe('e')
+    expect(back).not.toHaveBeenCalled()
+    expect(history.state).toMatchObject(entry(4, 0, { hhForm: 'survey' }))
+    fireEvent.click(action('back'))
+    expect(groupId()).toBe('d')
+    expect(back).not.toHaveBeenCalled()
+  })
+
+  it('지난 신청의 칸으로 돌아가도 묶음이 바뀌지 않는다', async () => {
+    // 지난 신청이 남긴 칸(0 → 1) 위에서 새 신청(ID)이 시작됐다.
+    const OLD = 'Zz9Yy8Xx7W'
+    history.replaceState(entry(0, 0, { hhSid: OLD }), '')
+    history.pushState(entry(1, 1, { hhSid: OLD }), '')
     const { onDraft } = setup({ initial: draft(1, GUARDIAN) })
-    const pop = (state: unknown) => act(() => void window.dispatchEvent(new PopStateEvent('popstate', { state })))
-    pop(null)
-    pop({})
-    pop({ hhStep: '0' })
-    // 다른 양식(검사지)이 쌓은 칸으로 돌아가는 것은 이 양식의 일이 아니다.
-    pop({ hhForm: 'survey', hhStep: 0 })
+    // 지난 신청의 위치(1)를 이어받지 않고 새로 시작한다.
+    expect(history.state).toMatchObject(entry(1, 0))
+
+    const popped = new Promise<void>((resolve) => window.addEventListener('popstate', () => resolve(), { once: true }))
+    act(() => history.back())
+    await popped
+
+    expect(history.state).toMatchObject(entry(0, 0, { hhSid: OLD }))
+    expect(groupId()).toBe('pet')
+    expect(onDraft).not.toHaveBeenCalled()
+  })
+
+  it('이 양식·이 신청의 칸이 아닌 popstate 는 따르지 않는다', () => {
+    const { onDraft } = setup({ initial: draft(1, GUARDIAN) })
+    popstate(null)
+    popstate({})
+    popstate(entry(0, 0, { hhStep: '0' })) // 묶음 번호가 숫자가 아니다
+    popstate(entry(1.5, 0)) // 정수가 아니다(없는 묶음을 가리켜 화면이 깨지지 않게)
+    popstate(entry(Number.NaN, 0))
+    popstate(entry(0, 0, { hhPos: undefined })) // 위치가 없다
+    // 다른 양식(검사지)이 쌓은 칸이나 지난 신청의 칸으로 돌아가는 것은 이 화면의 일이 아니다.
+    popstate(entry(0, 0, { hhForm: 'survey' }))
+    popstate(entry(0, 0, { hhSid: 'Zz9Yy8Xx7W' }))
+    popstate(entry(0, 0, { hhSid: undefined }))
     expect(groupId()).toBe('pet')
     expect(onDraft).not.toHaveBeenCalled()
   })
 
   it('popstate 가 가리키는 묶음 번호가 범위를 넘으면 맞춰 따른다', () => {
     setup({ initial: draft(0, GUARDIAN) })
-    act(() => void window.dispatchEvent(new PopStateEvent('popstate', { state: { hhStep: 99 } })))
+    popstate(entry(99, 1))
     expect(groupId()).toBe('visit')
   })
 
@@ -321,14 +396,15 @@ describe('이전·방문 기록', () => {
     history.replaceState({ __NA: true, tree: ['t'] }, '')
     const push = vi.spyOn(history, 'pushState')
     setup({ initial: draft(0, GUARDIAN) })
-    // 처음 그릴 때 지금 칸에 묶음 번호를 적는다.
-    expect(history.state).toEqual({ __NA: true, tree: ['t'], hhForm: 'apply', hhStep: 0 })
+    // 처음 그릴 때 지금 칸에 양식·신청·묶음 번호·위치를 적는다. 이 화면이 첫 칸이라 위치는 0 이다.
+    expect(history.state).toEqual({ __NA: true, tree: ['t'], ...entry(0, 0) })
 
     fireEvent.click(action('next'))
 
+    // 쌓을 때마다 위치가 하나씩 는다.
     expect(push).toHaveBeenCalledTimes(1)
-    expect(push).toHaveBeenCalledWith({ __NA: true, tree: ['t'], hhForm: 'apply', hhStep: 1 }, '')
-    expect(history.state).toEqual({ __NA: true, tree: ['t'], hhForm: 'apply', hhStep: 1 })
+    expect(push).toHaveBeenCalledWith({ __NA: true, tree: ['t'], ...entry(1, 1) }, '')
+    expect(history.state).toEqual({ __NA: true, tree: ['t'], ...entry(1, 1) })
   })
 
   it('묶음이 바뀌면 맨 위로 올라가고 제목에 포커스가 간다. 처음 그릴 때는 가지 않는다', () => {
@@ -347,7 +423,7 @@ describe('이전·방문 기록', () => {
   it('떠나면 popstate 듣기를 푼다', () => {
     const { unmount, onDraft } = setup({ initial: draft(1, GUARDIAN) })
     unmount()
-    act(() => void window.dispatchEvent(new PopStateEvent('popstate', { state: { hhForm: 'apply', hhStep: 0 } })))
+    popstate(entry(0, 0))
     expect(onDraft).not.toHaveBeenCalled()
   })
 
@@ -358,7 +434,7 @@ describe('이전·방문 기록', () => {
     expect(screen.getByText('3 / 3')).toBeInTheDocument()
     // 맞추기만 했을 뿐 사용자가 한 일이 아니니 초안을 내보내지 않는다.
     expect(onDraft).not.toHaveBeenCalled()
-    expect(history.state).toMatchObject({ hhStep: 2 })
+    expect(history.state).toMatchObject(entry(2, 0))
   })
 
   it('복원된 묶음 번호가 음수면 첫 묶음으로 맞춘다', () => {
@@ -526,10 +602,75 @@ describe('제출', () => {
     expect(screen.getByLabelText('보호자 성함')).toHaveFocus()
     // 옮기는 것은 방문 기록을 쌓지 않고 지금 칸을 고친다.
     expect(push).not.toHaveBeenCalled()
-    expect(history.state).toMatchObject({ hhStep: 0 })
+    expect(history.state).toMatchObject(entry(0, 0))
     expect(onDraft).toHaveBeenLastCalledWith({ answers, groupIndex: 0, submissionId: ID })
     // 그 묶음의 버튼은 채워야 할 곳이 남아 막혀 있다.
     expect(isBlocked(action('next'))).toBe(true)
+  })
+
+  it('보내는 중에는 이전이 꺼져 있다', async () => {
+    const { onSubmit } = setup({ initial: draft(2, validAnswers(applyForm)) })
+    const sending = deferred<'ok' | 'invalid' | 'failed'>()
+    onSubmit.mockReturnValue(sending.promise)
+    expect(action('back')).toBeEnabled()
+
+    fireEvent.click(action('submit'))
+    expect(action('back')).toBeDisabled()
+
+    // 실패하면 다시 켜진다.
+    await act(async () => sending.resolve('failed'))
+    expect(await screen.findByRole('alert')).toHaveTextContent(FAILED)
+    expect(action('back')).toBeEnabled()
+  })
+
+  it('invalid 전에 묶음이 바뀌었으면 칸과 초안이 화면을 따른다', async () => {
+    // 보내는 동안 브라우저 뒤로 가기로 묶음이 바뀌었다. 서버는 자정을 넘긴 희망 날짜 때문에 거절한다.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-24T01:00:00+09:00'))
+    const answers = { ...validAnswers(applyForm), wish1_date: '2026-10-23' }
+    const { onSubmit, onDraft } = setup({ initial: draft(0, answers), today: '2026-10-23' })
+    const sending = deferred<'ok' | 'invalid' | 'failed'>()
+    onSubmit.mockReturnValue(sending.promise)
+    fireEvent.click(action('next'))
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('visit')
+    fireEvent.click(action('submit'))
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+
+    act(() => history.back())
+    await waitFor(() => expect(groupId()).toBe('pet'))
+    expect(history.state).toMatchObject(entry(1, 1))
+
+    await act(async () => sending.resolve('invalid'))
+
+    // 오류가 있는 묶음(희망 날짜)으로 옮기고, 칸과 초안도 그 묶음을 적는다. 위치는 그대로다.
+    await waitFor(() => expect(groupId()).toBe('visit'))
+    expect(within(box('wish1_date')).getByRole('alert')).toHaveTextContent('오늘 이후 날짜를 골라 주세요')
+    expect(history.state).toMatchObject(entry(2, 1))
+    expect(onDraft).toHaveBeenLastCalledWith({ answers, groupIndex: 2, submissionId: ID })
+  })
+
+  it('보내는 중에 언마운트되면 결과가 와도 이력·초안을 건드리지 않는다', async () => {
+    // 앞 묶음이 비어 있어 서버가 거절하면 그 묶음으로 옮겨야 하는 초안이다.
+    const answers = validAnswers(applyForm)
+    delete answers.guardian_name
+    const { onSubmit, onDraft, unmount } = setup({ initial: draft(2, answers) })
+    const sending = deferred<'ok' | 'invalid' | 'failed'>()
+    onSubmit.mockReturnValue(sending.promise)
+    fireEvent.click(action('submit'))
+
+    // 기다리는 사이 다른 페이지로 갔다.
+    unmount()
+    const stateAtLeaving = history.state
+    const replace = vi.spyOn(history, 'replaceState')
+    const push = vi.spyOn(history, 'pushState')
+    onDraft.mockClear()
+    await act(async () => sending.resolve('invalid'))
+
+    expect(replace).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+    expect(onDraft).not.toHaveBeenCalled()
+    expect(history.state).toEqual(stateAtLeaving)
   })
 
   it('서버가 invalid 를 주면 새 오늘로 전체를 다시 본다 — 자정을 넘겨 희망 날짜가 과거가 된 경우', async () => {
