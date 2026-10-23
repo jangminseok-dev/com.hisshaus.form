@@ -102,7 +102,7 @@ describe('단일 선택', () => {
     expect(last()).toBe('여')
   })
 
-  it('켜진 칩을 다시 눌러도 꺼지지 않는다', () => {
+  it('필수 문항은 켜진 칩을 다시 눌러도 꺼지지 않는다', () => {
     const { last } = renderField(singleQ)
     const male = screen.getByRole('radio', { name: '남' })
     fireEvent.click(male)
@@ -140,12 +140,33 @@ describe('단일 선택', () => {
     expect(input).toHaveValue('펫시터')
   })
 
-  it('기타 칩을 다시 눌러도 쓴 내용은 그대로다', () => {
+  it('필수 문항은 기타 칩을 다시 눌러도 쓴 내용이 그대로다', () => {
     const { last } = renderField(singleOtherQ, { initial: '기타: 펫시터' })
     fireEvent.click(screen.getByRole('radio', { name: '기타' }))
     expect(screen.getByRole('radio', { name: '기타' })).toBeChecked()
     expect(screen.getByLabelText('기타 내용')).toHaveValue('펫시터')
     expect(last()).toBeUndefined()
+  })
+
+  it('선택 문항은 켜진 칩을 다시 누르면 해제되고 다시 고를 수 있다', () => {
+    const { last } = renderField({ ...singleQ, required: false })
+    const male = screen.getByRole('radio', { name: '남' })
+    fireEvent.click(male)
+    fireEvent.click(male)
+    expect(male).not.toBeChecked()
+    expect(last()).toBe('')
+
+    fireEvent.click(male)
+    expect(male).toBeChecked()
+    expect(last()).toBe('남')
+  })
+
+  it('선택 문항은 켜진 기타 칩을 다시 누르면 쓴 내용과 함께 해제된다', () => {
+    const { last } = renderField({ ...singleOtherQ, required: false }, { initial: '기타: 펫시터' })
+    fireEvent.click(screen.getByRole('radio', { name: '기타' }))
+    expect(screen.getByRole('radio', { name: '기타' })).not.toBeChecked()
+    expect(screen.queryByLabelText('기타 내용')).not.toBeInTheDocument()
+    expect(last()).toBe('')
   })
 
   it('기타를 고른 뒤 다른 칩을 고르면 입력이 닫힌다', () => {

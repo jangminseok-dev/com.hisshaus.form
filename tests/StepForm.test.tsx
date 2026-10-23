@@ -918,6 +918,23 @@ describe('조건 문항', () => {
     expect(screen.getByLabelText('희망 날짜 1순위')).toHaveAccessibleName('희망 날짜 1순위')
   })
 
+  it('선택 문항의 고른 칩은 다시 누르면 해제되고, 지금 필수인 문항은 해제되지 않는다', () => {
+    const { onDraft } = setup({ initial: draft(2, validAnswers(applyForm)) })
+    const afternoon = () => within(box('wish2_slot')).getByRole('radio', { name: '오후' })
+    // 2순위 날짜가 비어 있어 2순위 시간대는 선택이다.
+    fireEvent.click(afternoon())
+    fireEvent.click(afternoon())
+    expect(afternoon()).not.toBeChecked()
+    expect(onDraft.mock.lastCall![0].answers.wish2_slot).toBe('')
+
+    // 2순위 날짜를 고르면 필수가 되어 다시 눌러도 그대로다.
+    write('희망 날짜 2순위', '2026-10-30')
+    fireEvent.click(afternoon())
+    fireEvent.click(afternoon())
+    expect(afternoon()).toBeChecked()
+    expect(onDraft.mock.lastCall![0].answers.wish2_slot).toBe('오후')
+  })
+
   it('2순위 날짜를 고르면 시간대의 선택 표시가 사라진다', () => {
     setup({ initial: draft(2, validAnswers(applyForm)) })
     // 2순위는 날짜도 시간대도 선택이다.
