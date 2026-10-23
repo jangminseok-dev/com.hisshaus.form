@@ -1,0 +1,145 @@
+/* 묶음 하나씩 넘기는 화면. 색·모서리는 app/globals.css 의 토큰을 쓴다. */
+
+.root {
+  /* 아래 고정 막대(버튼 52px + 위아래 12px)가 마지막 문항을 가리지 않게 그만큼 비운다. */
+  padding: 0 16px calc(100px + env(safe-area-inset-bottom));
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  grid-template-areas:
+    'back . count'
+    'title title title';
+  align-items: center;
+  padding-top: 8px;
+}
+
+.back {
+  grid-area: back;
+  width: 44px;
+  height: 44px;
+  /* 화살표 모양이 16px 여백선에 붙게 한다. */
+  margin-left: -12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 32px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.back:disabled {
+  color: var(--line);
+  cursor: default;
+}
+
+.back:focus-visible,
+.primary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.title {
+  grid-area: title;
+  margin: 4px 0 0;
+  font-size: 22px;
+  line-height: 1.35;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  /* 묶음이 바뀔 때 스크립트가 포커스를 주는 자리라 테두리를 그리지 않는다. */
+  outline: none;
+}
+
+.count {
+  grid-area: count;
+  color: var(--mute);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress {
+  height: 4px;
+  margin: 16px 0 24px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}
+
+.notice {
+  /* 스크롤해서 보여 줄 때 화면 맨 위 끝에 붙지 않게 한다. */
+  scroll-margin-top: 16px;
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  color: var(--danger);
+  font-size: 15px;
+  line-height: 1.5;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  margin: 0 0 24px;
+  font-size: 14px;
+  line-height: 1.6;
+  opacity: 0.72;
+  white-space: pre-line;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* 480px 칸(body) 안에 맞춘 아래 고정 막대. */
+.actions {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.primary {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 채울 곳이 남은 버튼은 꺼진 모양이지만 누를 수 있다(누르면 빈 곳으로 데려간다). 보내는 중에는 진짜 disabled 다. */
+.primary[aria-disabled='true'],
+.primary:disabled {
+  background: var(--line);
+  color: var(--mute);
+}
+
+.primary:disabled {
+  cursor: default;
+}

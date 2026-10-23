@@ -93,6 +93,11 @@
   border-color: var(--danger);
 }
 
+.input[aria-invalid='true']:focus-visible,
+.textarea[aria-invalid='true']:focus-visible {
+  outline-color: var(--danger);
+}
+
 /* iOS 는 날짜 글자를 가운데에 놓는다. */
 .input::-webkit-date-and-time-value {
   text-align: left;

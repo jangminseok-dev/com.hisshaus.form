@@ -112,6 +112,8 @@ describe('단일 선택', () => {
   it('칩 묶음은 라디오 그룹이고 이름이 문항 그대로다', () => {
     renderField(singleQ)
     expect(screen.getByRole('radiogroup')).toHaveAccessibleName('반려견 성별')
+    // 라벨 글로도 찾아진다(aria-labelledby).
+    expect(screen.getByLabelText('반려견 성별')).toBe(screen.getByRole('radiogroup'))
   })
 
   it('칩은 폼을 보내지 않는 버튼이다', () => {
@@ -198,6 +200,7 @@ describe('복수 선택', () => {
   it('칩 묶음은 그룹이고 이름이 문항 그대로다', () => {
     renderField(multiQ)
     expect(screen.getByRole('group')).toHaveAccessibleName('이용 서비스')
+    expect(screen.getByLabelText('이용 서비스')).toBe(screen.getByRole('group'))
   })
 
   it('기타를 켜면 입력이 열리고 배열에 기타: 가 들어간다', () => {
