@@ -41,7 +41,8 @@ type Move = 'push' | 'replace' | 'pop'
  * 방문 기록: 이 화면이 만지는 모든 칸의 state 는 `hhForm`(양식)·`hhSid`(신청 ID)·`hhStep`(묶음 번호)·`hhPos`(위치)를 담는다.
  * 위치는 이 양식 세션에서 첫 칸이 0 이고 `pushState` 할 때마다 1 씩 는다. 뒤로·앞으로 가기가 몇 칸을 건너뛰든,
  * 새로 고침으로 돌아오든, 도착한 칸이 스스로 묶음과 위치를 말해 주므로 쌓은 칸을 따로 세지 않는다.
- * 같은 양식·같은 신청의 칸이 아니면(다른 양식, 지난 신청, 양식 앞 페이지) 따르지 않는다.
+ * 같은 양식·같은 신청의 칸이 아니면(다른 양식, 지난 신청, 양식 앞 페이지) 그 칸의 묶음을 따르지 않는다. 같은 양식이 지난 신청에서
+ * 남긴 칸에 닿으면 그 칸을 이 신청의 칸으로 고쳐 쓴다.
  */
 export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit, onBackFromFirst }: StepFormProps) {
   const total = form.groups.length
@@ -135,7 +136,8 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   /**
    * 서버가 거절했다. 새 오늘로 전체를 다시 보고 오류가 있는 첫 묶음으로 옮긴다.
    * 알려진 한계: 이렇게 칸의 묶음을 고쳐 쓰면 앞 칸과 묶음이 이어지지 않아서 이어지는 ‹ 한 번이 같은 묶음으로 헛돌거나
-   * 묶음을 건너뛸 수 있다. 화면이 열려 있는 사이 자정을 넘겨 서버만 거절하는 경우에만 생긴다.
+   * 묶음을 건너뛸 수 있다. 서버만 거절하는 경우에만 생긴다: 화면이 열려 있는 사이 자정을 넘겼거나, 브라우저 앞으로 가기로
+   * 검증 없이 넘어간 묶음에 오류가 있는 경우다.
    */
   function recheck() {
     const now = todayKst()
@@ -204,8 +206,16 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   useEffect(() => {
     function onPopState(event: PopStateEvent) {
       const s = event.state
-      // 다른 양식의 칸, 지난 신청의 칸, 양식 앞 페이지의 칸은 따르지 않는다.
-      if (s?.hhForm !== form.id || s?.hhSid !== sid) return
+      // 다른 양식의 칸과 양식 앞 페이지의 칸은 이 화면의 일이 아니다.
+      if (s?.hhForm !== form.id) return
+      if (s.hhSid !== sid) {
+        // 같은 양식이 지난 신청에서 남긴 칸이다(완료 화면에서 뒤로 와 새 신청을 시작한 경우). 그 칸의 묶음은 따르지 않고,
+        // 칸을 이 신청의 칸으로 고쳐 쓴다. 그냥 두면 위치(0)와 실제 방문 기록이 어긋나서, 이어지는 다음 → ‹ 가
+        // 헛돌다가 쓰던 중에 양식을 떠난다.
+        posRef.current = 0
+        history.replaceState(entryState(indexRef.current, 0), '')
+        return
+      }
       if (!Number.isInteger(s.hhStep) || !Number.isInteger(s.hhPos)) return
       moveTo(clamp(s.hhStep, total), 'pop', s.hhPos)
     }

@@ -365,7 +365,55 @@ describe('이전·방문 기록', () => {
     act(() => history.back())
     await popped
 
-    expect(history.state).toMatchObject(entry(0, 0, { hhSid: OLD }))
+    // 지난 신청의 묶음(0)을 따르지 않는다. 그 칸은 이 신청의 칸으로 고쳐 쓴다(바로 아래 테스트).
+    expect(history.state).toMatchObject(entry(1, 0))
+    expect(groupId()).toBe('pet')
+    expect(onDraft).not.toHaveBeenCalled()
+  })
+
+  it('지난 신청의 칸에 닿으면 그 칸을 이 신청 칸으로 삼아 이전이 양식을 떠나지 않는다', async () => {
+    // 완료 화면에서 뒤로 와 새 신청을 시작한 상황이다. 지난 신청이 남긴 칸(0 → 1) 위에서 새 신청이 첫 묶음으로 열렸다.
+    const OLD = 'Zz9Yy8Xx7W'
+    history.replaceState(entry(0, 0, { hhSid: OLD }), '')
+    history.pushState(entry(1, 1, { hhSid: OLD }), '')
+    const { onBackFromFirst } = setup({ initial: draft(0, GUARDIAN) })
+    expect(history.state).toMatchObject(entry(0, 0))
+
+    // 브라우저 뒤로 가기가 지난 신청의 첫 칸에 닿는다. 묶음은 그대로고, 그 칸이 이 신청의 첫 칸이 된다.
+    const popped = new Promise<void>((resolve) => window.addEventListener('popstate', () => resolve(), { once: true }))
+    act(() => history.back())
+    await popped
+    expect(history.state).toMatchObject(entry(0, 0))
+    expect(groupId()).toBe('guardian')
+
+    // 이어서 다음 → 이전 은 쌓은 칸을 따라 오가고, 쓰던 중에 양식을 떠나지 않는다.
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('pet')
+    fireEvent.click(action('back'))
+    await waitFor(() => expect(groupId()).toBe('guardian'))
+    expect(history.state).toMatchObject(entry(0, 0))
+    expect(onBackFromFirst).not.toHaveBeenCalled()
+
+    // 첫 묶음에 닿으면 앱 쪽 이전이다.
+    fireEvent.click(action('back'))
+    expect(onBackFromFirst).toHaveBeenCalledTimes(1)
+  })
+
+  it('지난 신청의 칸을 고쳐 쓸 때 보이는 묶음에 적고 위치를 0 으로 한다', async () => {
+    // 두 번째 묶음을 보고 있는데 브라우저 뒤로 가기가 지난 신청의 칸에 닿는다.
+    const OLD = 'Zz9Yy8Xx7W'
+    history.replaceState(entry(0, 0, { hhSid: OLD, __NA: true }), '')
+    history.pushState(entry(0, 1, { hhSid: OLD, __NA: true }), '')
+    const { onDraft } = setup({ initial: draft(1, GUARDIAN) })
+    const replace = vi.spyOn(history, 'replaceState')
+
+    const popped = new Promise<void>((resolve) => window.addEventListener('popstate', () => resolve(), { once: true }))
+    act(() => history.back())
+    await popped
+
+    // 지금 묶음(1)과 위치 0 을 적고, Next 가 칸에 넣어 둔 값은 지우지 않는다.
+    expect(replace).toHaveBeenCalledTimes(1)
+    expect(history.state).toEqual({ __NA: true, ...entry(1, 0) })
     expect(groupId()).toBe('pet')
     expect(onDraft).not.toHaveBeenCalled()
   })
@@ -378,12 +426,22 @@ describe('이전·방문 기록', () => {
     popstate(entry(1.5, 0)) // 정수가 아니다(없는 묶음을 가리켜 화면이 깨지지 않게)
     popstate(entry(Number.NaN, 0))
     popstate(entry(0, 0, { hhPos: undefined })) // 위치가 없다
-    // 다른 양식(검사지)이 쌓은 칸이나 지난 신청의 칸으로 돌아가는 것은 이 화면의 일이 아니다.
+    // 다른 양식(검사지)이 쌓은 칸은 이 화면의 일이 아니다. 지난 신청의 칸은 묶음을 따르지 않고 칸만 이 신청 것으로 고쳐 쓴다.
     popstate(entry(0, 0, { hhForm: 'survey' }))
     popstate(entry(0, 0, { hhSid: 'Zz9Yy8Xx7W' }))
     popstate(entry(0, 0, { hhSid: undefined }))
     expect(groupId()).toBe('pet')
     expect(onDraft).not.toHaveBeenCalled()
+  })
+
+  it('다른 양식이나 양식 앞 페이지의 칸에 닿으면 칸을 건드리지 않는다', () => {
+    setup({ initial: draft(1, GUARDIAN) })
+    const replace = vi.spyOn(history, 'replaceState')
+    popstate(null)
+    popstate({ page: 'intro' })
+    popstate(entry(0, 0, { hhForm: 'survey' }))
+    popstate(entry(0, 0, { hhForm: undefined }))
+    expect(replace).not.toHaveBeenCalled()
   })
 
   it('popstate 가 가리키는 묶음 번호가 범위를 넘으면 맞춰 따른다', () => {
