@@ -116,7 +116,13 @@ const stores: Store[] = [
   },
 ]
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => {
+  localStorage.clear()
+  // 같은 탭 메모리는 모듈 안에 있어 테스트 사이에 남는다. clear* 가 메모리도 지우므로 그걸로 비운다.
+  clearDraft('apply')
+  clearDraft('survey')
+  clearSession()
+})
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
@@ -167,14 +173,14 @@ describe.each(stores)('$name', ({ key, value, edge, load, save, clear, broken })
   })
 
   describe('저장소를 쓸 수 없을 때', () => {
-    it('localStorage 가 던져도 예외가 새지 않는다', () => {
+    it('쓰기만 던져도 예외가 새지 않는다. 읽기는 멀쩡한 저장소를 믿는다', () => {
       vi.spyOn(Storage.prototype, 'setItem').mockImplementation(boom)
       expect(save).not.toThrow()
+      // 저장소를 읽을 수 있으면 저장소가 정본이다. 메모리는 저장소에 닿지 못할 때만 읽는다.
       expect(load()).toBeNull()
     })
 
-    it('getItem 이 던져도 null 이다', () => {
-      save()
+    it('getItem 이 던져도 저장한 적이 없으면 null 이다', () => {
       vi.spyOn(Storage.prototype, 'getItem').mockImplementation(boom)
       expect(load()).toBeNull()
     })
@@ -185,18 +191,22 @@ describe.each(stores)('$name', ({ key, value, edge, load, save, clear, broken })
       expect(clear).not.toThrow()
     })
 
-    it('localStorage 가 없어도(서버 렌더링) 예외 없이 null 이다', () => {
+    it('localStorage 가 없어도(서버 렌더링) 예외 없이 읽고 쓰고 지운다', () => {
       vi.stubGlobal('localStorage', undefined)
-      expect(save).not.toThrow()
       expect(load()).toBeNull()
+      expect(save).not.toThrow()
       expect(clear).not.toThrow()
+      expect(load()).toBeNull()
     })
 
-    it('localStorage 에 닿는 것부터 던져도(저장소 차단) 예외 없이 null 이다', () => {
+    it('localStorage 에 닿는 것부터 던져도(저장소 차단) 예외 없이 읽고 쓰고 지운다', () => {
       vi.spyOn(globalThis, 'localStorage', 'get').mockImplementation(boom)
-      expect(save).not.toThrow()
       expect(load()).toBeNull()
+      expect(save).not.toThrow()
+      // 저장소에는 못 썼지만 같은 탭에서는 방금 저장한 값을 읽는다.
+      expect(load()).toEqual(value)
       expect(clear).not.toThrow()
+      expect(load()).toBeNull()
     })
 
     it('오류를 콘솔에 찍지 않는다', () => {
@@ -244,5 +254,78 @@ describe('저장 위치', () => {
     clearDraft('survey')
     expect(loadDraft('survey')).toBeNull()
     expect(loadSession()).toEqual(session)
+  })
+})
+
+describe('같은 탭 메모리 대체', () => {
+  // 저장소가 막힌 브라우저(쿠키·사이트 데이터 차단)에서는 localStorage 에 닿기만 해도 던진다.
+  const block = () => vi.spyOn(globalThis, 'localStorage', 'get').mockImplementation(boom)
+
+  it('저장소가 막혀도 같은 탭에서는 방금 저장한 세션을 읽는다', () => {
+    block()
+    saveSession(session)
+    expect(loadSession()).toEqual(session)
+  })
+
+  it('저장소가 막혀도 같은 탭에서는 방금 저장한 초안을 읽는다', () => {
+    block()
+    saveDraft('survey', draft)
+    expect(loadDraft('survey')).toEqual(draft)
+    // 신청서 초안과 섞이지 않는다.
+    expect(loadDraft('apply')).toBeNull()
+  })
+
+  it('getItem 이 던질 때도 방금 저장한 값을 메모리에서 읽는다', () => {
+    saveSession(session)
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(boom)
+    expect(loadSession()).toEqual(session)
+  })
+
+  it('다시 저장하면 마지막으로 저장한 값을 읽는다', () => {
+    block()
+    saveSession(session)
+    saveSession({ ...session, surveyDone: true })
+    expect(loadSession()).toEqual({ ...session, surveyDone: true })
+  })
+
+  it('지우면 메모리에서도 지워진다', () => {
+    block()
+    saveSession(session)
+    saveDraft('apply', draft)
+    clearSession()
+    clearDraft('apply')
+    expect(loadSession()).toBeNull()
+    expect(loadDraft('apply')).toBeNull()
+  })
+
+  it('메모리에 둔 값이 호출한 쪽의 객체와 이어져 있지 않다', () => {
+    block()
+    const mine: ApplySession = { ...session, services: [...session.services] }
+    saveSession(mine)
+    mine.petName = '바뀜'
+    mine.services.push('바뀜')
+    expect(loadSession()).toEqual(session)
+  })
+
+  it('저장소를 읽을 수 있으면 저장소가 정본이다 — 다른 탭이 지운 값을 메모리에서 되살리지 않는다', () => {
+    saveSession(session)
+    saveDraft('survey', draft)
+    // 다른 탭이 지웠다고 치자.
+    localStorage.clear()
+    expect(loadSession()).toBeNull()
+    expect(loadDraft('survey')).toBeNull()
+  })
+
+  it('저장소에 있는 값이 메모리보다 우선한다 — 다른 탭이 고친 값을 읽는다', () => {
+    saveSession(session)
+    localStorage.setItem('hh.session', JSON.stringify({ ...session, surveyDone: true }))
+    expect(loadSession()).toEqual({ ...session, surveyDone: true })
+  })
+
+  it('메모리로 읽을 때도 모양을 검사한다', () => {
+    // 저장 쪽 타입을 우회해 모양이 틀린 값을 넣는다(옛 버전이 쓴 값처럼).
+    block()
+    saveSession({ ...session, services: 'Grooming 미용' } as unknown as ApplySession)
+    expect(loadSession()).toBeNull()
   })
 })

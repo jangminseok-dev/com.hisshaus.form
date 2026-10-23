@@ -8,6 +8,11 @@ import { isSubmissionId } from './id'
 // 던지고, 가득 차면 setItem 이 던진다. `typeof localStorage` 확인으로는 다 걸러지지 않으므로
 // 모든 접근을 try/catch 로 감싸 조용히 null/무시한다. 이어 쓰기만 안 될 뿐이다.
 // 답변·연락처가 든 값을 다루므로 오류 객체는 어디에도 찍지 않는다.
+//
+// 같은 탭 메모리: 저장소가 막힌 브라우저에서도 제출이 성공하면 완료 화면이 방금 저장한 세션을 읽어야 한다.
+// 못 읽으면 첫 화면으로 튕기고, 보호자는 접수된 줄 모르고 다시 제출한다. 그래서 쓸 때마다 이 탭의 메모리에도
+// 같이 적고, 저장소에 닿는 것 자체가 던질 때만 거기서 읽는다. 저장소를 읽을 수 있으면 저장소가 정본이다
+// (다른 탭이 지우거나 고친 값을 메모리가 되살리지 않는다). 메모리는 탭을 새로 고치면 사라진다.
 
 /** 쓰던 묶음의 위치와 지금까지의 답. 신청서와 검사지가 각각 하나씩 가진다. */
 export interface Draft {
@@ -31,10 +36,18 @@ export interface ApplySession {
 const SESSION_KEY = 'hh.session'
 const draftKey = (formId: 'apply' | 'survey') => `hh.draft.${formId}`
 
-/** 저장된 JSON 을 읽는다. 없거나 깨졌거나 저장소를 못 쓰면 null. */
+/** 이 탭 메모리의 사본. 값은 JSON 글로 둬서 호출한 쪽의 객체와 이어지지 않는다. */
+const memory = new Map<string, string>()
+
+/** 저장된 JSON 을 읽는다. 없거나 깨졌으면 null. 저장소에 닿지 못하면 이 탭 메모리에서 읽는다. */
 function read(key: string): unknown {
+  let raw: string | null
   try {
-    const raw = globalThis.localStorage.getItem(key)
+    raw = globalThis.localStorage.getItem(key)
+  } catch {
+    raw = memory.get(key) ?? null
+  }
+  try {
     return raw === null ? null : JSON.parse(raw)
   } catch {
     return null
@@ -43,13 +56,16 @@ function read(key: string): unknown {
 
 function write(key: string, value: unknown): void {
   try {
-    globalThis.localStorage.setItem(key, JSON.stringify(value))
+    const raw = JSON.stringify(value)
+    memory.set(key, raw)
+    globalThis.localStorage.setItem(key, raw)
   } catch {
     // 저장소가 없거나 막혔거나 가득 찼다. 이어 쓰기만 안 될 뿐이라 넘어간다.
   }
 }
 
 function remove(key: string): void {
+  memory.delete(key)
   try {
     globalThis.localStorage.removeItem(key)
   } catch {
