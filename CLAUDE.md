@@ -5,7 +5,7 @@
 ## 꼭 지킬 것
 
 - 응답·주석·테스트 이름·커밋 메시지는 한국어다. 커밋과 푸시는 사용자가 요청할 때만 한다.
-- 화면 문구는 해요체다. "~입니다/~됩니다/~십시오" 를 쓰지 않는다. 단 검사지(`forms/survey.ts`)의 질문·선택지·안내문은 구글폼 원문 그대로 두고 오타("영영제", "편균" 등)도 고치지 않는다. 원문과 달라지는 곳은 설계 문서 5절에 적힌 것뿐이다. `tests/survey-verbatim.test.ts` 가 원본 덤프(`tests/fixtures/survey-original.txt`)와 문항마다 대조한다.
+- 화면 문구는 해요체다. "~입니다/~됩니다/~십시오" 를 쓰지 않는다. 단 검사지(`forms/survey.ts`)의 질문·선택지·안내문은 구글폼 원문 그대로 두고 오타("영영제", "편균" 등)도 고치지 않는다. 원문과 달라지는 곳은 설계 문서 5절에 적힌 것뿐이다. `tests/survey-verbatim.test.ts` 가 원본 덤프(`tests/survey-original.txt`)와 문항마다 대조한다.
 - 화면 어디에도 전체 문항 수·소요 시간("98문항", "약 3분")을 적지 않는다. 묶음 진행 표시(`2 / 4`)는 된다.
 - `process.env` 는 `lib/config.ts` 에서만 읽는다. `NEXT_PUBLIC_` 변수를 만들지 않는다. 필수 변수는 `SLACK_WEBHOOK_URL`·`GOOGLE_SERVICE_ACCOUNT_JSON`·`GOOGLE_SHEET_ID` 셋이다. `SHEETS_BASE_URL`·`SHEETS_FAKE_TOKEN` 은 e2e 전용이고 production 에서는 읽지 않는다.
 - 로그(`console.*`)에는 `시트 저장 실패` / `슬랙 전송 실패` 와 신청 ID 만 남긴다. 답변·요청 본문·웹훅 주소·키·오류 객체는 넣지 않는다(오류 객체에 주소가 들어 있을 수 있다).
@@ -31,7 +31,7 @@
 | `content` | 매장 정보(`shop.ts`) |
 | `lib` | 설정·검증·시트·슬랙·초안 저장 |
 | `public` | 사진(`hero.jpg`, `og.jpg`) |
-| `tests` | Vitest, `tests/e2e` 는 Playwright 와 가짜 슬랙·시트, `tests/fixtures` 는 검사지 원본 덤프 |
+| `tests` | Vitest, `tests/e2e` 는 Playwright 와 가짜 슬랙·시트 |
 | `scripts` | 시트 헤더 출력 |
 | `docs` | 설계·문항·계획 |
 

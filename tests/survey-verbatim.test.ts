@@ -5,7 +5,7 @@ import { allQuestions } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import type { Question, QuestionType } from '../forms/types'
 
-// 검사지 정의(forms/survey.ts)를 구글폼 원본 덤프(tests/fixtures/survey-original.txt)와 98문항 모두 글자 단위로 대조한다.
+// 검사지 정의(forms/survey.ts)를 구글폼 원본 덤프(tests/survey-original.txt)와 98문항 모두 글자 단위로 대조한다.
 // 덤프는 원본 양식(FB_PUBLIC_LOAD_DATA_)에서 질문·안내문·선택지만 뽑은 것이라 개인정보가 없다. 한 문항은 이렇게 생겼다:
 //   === [유형] '번호. 질문*\n안내문'     유형 0 단답 · 1 장문 · 2 라디오 · 4 체크박스 · 6 섹션 제목
 //      - '선택지'                        '' (기타 입력) 이면 기타 선택지
@@ -88,7 +88,7 @@ function parse(dump: string): Original[] {
   return items
 }
 
-const originals = parse(readFileSync(join(import.meta.dirname, 'fixtures', 'survey-original.txt'), 'utf8'))
+const originals = parse(readFileSync(join(import.meta.dirname, 'survey-original.txt'), 'utf8'))
 const questions = allQuestions(surveyForm)
 
 /** 비교할 칸만. 기타가 없거나 선택지가 없는 것은 원문 쪽 모양(false·[])에 맞춘다. */
