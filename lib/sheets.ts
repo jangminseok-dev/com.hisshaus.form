@@ -10,6 +10,8 @@ export interface SheetsDeps {
 
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets'
 const TIMEOUT_MS = 10_000
+/** 토큰 요청은 시트 POST 보다 짧게 둔다: 토큰 + 시트 + 슬랙이 함수 한도 30초 안에 들어와야 한다. */
+const TOKEN_TIMEOUT_MS = 5_000
 
 let jwt: JWT | undefined
 
@@ -21,9 +23,9 @@ async function accessToken(): Promise<string> {
       email: clientEmail,
       key: privateKey,
       scopes: [SCOPE],
-      // 토큰 요청에도 시트 POST 와 같은 제한을 건다(라이브러리 기본은 제한 없음).
-      // 한 시도마다의 제한이다: gaxios 가 시간 초과를 두 번 더 재시도해서 최악은 약 3배다.
-      transporterOptions: { timeout: TIMEOUT_MS },
+      // 토큰 요청: 한 시도 5초(라이브러리 기본은 제한 없음). 응답 없음은 재시도하지 않고,
+      // 5xx 는 라이브러리 기본 재시도를 쓴다(구글 토큰 엔드포인트의 일시 오류에 쓸모가 있다).
+      transporterOptions: { timeout: TOKEN_TIMEOUT_MS, retryConfig: { noResponseRetries: 0 } },
     })
   }
   const { token } = await jwt.getAccessToken()

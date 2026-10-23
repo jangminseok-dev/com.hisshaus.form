@@ -137,7 +137,7 @@ describe('시트 추가: 실제 토큰', () => {
         email: 'sa@example.iam',
         key: 'FAKE-KEY',
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-        transporterOptions: { timeout: 10_000 },
+        transporterOptions: { timeout: 5_000, retryConfig: { noResponseRetries: 0 } },
       },
     ])
     expect(getAccessToken).toHaveBeenCalledTimes(2)
