@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyForm } from '../forms/apply'
-import { blockedBy, isRequired, isVisible, visibleAnswers } from '../forms/rules'
+import { allQuestions, blockedBy, isRequired, isVisible, visibleAnswers } from '../forms/rules'
+import { surveyForm } from '../forms/survey'
 import type { Answers, FormDef, Group } from '../forms/types'
 import { validateForm, validateGroup } from '../lib/validate'
 
@@ -168,5 +169,54 @@ describe('규칙', () => {
     const shown = visibleAnswers(fake, a)
     expect(shown).not.toBe(a)
     expect(a).toEqual({ a: '아니오', b: '숨은 답' })
+  })
+})
+
+describe('기타 선택지', () => {
+  // q14: 단일 선택 + 기타, q16: 복수 선택 + 기타(검사지 원문 그대로).
+  const single = surveyForm.groups.find((g) => g.id === 'c')!
+  const multi = surveyForm.groups.find((g) => g.id === 'd')!
+  const optionOf = (id: string) => allQuestions(surveyForm).find((q) => q.id === id)!.options![0]
+  const q14 = (v: string) => msg(validateGroup(single, { q14: v }, TODAY), 'q14')
+  const q16 = (v: string[]) => msg(validateGroup(multi, { q16: v }, TODAY), 'q16')
+
+  it.each([
+    ['내용이 없으면', '기타: '],
+    ['내용이 공백뿐이면', '기타:    '],
+    ['내용이 줄바꿈과 탭뿐이면', '기타: \t\n'],
+    ['내용이 전각 공백뿐이면', '기타: \u3000'],
+  ])('단일: 기타를 골랐는데 %s "기타 내용을 적어 주세요"', (_, v) => {
+    expect(q14(v)).toBe('기타 내용을 적어 주세요')
+  })
+
+  it('단일: 기타 내용이 있으면 통과한다', () => {
+    expect(q14('기타: 직접')).toBeUndefined()
+    expect(q14('기타:    직접')).toBeUndefined()
+  })
+
+  it.each([
+    ['내용이 없으면', ['기타: ']],
+    ['내용이 공백뿐이면', ['기타:    ']],
+    ['다른 선택지와 함께여도 내용이 없으면', [optionOf('q16'), '기타: ']],
+    ['기타가 둘이고 하나만 비어 있으면', ['기타: 직접', '기타:  ']],
+  ])('복수: 기타를 골랐는데 %s "기타 내용을 적어 주세요"', (_, v) => {
+    expect(q16(v)).toBe('기타 내용을 적어 주세요')
+  })
+
+  it('복수: 기타 내용이 있으면 통과한다', () => {
+    expect(q16(['기타: 직접'])).toBeUndefined()
+    expect(q16([optionOf('q16'), '기타: 직접'])).toBeUndefined()
+  })
+
+  it('기타: 로 시작하지 않는 값은 여전히 고를 수 없는 값이다', () => {
+    expect(q14('기타:')).toBe('고를 수 없는 값이에요')
+    expect(q14('기타')).toBe('고를 수 없는 값이에요')
+    expect(q16(['기타:'])).toBe('고를 수 없는 값이에요')
+  })
+
+  it('기타 선택지가 없는 문항은 기타: 값을 고를 수 없는 값으로 본다', () => {
+    // pet_sex 는 other 가 없다. 내용이 비었든 있든 같은 문구다.
+    expect(msg(validateGroup(pet, { pet_sex: '기타: ' }, TODAY), 'pet_sex')).toBe('고를 수 없는 값이에요')
+    expect(msg(validateGroup(pet, { pet_sex: '기타: 직접' }, TODAY), 'pet_sex')).toBe('고를 수 없는 값이에요')
   })
 })

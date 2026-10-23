@@ -6,9 +6,10 @@ export interface FieldError {
   message: string
 }
 
-const SHORT_MAX = 200
-const LONG_MAX = 3000
-const OTHER_PREFIX = '기타: '
+// 화면(components/fields)의 글자 수 제한과 기타 값 모양이 이 값을 그대로 쓴다.
+export const SHORT_MAX = 200
+export const LONG_MAX = 3000
+export const OTHER_PREFIX = '기타: '
 
 function isEmpty(v: string | string[] | undefined): boolean {
   return v === undefined || (Array.isArray(v) ? v.length === 0 : v.trim() === '')
@@ -33,6 +34,11 @@ function allowedChoice(q: Question, v: string): boolean {
   return !!q.other && v.startsWith(OTHER_PREFIX) && v.length > OTHER_PREFIX.length
 }
 
+/** 기타를 골랐는데 내용이 없다. 공백뿐인 것도 비었다고 본다. */
+function emptyOther(q: Question, v: string): boolean {
+  return !!q.other && v.startsWith(OTHER_PREFIX) && v.slice(OTHER_PREFIX.length).trim() === ''
+}
+
 /** 값이 있을 때의 오류 한 건. 없으면 null. */
 function checkValue(q: Question, v: string | string[], today: string): string | null {
   const tooShort = `${SHORT_MAX}자까지 적을 수 있어요`
@@ -52,10 +58,14 @@ function checkValue(q: Question, v: string | string[], today: string): string | 
       return ok ? null : '연락처를 다시 확인해 주세요'
     }
     case 'single':
-      if (typeof v !== 'string' || !allowedChoice(q, v)) return '고를 수 없는 값이에요'
+      if (typeof v !== 'string') return '고를 수 없는 값이에요'
+      if (emptyOther(q, v)) return '기타 내용을 적어 주세요'
+      if (!allowedChoice(q, v)) return '고를 수 없는 값이에요'
       return v.length > SHORT_MAX ? tooShort : null
     case 'multi':
-      if (!Array.isArray(v) || !v.every((x) => allowedChoice(q, x))) return '고를 수 없는 값이에요'
+      if (!Array.isArray(v)) return '고를 수 없는 값이에요'
+      if (v.some((x) => emptyOther(q, x))) return '기타 내용을 적어 주세요'
+      if (!v.every((x) => allowedChoice(q, x))) return '고를 수 없는 값이에요'
       return v.some((x) => x.length > SHORT_MAX) ? tooShort : null
     case 'date':
       if (typeof v !== 'string' || !isRealDate(v)) return '날짜를 골라 주세요'
