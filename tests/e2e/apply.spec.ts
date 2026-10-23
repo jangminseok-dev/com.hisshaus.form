@@ -276,6 +276,14 @@ test('허니팟은 비어 있고 name 이 없다', async ({ page }) => {
   await expect(honeypot).toHaveValue('')
 })
 
+test('없는 주소는 404 와 한국어 안내를 보이고 처음으로 돌아갈 수 있다', async ({ page }) => {
+  const res = await page.goto('/no-such-page')
+  expect(res?.status()).toBe(404)
+  await expect(page.getByRole('heading', { name: '페이지를 찾을 수 없어요' })).toBeVisible()
+  await page.getByRole('link', { name: '처음으로' }).click()
+  await expect(page.getByRole('heading', { name: '예약 신청서' })).toBeVisible()
+})
+
 test('viewport 는 기기 화면 끝까지 채운다(viewport-fit=cover)', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /viewport-fit=cover/)

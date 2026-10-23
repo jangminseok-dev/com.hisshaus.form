@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { renderToString } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { viewport } from '../app/layout'
+import NotFoundPage from '../app/not-found'
 import { metadata as surveyMetadata } from '../app/survey/page'
 import { Done } from '../components/Done'
 import { Landing } from '../components/Landing'
@@ -322,6 +323,16 @@ describe('검사지 주소의 링크 미리보기', () => {
     const title = '히스하우스 심층 행동 분석 검사지'
     const description = '교육미용 상담을 위해 반려견에 대해 알려 주세요.'
     expect(surveyMetadata).toEqual({ title, description, openGraph: { title, description, images: ['/og.jpg'] } })
+  })
+})
+
+describe('찾을 수 없는 주소', () => {
+  it('제목·안내·처음으로 링크를 해요체로 보여 준다', () => {
+    const { container } = render(<NotFoundPage />)
+    expect(screen.getByRole('heading', { level: 1, name: '페이지를 찾을 수 없어요' })).toBeInTheDocument()
+    expect(screen.getByText('주소를 다시 확인해 주세요.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '처음으로' })).toHaveAttribute('href', '/')
+    expect(container.textContent).not.toMatch(/입니다|됩니다|십시오/)
   })
 })
 
