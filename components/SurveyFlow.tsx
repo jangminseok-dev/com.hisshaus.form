@@ -39,6 +39,8 @@ export function SurveyFlow() {
         answers: session ? { q3: session.guardianName, q4: session.guardianPhone, q7: session.petName } : {},
         groupIndex: 0,
         submissionId: session ? session.submissionId : newSubmissionId(),
+        // 신청 ID 를 신청서와 같이 쓰므로, 방문 기록 칸의 주인은 새 초안마다 만드는 열쇠로 가린다.
+        key: newSubmissionId(),
       },
     })
   }, [])

@@ -36,7 +36,8 @@ export function ApplyFlow() {
 
   useEffect(() => {
     setStart({
-      initial: loadDraft('apply') ?? { answers: {}, groupIndex: 0, submissionId: newSubmissionId() },
+      // 새 초안마다 방문 기록 칸의 주인을 가리는 열쇠를 따로 만든다(신청 ID 와 별개).
+      initial: loadDraft('apply') ?? { answers: {}, groupIndex: 0, submissionId: newSubmissionId(), key: newSubmissionId() },
       today: todayKst(),
     })
   }, [])

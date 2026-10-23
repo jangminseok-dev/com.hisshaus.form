@@ -14,6 +14,10 @@ vi.mock('next/navigation', () => ({ useRouter: () => router }))
 
 const APPLY_ID = 'Ab3dE5gH7j'
 const OTHER_ID = 'Zz9Yy8Xx7W'
+/** 지난 검사지(초안)의 열쇠. 새로 연 검사지는 이것과 다른 열쇠를 만든다. */
+const OLD_KEY = 'Kk3dE5gH7j'
+/** 이어 쓰는 초안의 열쇠. */
+const KEY = 'Qq3dE5gH7j'
 const FAILED = '지금은 보낼 수 없어요. 잠시 뒤 다시 눌러 주세요.'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -36,7 +40,7 @@ const q2 = surveyForm.groups[0].questions.find((q) => q.id === 'q2')!
 /** 마지막 묶음에서 제출만 남은 검사지를 저장소에 둔다. */
 function draftAtLastGroup(submissionId: string, over: Answers = {}): Answers {
   const answers: Answers = { ...validAnswers(surveyForm), ...over }
-  saveDraft('survey', { answers, groupIndex: lastGroup, submissionId })
+  saveDraft('survey', { answers, groupIndex: lastGroup, submissionId, key: KEY })
   return answers
 }
 
@@ -57,6 +61,13 @@ function sent() {
 }
 
 const honeypot = () => document.querySelector<HTMLInputElement>('input[aria-hidden="true"]')!
+
+/** 브라우저 뒤로 가기 한 번이 끝나(popstate) 지금 칸이 바뀔 때까지 기다린다. */
+const goBack = () =>
+  new Promise<void>((resolve) => {
+    window.addEventListener('popstate', () => resolve(), { once: true })
+    history.back()
+  })
 
 beforeEach(() => {
   localStorage.clear()
@@ -102,6 +113,9 @@ describe('검사지를 열 때', () => {
 
     const saved = loadDraft('survey')!
     expect(saved.submissionId).toBe(APPLY_ID)
+    // 신청 ID 는 신청서와 같지만 초안은 새 것이라 방문 기록 칸의 주인을 가리는 열쇠가 따로 있다.
+    expect(isSubmissionId(saved.key)).toBe(true)
+    expect(saved.key).not.toBe(APPLY_ID)
     expect(saved.groupIndex).toBe(0)
     // 미리 채운 답도 초안에 같이 실린다.
     expect(saved.answers).toMatchObject({ q1: 'a@b.co', q3: '김하나', q4: '010-1234-5678', q7: '보리' })
@@ -122,7 +136,7 @@ describe('검사지를 열 때', () => {
   it('검사지 초안의 신청 ID 가 세션과 다르면 버리고 새로 시작한다', async () => {
     saveSession(session)
     // 지난 신청 때 쓰던 검사지다. 네 번째 묶음까지 갔고 다른 사람의 이름이 들어 있다.
-    saveDraft('survey', { answers: { q3: '지난 보호자', q7: '지난 아이' }, groupIndex: 3, submissionId: OTHER_ID })
+    saveDraft('survey', { answers: { q3: '지난 보호자', q7: '지난 아이' }, groupIndex: 3, submissionId: OTHER_ID, key: OLD_KEY })
     render(<SurveyFlow />)
 
     // 첫 묶음에서 새로 시작한다.
@@ -137,7 +151,7 @@ describe('검사지를 열 때', () => {
 
   it('검사지 초안의 신청 ID 가 세션과 같으면 이어 쓴다', async () => {
     saveSession(session)
-    saveDraft('survey', { answers: { q3: '고친 이름' }, groupIndex: 3, submissionId: APPLY_ID })
+    saveDraft('survey', { answers: { q3: '고친 이름' }, groupIndex: 3, submissionId: APPLY_ID, key: KEY })
     render(<SurveyFlow />)
 
     expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[3].title })).toBeInTheDocument()
@@ -145,7 +159,7 @@ describe('검사지를 열 때', () => {
   })
 
   it('세션 없이 연 검사지는 저장된 초안을 그대로 이어 쓴다', async () => {
-    saveDraft('survey', { answers: {}, groupIndex: 2, submissionId: OTHER_ID })
+    saveDraft('survey', { answers: {}, groupIndex: 2, submissionId: OTHER_ID, key: KEY })
     render(<SurveyFlow />)
     expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[2].title })).toBeInTheDocument()
 
@@ -232,7 +246,7 @@ describe('검사지 제출', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(FAILED)
     expect(router.replace).not.toHaveBeenCalled()
     expect(loadSession()).toEqual(session)
-    expect(loadDraft('survey')).toEqual({ answers, groupIndex: lastGroup, submissionId: APPLY_ID })
+    expect(loadDraft('survey')).toEqual({ answers, groupIndex: lastGroup, submissionId: APPLY_ID, key: KEY })
     expect(screen.getByRole('button', { name: '제출하기' })).toBeEnabled()
   })
 
@@ -264,5 +278,42 @@ describe('검사지 제출', () => {
     fireEvent.click(submit)
     await waitFor(() => expect(router.replace).toHaveBeenCalled())
     expect(sent().body.website).toBe('https://spam.example')
+  })
+})
+
+describe('검사지를 낸 뒤 뒤로 가기', () => {
+  // 검사지는 신청서의 신청 ID 를 그대로 쓴다. 낸 뒤 뒤로 와 다시 열린 검사지는 지난 검사지와 같은 신청 ID 로 새로 시작하는데,
+  // 방문 기록의 지난 칸을 이 검사지의 칸으로 착각하면 위치를 이어받아 빈 검사지에서 뒤로 가기가 뒤 묶음으로 뛴다.
+  it('검사지를 낸 뒤 뒤로 와 다시 열린 검사지는 지난 칸을 밟지 않고 한 번에 양식을 떠난다', async () => {
+    // 양식 앞 페이지(신청 완료 화면)와, 그 뒤에 새로 쌓인 검사지의 첫 칸.
+    history.replaceState({ page: 'apply-done' }, '')
+    history.pushState(null, '')
+    saveSession(session)
+    saveDraft('survey', { answers: validAnswers(surveyForm), groupIndex: 0, submissionId: APPLY_ID, key: OLD_KEY })
+    const first = render(<SurveyFlow />)
+
+    // 끝 묶음까지 넘기며(칸 열한 개를 쌓고) 낸다.
+    for (let i = 0; i < lastGroup; i++) fireEvent.click(await screen.findByRole('button', { name: '다음' }))
+    fireEvent.click(await submitButton())
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/survey/done'))
+
+    // Next 가 하는 일: 낸 칸을 완료 화면으로 바꾸고 검사지 화면은 내린다.
+    history.replaceState({ page: 'survey-done' }, '')
+    first.unmount()
+
+    // 뒤로: 낸 칸 바로 앞의 지난 칸(위치 10)으로 돌아와 검사지가 다시 열린다. 같은 신청 ID 의 새 초안이다.
+    await goBack()
+    render(<SurveyFlow />)
+    expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[0].title })).toBeInTheDocument()
+    expect(history.state).toMatchObject({ hhForm: 'survey', hhStep: 0, hhPos: 0 })
+    expect(history.state.hhKey).not.toBe(OLD_KEY)
+
+    // 다시 뒤로: 지난 검사지의 칸 열 개를 하나씩 건너뛰고 양식 앞 페이지에서 멈춘다. 묶음은 한 번도 안 바뀌고 초안도 안 쓴다.
+    const back = vi.spyOn(history, 'back')
+    history.back()
+    await waitFor(() => expect(history.state).toEqual({ page: 'apply-done' }))
+    expect(back).toHaveBeenCalledTimes(1 + 10)
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(surveyForm.groups[0].title)
+    expect(loadDraft('survey')).toBeNull()
   })
 })

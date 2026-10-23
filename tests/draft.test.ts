@@ -11,6 +11,7 @@ const draft: Draft = {
   },
   groupIndex: 2,
   submissionId: 'Ab3dE5gH7j',
+  key: 'Kk3dE5gH7j',
 }
 
 const session: ApplySession = {
@@ -58,7 +59,7 @@ const stores: Store[] = [
     name: '초안',
     key: 'hh.draft.apply',
     value: draft,
-    edge: { answers: { pet_name: '', services: [] }, groupIndex: 0, submissionId: draft.submissionId },
+    edge: { answers: { pet_name: '', services: [] }, groupIndex: 0, submissionId: draft.submissionId, key: draft.key },
     load: () => loadDraft('apply'),
     save: () => saveDraft('apply', draft),
     clear: () => clearDraft('apply'),
@@ -77,6 +78,11 @@ const stores: Store[] = [
       ['submissionId 가 10자가 아니면', { ...draft, submissionId: 'Ab3dE5gH7' }],
       ['submissionId 에 영숫자가 아닌 글자가 있으면', { ...draft, submissionId: 'Ab3dE5gH7!' }],
       ['submissionId 가 없으면', omit(draft, 'submissionId')],
+      // 열쇠가 없는 초안은 열쇠를 도입하기 전에 저장된 것이다. 방문 기록 칸의 주인을 가릴 수 없으니 버린다.
+      ['key 가 없으면', omit(draft, 'key')],
+      ['key 가 10자가 아니면', { ...draft, key: 'Kk3dE5gH7' }],
+      ['key 에 영숫자가 아닌 글자가 있으면', { ...draft, key: 'Kk3dE5gH7!' }],
+      ['key 가 숫자이면', { ...draft, key: 1234567890 }],
       ...notObjects,
     ],
   },
@@ -229,7 +235,7 @@ describe.each(stores)('$name', ({ key, value, edge, load, save, clear, broken })
 
 describe('저장 위치', () => {
   it('apply 와 survey 초안은 서로 섞이지 않는다', () => {
-    const surveyDraft: Draft = { answers: { q3: '김하나' }, groupIndex: 0, submissionId: 'Zz9Yy8Xx7W' }
+    const surveyDraft: Draft = { answers: { q3: '김하나' }, groupIndex: 0, submissionId: 'Zz9Yy8Xx7W', key: 'Qq3dE5gH7j' }
     saveDraft('apply', draft)
     saveDraft('survey', surveyDraft)
 
@@ -327,5 +333,17 @@ describe('같은 탭 메모리 대체', () => {
     block()
     saveSession({ ...session, services: 'Grooming 미용' } as unknown as ApplySession)
     expect(loadSession()).toBeNull()
+  })
+})
+
+describe('초안의 열쇠', () => {
+  it('열쇠를 그대로 저장하고 읽는다 — 같은 신청 ID 의 다른 초안과 가려지도록 신청 ID 와 별개다', () => {
+    const sameApply: Draft = { ...draft, key: 'Qq3dE5gH7j' }
+    saveDraft('survey', draft)
+    expect(loadDraft('survey')?.key).toBe(draft.key)
+    saveDraft('survey', sameApply)
+    expect(loadDraft('survey')).toEqual(sameApply)
+    expect(loadDraft('survey')?.submissionId).toBe(draft.submissionId)
+    expect(loadDraft('survey')?.key).not.toBe(draft.key)
   })
 })

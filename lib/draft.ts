@@ -14,11 +14,18 @@ import { isSubmissionId } from './id'
 // 같이 적고, 저장소에 닿는 것 자체가 던질 때만 거기서 읽는다. 저장소를 읽을 수 있으면 저장소가 정본이다
 // (다른 탭이 지우거나 고친 값을 메모리가 되살리지 않는다). 메모리는 탭을 새로 고치면 사라진다.
 
-/** 쓰던 묶음의 위치와 지금까지의 답. 신청서와 검사지가 각각 하나씩 가진다. */
+/**
+ * 쓰던 묶음의 위치와 지금까지의 답. 신청서와 검사지가 각각 하나씩 가진다.
+ *
+ * `key` 는 초안을 새로 만들 때마다 만드는 무작위 열쇠다(신청 ID 와 별개, 복원된 초안은 같은 열쇠를 유지한다). 방문 기록 칸이
+ * 어느 초안의 것인지 가리는 데 쓴다. 검사지는 신청서의 신청 ID 를 그대로 쓰므로, 신청 ID 로는 지난 검사지가 남긴 칸과 새로
+ * 연 검사지를 가릴 수 없다.
+ */
 export interface Draft {
   answers: Answers
   groupIndex: number
   submissionId: string
+  key: string
 }
 
 /** 신청이 접수된 뒤 검사지 안내·완료 화면이 이어 받는 정보. */
@@ -81,7 +88,8 @@ function isDraft(v: unknown): v is Draft {
     typeof v.groupIndex === 'number' &&
     Number.isInteger(v.groupIndex) &&
     v.groupIndex >= 0 &&
-    isSubmissionId(v.submissionId)
+    isSubmissionId(v.submissionId) &&
+    isSubmissionId(v.key)
   )
 }
 

@@ -13,6 +13,10 @@ const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => router }))
 
 const ID = 'Ab3dE5gH7j'
+/** 지난 신청서(초안)의 열쇠. 새로 연 신청서는 이것과 다른 열쇠를 만든다. */
+const OLD_KEY = 'Kk3dE5gH7j'
+/** 이어 쓰는 초안의 열쇠. */
+const KEY = 'Qq3dE5gH7j'
 const FAILED = '지금은 보낼 수 없어요. 잠시 뒤 다시 눌러 주세요.'
 
 const fetchMock = vi.fn<typeof fetch>()
@@ -27,7 +31,7 @@ function draftAtLastGroup(over: Answers = {}): Answers {
     pet_name: '보리',
     ...over,
   }
-  saveDraft('apply', { answers, groupIndex: 2, submissionId: ID })
+  saveDraft('apply', { answers, groupIndex: 2, submissionId: ID, key: KEY })
   return answers
 }
 
@@ -40,6 +44,13 @@ function sent() {
 }
 
 const honeypot = () => document.querySelector<HTMLInputElement>('input[aria-hidden="true"]')!
+
+/** 브라우저 뒤로 가기 한 번이 끝나(popstate) 지금 칸이 바뀔 때까지 기다린다. */
+const goBack = () =>
+  new Promise<void>((resolve) => {
+    window.addEventListener('popstate', () => resolve(), { once: true })
+    history.back()
+  })
 
 beforeEach(() => {
   localStorage.clear()
@@ -69,10 +80,13 @@ describe('신청서를 열 때', () => {
     expect(saved.answers).toEqual({ guardian_name: '김하나' })
     expect(saved.groupIndex).toBe(0)
     expect(isSubmissionId(saved.submissionId)).toBe(true)
+    // 방문 기록 칸의 주인을 가리는 열쇠는 신청 ID 와 별개로 만든다.
+    expect(isSubmissionId(saved.key)).toBe(true)
+    expect(saved.key).not.toBe(saved.submissionId)
   })
 
   it('저장된 초안이 있으면 그 묶음과 답으로 이어 쓴다', async () => {
-    saveDraft('apply', { answers: { guardian_name: '김하나' }, groupIndex: 1, submissionId: ID })
+    saveDraft('apply', { answers: { guardian_name: '김하나' }, groupIndex: 1, submissionId: ID, key: KEY })
     render(<ApplyFlow />)
     expect(await screen.findByRole('heading', { level: 2, name: '반려견' })).toBeInTheDocument()
     expect(screen.getByText('2 / 3')).toBeInTheDocument()
@@ -83,6 +97,7 @@ describe('신청서를 열 때', () => {
       answers: { guardian_name: '김하나', pet_name: '보리' },
       groupIndex: 1,
       submissionId: ID,
+      key: KEY,
     })
   })
 
@@ -213,7 +228,7 @@ describe('제출', () => {
     expect(router.replace).not.toHaveBeenCalled()
     expect(loadSession()).toBeNull()
     // 초안도 입력도 그대로고 다시 보낼 수 있다.
-    expect(loadDraft('apply')).toEqual({ answers, groupIndex: 2, submissionId: ID })
+    expect(loadDraft('apply')).toEqual({ answers, groupIndex: 2, submissionId: ID, key: KEY })
     expect(screen.getByLabelText('희망 날짜 1순위')).toHaveValue(answers.wish1_date)
     expect(screen.getByRole('button', { name: '신청하기' })).toBeEnabled()
   })
@@ -341,5 +356,40 @@ describe('세션', () => {
     expect(await screen.findByText('보리 · Grooming 미용 · 1월 1일 (목) 오전 희망')).toBeInTheDocument()
     expect(router.replace).toHaveBeenCalledTimes(1)
     unmount()
+  })
+})
+
+describe('신청을 낸 뒤 뒤로 가기', () => {
+  it('신청을 낸 뒤 뒤로 와 다시 열린 신청서는 지난 칸을 건너뛰어 한 번에 양식을 떠난다', async () => {
+    // 양식 앞 페이지(첫 화면)와, 그 뒤에 새로 쌓인 신청서의 첫 칸.
+    history.replaceState({ page: 'landing' }, '')
+    history.pushState(null, '')
+    saveDraft('apply', { answers: validAnswers(applyForm), groupIndex: 0, submissionId: ID, key: OLD_KEY })
+    const first = render(<ApplyFlow />)
+
+    // 끝 묶음까지 넘기며(칸 둘을 쌓고) 낸다.
+    fireEvent.click(await screen.findByRole('button', { name: '다음' }))
+    fireEvent.click(await screen.findByRole('button', { name: '다음' }))
+    fireEvent.click(await submitButton())
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/apply/done'))
+
+    // Next 가 하는 일: 낸 칸을 완료 화면으로 바꾸고 신청서 화면은 내린다.
+    history.replaceState({ page: 'apply-done' }, '')
+    first.unmount()
+
+    // 뒤로: 낸 칸 바로 앞의 지난 칸(위치 1)으로 돌아와 신청서가 다시 열린다. 새 신청이다.
+    await goBack()
+    render(<ApplyFlow />)
+    expect(await screen.findByRole('heading', { level: 2, name: '보호자' })).toBeInTheDocument()
+    expect(history.state).toMatchObject({ hhForm: 'apply', hhStep: 0, hhPos: 0 })
+    expect(history.state.hhKey).not.toBe(OLD_KEY)
+
+    // 다시 뒤로: 지난 신청서의 첫 칸을 건너뛰고 양식 앞 페이지에서 멈춘다. 묶음도 초안도 그대로다.
+    const back = vi.spyOn(history, 'back')
+    history.back()
+    await waitFor(() => expect(history.state).toEqual({ page: 'landing' }))
+    expect(back).toHaveBeenCalledTimes(1 + 1)
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('보호자')
+    expect(loadDraft('apply')).toBeNull()
   })
 })

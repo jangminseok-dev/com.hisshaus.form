@@ -172,7 +172,7 @@ describe('검사지 안내', () => {
 
   it('교육미용은 아니에요 를 누르면 취소 요청을 보내고 세션을 고치고 완료로 간다', async () => {
     saveSession(session)
-    saveDraft('survey', { answers: { q3: '김하나' }, groupIndex: 2, submissionId: session.submissionId })
+    saveDraft('survey', { answers: { q3: '김하나' }, groupIndex: 2, submissionId: session.submissionId, key: 'Qq3dE5gH7j' })
     render(<TrainingIntro />)
 
     fireEvent.click(await screen.findByRole('button', { name: '교육미용은 아니에요' }))

@@ -12,7 +12,7 @@ import styles from './StepForm.module.css'
 
 export interface StepFormProps {
   form: FormDef
-  /** 처음 한 번만 읽는다. 다른 초안이나 다른 양식으로 바꾸려면 key 를 바꿔 다시 세운다. */
+  /** 처음 한 번만 읽는다. 다른 초안이나 다른 양식으로 바꾸려면 React 의 key 를 바꿔 다시 세운다. */
   initial: Draft
   today: string
   /** 마지막 묶음 버튼 글자 */
@@ -38,15 +38,19 @@ type Move = 'push' | 'replace' | 'pop'
 /**
  * 묶음 하나씩 넘기며 쓰는 화면. 신청서와 검사지가 같이 쓴다. 저장은 onDraft 를 받은 부모 몫이다.
  *
- * 방문 기록: 이 화면이 만지는 모든 칸의 state 는 `hhForm`(양식)·`hhSid`(신청 ID)·`hhStep`(묶음 번호)·`hhPos`(위치)를 담는다.
- * 위치는 이 양식 세션에서 첫 칸이 0 이고 `pushState` 할 때마다 1 씩 는다. 뒤로·앞으로 가기가 몇 칸을 건너뛰든,
+ * 방문 기록: 이 화면이 만지는 모든 칸의 state 는 `hhForm`(양식)·`hhKey`(초안의 열쇠)·`hhStep`(묶음 번호)·`hhPos`(위치)를 담는다.
+ * 위치는 이 초안에서 첫 칸이 0 이고 `pushState` 할 때마다 1 씩 는다. 뒤로·앞으로 가기가 몇 칸을 건너뛰든,
  * 새로 고침으로 돌아오든, 도착한 칸이 스스로 묶음과 위치를 말해 주므로 쌓은 칸을 따로 세지 않는다.
- * 같은 양식·같은 신청의 칸이 아니면(다른 양식, 지난 신청, 양식 앞 페이지) 그 칸의 묶음을 따르지 않는다. 같은 양식이 지난 신청에서
- * 남긴 칸에 닿으면 그 칸을 이 신청의 칸으로 고쳐 쓴다.
+ * 칸의 주인은 신청 ID 가 아니라 초안이다. 검사지는 신청서의 신청 ID 를 그대로 쓰므로, 낸 뒤 뒤로 와 새로 연 검사지는 지난
+ * 검사지와 신청 ID 가 같다. 같은 양식·같은 열쇠의 칸만 이 초안의 칸이다.
+ * 같은 양식이 지난 초안에서 남긴 칸(다른 열쇠)에 닿으면 묶음도 초안도 바꾸지 않고 한 칸 더 뒤로 간다. 첫 묶음에서의
+ * 뒤로 가기는 양식을 떠나는 일이라 지난 초안의 칸은 더는 뜻이 없다. 하나씩 건너뛰어 양식 앞 페이지에서 멈춘다.
+ * 다른 양식의 칸과 양식 앞 페이지의 칸은 이 화면의 일이 아니라 그대로 둔다.
  */
 export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit, onBackFromFirst }: StepFormProps) {
   const total = form.groups.length
   const sid = initial.submissionId
+  const key = initial.key
   const [answers, setAnswers] = useState<Answers>(initial.answers)
   const [index, setIndex] = useState(() => clamp(initial.groupIndex, total))
   const [showErrors, setShowErrors] = useState(false)
@@ -85,12 +89,12 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   const asShown = (q: Question): Question => ({ ...q, required: isRequired(q, answers) })
 
   function emit() {
-    onDraft({ answers: answersRef.current, groupIndex: indexRef.current, submissionId: sid })
+    onDraft({ answers: answersRef.current, groupIndex: indexRef.current, submissionId: sid, key })
   }
 
   /** 방문 기록 칸에 적을 state. Next 가 칸에 넣어 둔 값(__NA 등)을 지우면 뒤로 가기가 깨지므로 있던 값에 더해서 쓴다. */
   function entryState(step: number, pos: number) {
-    return { ...(history.state ?? {}), hhForm: form.id, hhSid: sid, hhStep: step, hhPos: pos }
+    return { ...(history.state ?? {}), hhForm: form.id, hhKey: key, hhStep: step, hhPos: pos }
   }
 
   /**
@@ -192,11 +196,11 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
     }
   }, [])
 
-  // 처음 그릴 때 지금 방문 기록 칸에 보이는 묶음과 위치를 적는다. 새로 고침·탭 복원으로 같은 양식·같은 신청의 칸에
+  // 처음 그릴 때 지금 방문 기록 칸에 보이는 묶음과 위치를 적는다. 새로 고침·탭 복원으로 같은 양식·같은 초안(열쇠)의 칸에
   // 돌아왔으면 그 위치를 이어받는다(앞 칸도 브라우저에 남아 있어서 ‹ 가 history.back 을 쓸 수 있다). 아니면 이 화면이 첫 칸이다.
   useEffect(() => {
     const here = history.state
-    const mine = here?.hhForm === form.id && here?.hhSid === sid && Number.isInteger(here?.hhPos)
+    const mine = here?.hhForm === form.id && here?.hhKey === key && Number.isInteger(here?.hhPos)
     posRef.current = mine ? here.hhPos : 0
     history.replaceState(entryState(indexRef.current, posRef.current), '')
   }, [])
@@ -209,12 +213,11 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
     const s = event.state
     // 다른 양식의 칸과 양식 앞 페이지의 칸은 이 화면의 일이 아니다.
     if (s?.hhForm !== form.id) return
-    if (s.hhSid !== sid) {
-      // 같은 양식이 지난 신청에서 남긴 칸이다(완료 화면에서 뒤로 와 새 신청을 시작한 경우). 그 칸의 묶음은 따르지 않고,
-      // 칸을 이 신청의 칸으로 고쳐 쓴다. 그냥 두면 위치(0)와 실제 방문 기록이 어긋나서, 이어지는 다음 → ‹ 가
-      // 헛돌다가 쓰던 중에 양식을 떠난다.
-      posRef.current = 0
-      history.replaceState(entryState(indexRef.current, 0), '')
+    if (s.hhKey !== key) {
+      // 같은 양식이 지난 초안에서 남긴 칸이다(완료 화면에서 뒤로 와 새 초안을 시작한 경우). 묶음도 초안도 바꾸지 않고 한 칸 더
+      // 뒤로 가서 건너뛴다. 그 칸의 위치와 묶음을 따르면 빈 초안이 지난 초안의 뒤 묶음으로 뛰고, 그대로 두면 양식을 떠나는 데
+      // 칸 수만큼 눌러야 한다. 알려진 한계: 앞으로 가기로 지난 초안의 칸에 닿아도 같은 길로 뒤로 돌려서 그 앞으로 가기는 먹지 않는다.
+      history.back()
       return
     }
     if (!Number.isInteger(s.hhStep) || !Number.isInteger(s.hhPos)) return
