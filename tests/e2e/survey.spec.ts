@@ -149,3 +149,10 @@ test('폭 320 에서 검사지의 모든 묶음, 긴 선택지의 k·l 묶음에
   await page.goto('/survey')
   await fillUntil(page, 'l', () => expectNoHorizontalOverflow(page, 320))
 })
+
+test('검사지 주소의 링크 미리보기는 검사지 제목·설명과 그림이다', async ({ page }) => {
+  await page.goto('/survey')
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', '히스하우스 심층 행동 분석 검사지')
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', '교육미용 상담을 위해 반려견에 대해 알려 주세요.')
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/og\.jpg$/)
+})

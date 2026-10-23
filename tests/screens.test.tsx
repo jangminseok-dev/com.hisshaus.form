@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { metadata as surveyMetadata } from '../app/survey/page'
 import { Done } from '../components/Done'
 import { Landing } from '../components/Landing'
 import { SurveyDone } from '../components/SurveyDone'
@@ -302,6 +303,16 @@ describe('검사지 완료 화면', () => {
     expect(screen.getByText('히스하우스가 내용을 확인하고 연락드려요.')).toBeInTheDocument()
     expect(container.textContent).not.toContain('입니다')
     expect(container.textContent).not.toContain('됩니다')
+  })
+})
+
+describe('검사지 주소의 링크 미리보기', () => {
+  // 사장님이 카카오톡으로 /survey 만 보낼 때 보이는 미리보기다. 정하지 않으면 첫 화면(app/layout.tsx)의 '예약 신청' 이 보인다.
+  // Next 는 openGraph 를 통째로 덮으므로 그림도 다시 적어야 한다.
+  it('검사지 제목·설명과 미리보기 그림을 가진다', () => {
+    const title = '히스하우스 심층 행동 분석 검사지'
+    const description = '교육미용 상담을 위해 반려견에 대해 알려 주세요.'
+    expect(surveyMetadata).toEqual({ title, description, openGraph: { title, description, images: ['/og.jpg'] } })
   })
 })
 
