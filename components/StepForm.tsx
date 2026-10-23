@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 
 import { blockedBy, isRequired, isVisible, visibleAnswers } from '../forms/rules'
 import type { Answer, Answers, FormDef, Question } from '../forms/types'
@@ -201,27 +201,30 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
     history.replaceState(entryState(indexRef.current, posRef.current), '')
   }, [])
 
-  // 브라우저 뒤로·앞으로 가기. 몇 칸을 건너뛰어도 도착한 칸이 묶음과 위치를 말해 준다. 그릴 때마다 다시 거는 것은
-  // 최신 onDraft 로 부르려는 것이다.
-  useEffect(() => {
-    function onPopState(event: PopStateEvent) {
-      const s = event.state
-      // 다른 양식의 칸과 양식 앞 페이지의 칸은 이 화면의 일이 아니다.
-      if (s?.hhForm !== form.id) return
-      if (s.hhSid !== sid) {
-        // 같은 양식이 지난 신청에서 남긴 칸이다(완료 화면에서 뒤로 와 새 신청을 시작한 경우). 그 칸의 묶음은 따르지 않고,
-        // 칸을 이 신청의 칸으로 고쳐 쓴다. 그냥 두면 위치(0)와 실제 방문 기록이 어긋나서, 이어지는 다음 → ‹ 가
-        // 헛돌다가 쓰던 중에 양식을 떠난다.
-        posRef.current = 0
-        history.replaceState(entryState(indexRef.current, 0), '')
-        return
-      }
-      if (!Number.isInteger(s.hhStep) || !Number.isInteger(s.hhPos)) return
-      moveTo(clamp(s.hhStep, total), 'pop', s.hhPos)
+  // 브라우저 뒤로·앞으로 가기. 몇 칸을 건너뛰어도 도착한 칸이 묶음과 위치를 말해 준다. 리스너는 한 번만 걸고 최신 props·state 는
+  // Effect Event 로 읽는다. 그릴 때마다 뗐다 다시 걸면 같은 popstate 안에서 화면이 다시 그려질 때 이 이벤트를 놓친다. 실제 Next 의
+  // popstate 리스너가 그렇게 한다: 이 화면의 리스너보다 먼저 불려서 화면을 다시 그리게 하는데, 떼어진 리스너는 이 이벤트에서
+  // 부르지 않고 새로 건 리스너는 이 이벤트에 끼지 못한다.
+  const onPopState = useEffectEvent((event: PopStateEvent) => {
+    const s = event.state
+    // 다른 양식의 칸과 양식 앞 페이지의 칸은 이 화면의 일이 아니다.
+    if (s?.hhForm !== form.id) return
+    if (s.hhSid !== sid) {
+      // 같은 양식이 지난 신청에서 남긴 칸이다(완료 화면에서 뒤로 와 새 신청을 시작한 경우). 그 칸의 묶음은 따르지 않고,
+      // 칸을 이 신청의 칸으로 고쳐 쓴다. 그냥 두면 위치(0)와 실제 방문 기록이 어긋나서, 이어지는 다음 → ‹ 가
+      // 헛돌다가 쓰던 중에 양식을 떠난다.
+      posRef.current = 0
+      history.replaceState(entryState(indexRef.current, 0), '')
+      return
     }
-    window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
+    if (!Number.isInteger(s.hhStep) || !Number.isInteger(s.hhPos)) return
+    moveTo(clamp(s.hhStep, total), 'pop', s.hhPos)
   })
+  useEffect(() => {
+    const listen = (event: PopStateEvent) => onPopState(event)
+    window.addEventListener('popstate', listen)
+    return () => window.removeEventListener('popstate', listen)
+  }, [])
 
   // 묶음이 바뀌면 맨 위로 올라가 제목을 읽게 한다. 처음 그릴 때는 하지 않는다.
   useEffect(() => {

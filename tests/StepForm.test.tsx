@@ -1,4 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
+import { flushSync } from 'react-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StepForm, type StepFormProps } from '../components/StepForm'
 import { applyForm } from '../forms/apply'
@@ -416,6 +418,56 @@ describe('이전·방문 기록', () => {
     expect(history.state).toEqual({ __NA: true, ...entry(1, 0) })
     expect(groupId()).toBe('pet')
     expect(onDraft).not.toHaveBeenCalled()
+  })
+
+  it('같은 popstate 안에서 다른 리스너가 화면을 다시 그리게 해도 이 이벤트를 놓치지 않는다', () => {
+    // 실제 Next 의 popstate 리스너는 같은 이벤트 안에서 화면을 다시 그리게 한다. 그릴 때마다 리스너를 뗐다 다시 거는 방식은
+    // 이때 이 이벤트를 놓친다: 떼어진 리스너는 이 이벤트에서 부르지 않고, 새로 건 리스너는 이 이벤트에 끼지 못한다.
+    let redraw = () => {}
+    function Parent(props: StepFormProps) {
+      const [, setCount] = useState(0)
+      redraw = () => setCount((n) => n + 1)
+      return <StepForm {...props} />
+    }
+    const redrawFirst = () => flushSync(() => redraw())
+    // StepForm 의 리스너보다 먼저 걸린다.
+    window.addEventListener('popstate', redrawFirst)
+    try {
+      const onDraft = vi.fn<StepFormProps['onDraft']>()
+      render(
+        <Parent
+          form={applyForm}
+          initial={draft(1, GUARDIAN)}
+          today={TODAY}
+          submitLabel="신청하기"
+          onDraft={onDraft}
+          onSubmit={vi.fn()}
+        />,
+      )
+      expect(groupId()).toBe('pet')
+
+      popstate(entry(0, 0))
+
+      expect(groupId()).toBe('guardian')
+      expect(onDraft).toHaveBeenLastCalledWith({ answers: GUARDIAN, groupIndex: 0, submissionId: ID })
+    } finally {
+      window.removeEventListener('popstate', redrawFirst)
+    }
+  })
+
+  it('popstate 는 가장 나중에 받은 onDraft 로 초안을 알린다', () => {
+    // 리스너는 한 번만 걸려 있어도 오래된 props 를 쓰지 않는다.
+    const first = vi.fn<StepFormProps['onDraft']>()
+    const second = vi.fn<StepFormProps['onDraft']>()
+    const props = { form: applyForm, today: TODAY, submitLabel: '신청하기', onSubmit: vi.fn() }
+    const { rerender } = render(<StepForm {...props} initial={draft(1, GUARDIAN)} onDraft={first} />)
+    rerender(<StepForm {...props} initial={draft(1, GUARDIAN)} onDraft={second} />)
+
+    popstate(entry(0, 0))
+
+    expect(groupId()).toBe('guardian')
+    expect(second).toHaveBeenLastCalledWith({ answers: GUARDIAN, groupIndex: 0, submissionId: ID })
+    expect(first).not.toHaveBeenCalled()
   })
 
   it('이 양식·이 신청의 칸이 아닌 popstate 는 따르지 않는다', () => {
