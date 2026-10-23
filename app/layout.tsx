@@ -15,8 +15,15 @@ const pretendard = localFont({
   display: 'swap',
 })
 
+// 카카오톡 같은 곳에 링크를 붙였을 때 보이는 미리보기. 사진은 public/og.jpg 다.
 export const metadata: Metadata = {
   title: shop.ogTitle,
+  description: shop.ogDescription,
+  openGraph: {
+    title: shop.ogTitle,
+    description: shop.ogDescription,
+    images: ['/og.jpg'],
+  },
 }
 
 export const viewport: Viewport = {
@@ -27,7 +34,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko" className={pretendard.className}>
-      <body>{children}</body>
+      <body>
+        <main>{children}</main>
+      </body>
     </html>
   )
 }
