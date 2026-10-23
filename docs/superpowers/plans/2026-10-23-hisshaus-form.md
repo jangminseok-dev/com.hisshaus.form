@@ -280,7 +280,7 @@ README.md                    설정·운영 안내
 
 **Interfaces:**
 ```ts
-export interface Draft { answers: Answers; groupIndex: number; submissionId: string }
+export interface Draft { answers: Answers; groupIndex: number; submissionId: string; key: string }  // key: 초안마다 새로 만드는 이력 열쇠(실행 중 판정, Task 10 수정)
 export function loadDraft(formId: 'apply' | 'survey'): Draft | null
 export function saveDraft(formId, d: Draft): void
 export function clearDraft(formId): void
