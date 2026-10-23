@@ -21,4 +21,9 @@ describe('신청서 정의', () => {
     const services = allQuestions(applyForm).find((x) => x.id === 'services')!
     expect(services.options).toContain(TRAINING_SERVICE)
   })
+
+  it('신청서 문항은 전부 필수다(2순위 날짜·시간대 제외)', () => {
+    const optional = allQuestions(applyForm).filter((q) => !q.required).map((q) => q.id)
+    expect(optional).toEqual(['wish2_date', 'wish2_slot'])
+  })
 })

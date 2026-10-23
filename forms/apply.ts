@@ -34,12 +34,12 @@ export const applyForm: FormDef = {
       title: '반려견',
       questions: [
         { id: 'pet_name', label: '반려견 이름', type: 'short', required: true },
-        { id: 'pet_breed', label: '견종', type: 'short', required: true },
-        { id: 'pet_age', label: '나이', type: 'short', required: true },
-        { id: 'pet_weight', label: '몸무게', type: 'short', required: true },
-        { id: 'pet_sex', label: '성별', type: 'single', required: false, options: ['남', '여'] },
-        { id: 'pet_neutered', label: '반려견 중성화 여부', type: 'single', required: false, options: OX },
-        { id: 'pet_vaccinated', label: '예방접종 유무', type: 'single', required: false, options: OX },
+        { id: 'pet_breed', label: '반려견 견종', type: 'short', required: true },
+        { id: 'pet_age', label: '반려견 나이', type: 'short', required: true },
+        { id: 'pet_weight', label: '반려견 몸무게', type: 'short', required: true },
+        { id: 'pet_sex', label: '반려견 성별', type: 'single', required: true, options: ['남', '여'] },
+        { id: 'pet_neutered', label: '반려견 중성화 여부', type: 'single', required: true, options: OX },
+        { id: 'pet_vaccinated', label: '예방접종 유무', type: 'single', required: true, options: OX },
         { id: 'pet_health', label: '질병, 질환 등 건강상태에 대해 알려주세요.', type: 'long', required: true },
         { id: 'pet_treatment', label: '최근 수술 또는 치료 이력이 있으면 알려주세요.', type: 'long', required: true },
         {
@@ -63,7 +63,7 @@ export const applyForm: FormDef = {
         { id: 'wish2_slot', label: '시간대', type: 'single', required: false, options: SLOTS },
         {
           id: 'services',
-          label: '원하시는 서비스',
+          label: '히스하우스 이용 서비스',
           type: 'multi',
           required: true,
           options: ['Grooming 미용', 'Daycare 데이케어', 'Hotel 호텔', TRAINING_SERVICE],
