@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { viewport } from '../app/layout'
 import { metadata as surveyMetadata } from '../app/survey/page'
 import { Done } from '../components/Done'
 import { Landing } from '../components/Landing'
@@ -12,6 +13,8 @@ import { loadDraft, loadSession, saveDraft, saveSession, type ApplySession } fro
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => router }))
+// next/font/local 은 Next 컴파일러가 바꿔 쓰는 함수라 그대로 부르면 던진다. app/layout.tsx 를 읽으려고 대신한다.
+vi.mock('next/font/local', () => ({ default: () => ({ className: 'font' }) }))
 
 const fetchMock = vi.fn<typeof fetch>()
 const reply = (status: number, body?: object) => new Response(body === undefined ? null : JSON.stringify(body), { status })
@@ -303,6 +306,12 @@ describe('검사지 완료 화면', () => {
     expect(screen.getByText('히스하우스가 내용을 확인하고 연락드려요.')).toBeInTheDocument()
     expect(container.textContent).not.toContain('입니다')
     expect(container.textContent).not.toContain('됩니다')
+  })
+})
+
+describe('화면 맞춤(viewport)', () => {
+  it('화면을 기기 끝까지 채운다(viewport-fit=cover) — 아래 고정 막대의 안전 영역 여백은 CSS 가 비운다', () => {
+    expect(viewport).toEqual({ width: 'device-width', initialScale: 1, viewportFit: 'cover' })
   })
 })
 

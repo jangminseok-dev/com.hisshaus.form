@@ -276,6 +276,11 @@ test('허니팟은 비어 있고 name 이 없다', async ({ page }) => {
   await expect(honeypot).toHaveValue('')
 })
 
+test('viewport 는 기기 화면 끝까지 채운다(viewport-fit=cover)', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /viewport-fit=cover/)
+})
+
 test('첫 화면에 og:image 가 있다', async ({ page, request }) => {
   await page.goto('/')
   const meta = page.locator('meta[property="og:image"]')

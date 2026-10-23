@@ -26,9 +26,12 @@ export const metadata: Metadata = {
   },
 }
 
+// viewportFit 'cover': 화면을 기기 화면 끝까지 채운다(아이폰의 홈 표시줄 자리 포함). 가려질 수 있는 자리는 안전 영역 여백으로
+// 비우는데, 아래 고정 막대(StepForm·첫 화면)와 화면 아래 여백이 이미 env(safe-area-inset-bottom) 을 더한다. 실기기 확인 항목이다.
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
