@@ -18,7 +18,7 @@
 - `process.env` 는 `lib/config.ts` 에서만 읽는다. 환경변수 셋: `SLACK_WEBHOOK_URL`, `GOOGLE_SERVICE_ACCOUNT_JSON`(base64), `GOOGLE_SHEET_ID`.
 - 웹훅 주소·키·답변 내용·요청 본문을 `console.*` 에 넣지 않는다. 로그에는 "슬랙 전송 실패" + 신청 ID 만.
 - 폴더는 `app` · `components` · `forms` · `content` · `lib` · `public` · `tests` · `scripts` · `docs` 만.
-- 주석·테스트 이름·커밋 메시지는 한국어. 커밋 메시지 끝에 `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` 를 붙인다.
+- 주석·테스트 이름·커밋 메시지는 한국어. 커밋 메시지 끝에 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` 를 붙인다.
 - 답변 글자 수 상한: 짧은 답(`short`·`email`·`phone`·기타 입력) 200자, 긴 답(`long`) 3,000자. 서버가 검증한다.
 - 신청 ID: 브라우저가 만든 영숫자 10자(`^[A-Za-z0-9]{10}$`). 서버는 형식만 본다.
 - 시트 탭 이름 `예약신청` · `검사지`. 맨 앞 두 열은 `접수 시각`(KST, `YYYY-MM-DD HH:mm:ss`) · `신청 ID`.
