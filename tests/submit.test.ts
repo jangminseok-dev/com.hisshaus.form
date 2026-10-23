@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { applyForm } from '../forms/apply'
-import { allQuestions } from '../forms/rules'
+import { allQuestions, isVisible } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import { sheetRow } from '../lib/sheet-row'
 import type { SheetTab } from '../lib/sheets'
@@ -218,6 +218,9 @@ describe('신청서 제출', () => {
 })
 
 describe('검사지 제출', () => {
+  // 시트 행에서 그 문항 답의 위치: 접수 시각·신청 ID 다음부터 정의 순서
+  const column = (id: string) => 2 + allQuestions(surveyForm).findIndex((q) => q.id === id)
+
   it('검사지는 검사지 탭에 쓴다', async () => {
     const { events, appendRow, sendSlack, deps } = fakes()
     const answers = validAnswers(surveyForm)
@@ -232,8 +235,9 @@ describe('검사지 제출', () => {
   it('검사지가 여러 통이어도 sendSlack 은 한 번에 통째로 받는다', async () => {
     const { sendSlack, deps } = fakes()
     // 긴 답 문항을 3,000자로 채워 여러 통으로 나뉘게 한다. 통 사이 간격은 sendSlack 이 맡는다.
-    const long = allQuestions(surveyForm).filter((q) => q.type === 'long')
-    const answers = { ...validAnswers(surveyForm), ...Object.fromEntries(long.map((q) => [q.id, '가'.repeat(3000)])) }
+    const base = validAnswers(surveyForm)
+    const long = allQuestions(surveyForm).filter((q) => q.type === 'long' && isVisible(q, base))
+    const answers = { ...base, ...Object.fromEntries(long.map((q) => [q.id, '가'.repeat(3000)])) }
     expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
     expect(sendSlack).toHaveBeenCalledTimes(1)
     const sent = sendSlack.mock.calls[0][0]
@@ -282,6 +286,58 @@ describe('검사지 제출', () => {
     expect(result.status === 'invalid' && result.errors.length).toBeGreaterThan(0)
     expect(appendRow).not.toHaveBeenCalled()
     expect(sendSlack).not.toHaveBeenCalled()
+  })
+
+  it('숨은 문항의 답은 시트·슬랙에서 빠진다', async () => {
+    const { appendRow, sendSlack, deps } = fakes()
+    // q59·q81 이 '아니오' 라서 긴 답 문항 q60·q82 는 숨은 문항이다. 화면이 옛 답을 지우지 않은 경우를 흉내 낸다.
+    const visible = { ...validAnswers(surveyForm), q59: '아니오', q81: '아니오' }
+    const hidden = '숨'.repeat(40_000)
+    const answers = { ...visible, q60: hidden, q82: hidden }
+    expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+
+    const row = appendRow.mock.calls[0][1]
+    expect(row[column('q60')]).toBe('')
+    expect(row[column('q82')]).toBe('')
+    expect(row.every((cell) => !cell.includes('숨'.repeat(100)))).toBe(true)
+    expect(row).toEqual(sheetRow(surveyForm, visible, meta))
+
+    // 슬랙은 숨은 답이 없을 때와 똑같은 메시지다(40,000자가 통 수를 늘리지 않는다).
+    const sent = sendSlack.mock.calls[0][0]
+    expect(JSON.stringify(sent)).not.toContain('숨'.repeat(100))
+    expect(sent).toEqual(surveyMessages(visible, meta))
+  })
+
+  it('숨은 선택 문항에 선택지 밖 값이 와도 거부하지 않고 버린다', async () => {
+    const { appendRow, deps } = fakes()
+    // q49 가 '아니오' 면 q50(복수 선택) 이, q61 이 '아니오' 면 q62(단일 선택) 가 숨는다.
+    const visible = { ...validAnswers(surveyForm), q49: '아니오', q61: '아니오' }
+    const answers = { ...visible, q50: ['선택지 밖 값'], q62: '선택지 밖 값' }
+    expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+    const row = appendRow.mock.calls[0][1]
+    expect(row[column('q50')]).toBe('')
+    expect(row[column('q62')]).toBe('')
+    expect(row.some((cell) => cell.includes('선택지 밖 값'))).toBe(false)
+  })
+
+  it('보이는 조건부 문항의 답은 그대로 간다', async () => {
+    const { appendRow, sendSlack, deps } = fakes()
+    const answers = { ...validAnswers(surveyForm), q81: '네', q82: '작년에 슬개골 수술을 받았어요' }
+    expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+    expect(appendRow.mock.calls[0][1][column('q82')]).toBe('작년에 슬개골 수술을 받았어요')
+    expect(appendRow).toHaveBeenCalledWith('검사지', sheetRow(surveyForm, answers, meta))
+    expect(JSON.stringify(sendSlack.mock.calls[0][0])).toContain('작년에 슬개골 수술을 받았어요')
+  })
+
+  it('보이는 문항의 답은 그대로 검증하고 숨은 문항은 검증하지 않는다', async () => {
+    const { appendRow, deps } = fakes()
+    // 보이는 q82 가 3,000자를 넘으면 거부한다. 숨은 q82 면 같은 값이어도 통과한다(버려지므로).
+    const tooLong = '숨'.repeat(3001)
+    const whenShown = await submitSurvey({ submissionId: ID, answers: { ...validAnswers(surveyForm), q81: '네', q82: tooLong } }, deps)
+    expect(whenShown.status === 'invalid' && whenShown.errors).toEqual([{ questionId: 'q82', message: '3,000자까지 적을 수 있어요' }])
+    expect(appendRow).not.toHaveBeenCalled()
+    const whenHidden = await submitSurvey({ submissionId: ID, answers: { ...validAnswers(surveyForm), q81: '아니오', q82: tooLong } }, deps)
+    expect(whenHidden).toEqual({ status: 'ok' })
   })
 
   it('q2 에서 동의하지 않음을 고르면 invalid 이다', async () => {

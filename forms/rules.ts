@@ -31,3 +31,14 @@ export function blockedBy(group: Group, a: Answers): { questionId: string; messa
 export function allQuestions(form: FormDef): Question[] {
   return form.groups.flatMap((g) => g.questions)
 }
+
+/** 보이는 문항의 답만 남긴 새 답 맵. 숨은 문항의 답과 양식에 없는 키는 버린다. */
+export function visibleAnswers(form: FormDef, a: Answers): Answers {
+  const shown: Answers = {}
+  // 부모는 자식보다 앞에 정의된다. 받은 답이 아니라 지금까지 걸러 만든 결과로 보이는지 따져야
+  // 숨은 부모의 옛 답 때문에 자식이 보이는 것으로 잘못 가려지지 않는다.
+  for (const q of allQuestions(form)) {
+    if (isVisible(q, shown) && a[q.id] !== undefined) shown[q.id] = a[q.id]
+  }
+  return shown
+}

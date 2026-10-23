@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyForm } from '../forms/apply'
-import { blockedBy, isRequired, isVisible } from '../forms/rules'
+import { blockedBy, isRequired, isVisible, visibleAnswers } from '../forms/rules'
 import type { Answers, FormDef, Group } from '../forms/types'
 import { validateForm, validateGroup } from '../lib/validate'
 
@@ -97,6 +97,21 @@ const fake: FormDef = {
     },
   ],
 }
+const chain: FormDef = {
+  id: 'survey',
+  title: '사슬',
+  groups: [
+    {
+      id: 'g',
+      title: 'g',
+      questions: [
+        { id: 'p', label: 'p', type: 'single', required: true, options: ['예', '아니오'] },
+        { id: 'q', label: 'q', type: 'short', required: false, showIf: { questionId: 'p', equals: '예' } },
+        { id: 'r', label: 'r', type: 'short', required: false, showIf: { questionId: 'q', equals: '네' } },
+      ],
+    },
+  ],
+}
 const g: Group = fake.groups[0]
 const [qa, qb, , qc] = g.questions
 
@@ -121,5 +136,37 @@ describe('규칙', () => {
     expect(blockedBy(g, a)).toEqual({ questionId: 'a', message: '이용할 수 없어요' })
     expect(msg(validateGroup(g, a, TODAY), 'a')).toBe('이용할 수 없어요')
     expect(blockedBy(g, { a: '예' })).toBeNull()
+  })
+
+  it('visibleAnswers: showIf 가 안 맞는 문항의 답은 빠지고 맞으면 남는다', () => {
+    const a: Answers = { a: '아니오', b: '숨은 답', m: ['y'], c: 'z' }
+    expect(visibleAnswers(fake, a)).toEqual({ a: '아니오', m: ['y'], c: 'z' })
+    expect(visibleAnswers(fake, { ...a, a: '예' })).toEqual({ a: '예', b: '숨은 답', m: ['y'], c: 'z' })
+    // 부모 답이 아예 없어도 자식은 숨은 것이다.
+    expect(visibleAnswers(fake, { b: '숨은 답' })).toEqual({})
+  })
+
+  it('visibleAnswers: optionalIfOnly 로 숨은 문항의 답도 빠진다', () => {
+    expect(visibleAnswers(fake, { m: ['x'], c: '숨은 답' })).toEqual({ m: ['x'] })
+    expect(visibleAnswers(fake, { m: ['x', 'y'], c: '보이는 답' })).toEqual({ m: ['x', 'y'], c: '보이는 답' })
+  })
+
+  it('visibleAnswers: 양식에 없는 키는 빠진다', () => {
+    const a: Answers = { a: '예', 없는키: '버려요', constructor: '이것도' }
+    expect(visibleAnswers(fake, a)).toEqual({ a: '예' })
+  })
+
+  it('visibleAnswers: 부모가 숨으면 자식도 숨는다(걸러 낸 결과를 기준으로 본다)', () => {
+    // 손자 r 의 조건(q 가 '네')은 받은 답으로는 맞지만, q 가 p 때문에 숨었으니 r 도 숨은 것이다.
+    const stale: Answers = { p: '아니오', q: '네', r: '손자 답' }
+    expect(visibleAnswers(chain, stale)).toEqual({ p: '아니오' })
+    expect(visibleAnswers(chain, { ...stale, p: '예' })).toEqual({ p: '예', q: '네', r: '손자 답' })
+  })
+
+  it('visibleAnswers: 받은 답을 바꾸지 않고 새 객체를 돌려준다', () => {
+    const a: Answers = { a: '아니오', b: '숨은 답' }
+    const shown = visibleAnswers(fake, a)
+    expect(shown).not.toBe(a)
+    expect(a).toEqual({ a: '아니오', b: '숨은 답' })
   })
 })

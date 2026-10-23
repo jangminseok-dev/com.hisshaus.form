@@ -1,4 +1,5 @@
 import { applyForm } from '../forms/apply'
+import { visibleAnswers } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import type { Answers, FormDef } from '../forms/types'
 import { nowKst, todayKst } from './format'
@@ -40,7 +41,7 @@ function isAnswers(v: unknown): v is Answers {
 }
 
 /**
- * 신청서·검사지 공통 순서: 허니팟 → 본문 모양·ID·답변 검증 → 시트 → 슬랙.
+ * 신청서·검사지 공통 순서: 허니팟 → 본문 모양·ID → 숨은 문항의 답 버리기 → 답변 검증 → 시트 → 슬랙.
  * 로그에는 "무엇이 실패했나 + 신청 ID" 만 남긴다. 오류 객체·답변·요청 본문·주소는 찍지 않는다.
  */
 async function submitForm(
@@ -53,8 +54,11 @@ async function submitForm(
   if (!isObject(body)) return invalid()
   // 허니팟: 사람 눈에 안 보이는 칸이다. 값이 있으면 봇이니 성공한 척 조용히 끝낸다.
   if (body.website) return { status: 'ok' }
-  const { submissionId, answers } = body
-  if (!isSubmissionId(submissionId) || !isAnswers(answers)) return invalid()
+  const { submissionId, answers: given } = body
+  if (!isSubmissionId(submissionId) || !isAnswers(given)) return invalid()
+  // 숨은 문항의 답은 거부하지 않고 조용히 버린다: 화면이 옛 답을 지우지 않았을 뿐인 보호자를 막지 않으려는 것이다.
+  // 검증은 숨은 문항을 건너뛰고 행·메시지는 숨김을 따지지 않으므로, 여기서 걸러야 길이·선택지 검증을 못 피한다.
+  const answers = visibleAnswers(form, given)
 
   // 검사지만 신청 ID 를 이어서 받는다. 없는 것(undefined·null·'')은 괜찮고, 있으면 형식이 맞아야 한다.
   let applyId: string | undefined
