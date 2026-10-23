@@ -98,6 +98,23 @@ describe('시트 추가', () => {
     expect(err.cause).toBeUndefined()
     expect(calls).toHaveLength(0)
   })
+
+  it('SHEETS_BASE_URL 이 있으면 구글 대신 그 주소의 같은 경로로 append 한다 (테스트용)', async () => {
+    vi.stubEnv('SHEETS_BASE_URL', 'http://127.0.0.1:3031')
+    const { calls, fetch } = setup()
+    await appendRow('예약신청', ['가'], { fetch, token })
+    const range = encodeURIComponent("'예약신청'!A1")
+    expect(calls[0].url).toBe(
+      `http://127.0.0.1:3031/v4/spreadsheets/sheet123/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    )
+  })
+
+  it('토큰 함수를 주면 SHEETS_FAKE_TOKEN 이 있어도 주어진 것을 쓴다', async () => {
+    vi.stubEnv('SHEETS_FAKE_TOKEN', 'e2e-token')
+    const { calls, fetch } = setup()
+    await appendRow('예약신청', ['가'], { fetch, token })
+    expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer tok')
+  })
 })
 
 describe('시트 추가: 실제 토큰', () => {
@@ -151,5 +168,30 @@ describe('시트 추가: 실제 토큰', () => {
     const err = await thrown(fresh('예약신청', ['가'], { fetch }))
     expect(err.message).toBe('sheets')
     expect(calls).toHaveLength(0)
+  })
+
+  describe('테스트용 변수', () => {
+    it('SHEETS_FAKE_TOKEN 이 있으면 서비스 계정 없이 JWT 를 만들지 않고 그 값을 Bearer 로 쓴다', async () => {
+      const getAccessToken = vi.fn(async () => ({ token: 'jwt-tok' }))
+      const { made, appendRow: fresh } = await freshSheets(getAccessToken)
+      vi.stubEnv('GOOGLE_SERVICE_ACCOUNT_JSON', '')
+      vi.stubEnv('SHEETS_FAKE_TOKEN', 'e2e-token')
+      const { calls, fetch } = setup()
+      await fresh('예약신청', ['가'], { fetch })
+      expect(made).toEqual([])
+      expect(getAccessToken).not.toHaveBeenCalled()
+      expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer e2e-token')
+    })
+
+    it('운영(NODE_ENV=production)이면 SHEETS_BASE_URL·SHEETS_FAKE_TOKEN 을 무시하고 구글 주소와 서비스 계정 토큰을 쓴다', async () => {
+      const { appendRow: fresh } = await freshSheets(async () => ({ token: 'jwt-tok' }))
+      vi.stubEnv('NODE_ENV', 'production')
+      vi.stubEnv('SHEETS_BASE_URL', 'http://127.0.0.1:3031')
+      vi.stubEnv('SHEETS_FAKE_TOKEN', 'e2e-token')
+      const { calls, fetch } = setup()
+      await fresh('예약신청', ['가'], { fetch })
+      expect(calls[0].url.startsWith('https://sheets.googleapis.com/v4/spreadsheets/sheet123/values/')).toBe(true)
+      expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer jwt-tok')
+    })
   })
 })

@@ -1,5 +1,5 @@
 import { JWT } from 'google-auth-library'
-import { serviceAccount, sheetId } from './config'
+import { serviceAccount, sheetId, sheetsBaseUrl, sheetsFakeToken } from './config'
 
 export type SheetTab = '예약신청' | '검사지'
 
@@ -39,13 +39,15 @@ async function accessToken(): Promise<string> {
  */
 export async function appendRow(tab: SheetTab, row: string[], deps: SheetsDeps = {}): Promise<void> {
   const post = deps.fetch ?? fetch
-  const getToken = deps.token ?? accessToken
+  // 테스트용 고정 토큰이 있으면 JWT 를 만들지 않는다(운영에서는 config 가 항상 없다고 답한다).
+  const fakeToken = sheetsFakeToken()
+  const getToken = deps.token ?? (fakeToken ? async () => fakeToken : accessToken)
   let ok = false
   try {
     const token = await getToken()
     const range = encodeURIComponent(`'${tab}'!A1`)
     // RAW: 보호자가 =IMPORTXML(...) 같은 걸 적어도 수식이 아니라 글자로 저장된다. USER_ENTERED 로 바꾸지 않는다.
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId()}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`
+    const url = `${sheetsBaseUrl()}/v4/spreadsheets/${sheetId()}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`
     const res = await post(url, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

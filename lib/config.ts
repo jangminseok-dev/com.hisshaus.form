@@ -30,3 +30,20 @@ export function serviceAccount(): { clientEmail: string; privateKey: string } {
     throw new Error(`환경 변수 ${name} 을 읽을 수 없다.`)
   }
 }
+
+// 아래 둘은 e2e 가 진짜 시트 대신 가짜 서비스를 부를 때만 쓰는 테스트용 선택 변수다. 없어도 던지지 않는다.
+// 운영(NODE_ENV=production)에서는 있어도 읽지 않는다: 운영 환경 변수에 잘못 남아도 보호자 정보가 다른 주소로 가지 않게 한다.
+function testOnly(name: string): string | undefined {
+  if (process.env.NODE_ENV === 'production') return undefined
+  return process.env[name] || undefined
+}
+
+/** 구글 시트 API 주소의 앞부분(끝에 / 없이). 테스트용 SHEETS_BASE_URL 이 있으면 그것. */
+export function sheetsBaseUrl(): string {
+  return testOnly('SHEETS_BASE_URL') ?? 'https://sheets.googleapis.com'
+}
+
+/** 서비스 계정 JWT 대신 쓸 고정 토큰. 테스트용 SHEETS_FAKE_TOKEN 이 있을 때만 값이 있다. */
+export function sheetsFakeToken(): string | undefined {
+  return testOnly('SHEETS_FAKE_TOKEN')
+}
