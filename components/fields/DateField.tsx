@@ -17,6 +17,7 @@ export function DateField({ q, value, error, onChange, today }: FieldProps & { t
         onChange={(e) => onChange(e.target.value)}
         aria-describedby={describedBy(q, error)}
         aria-invalid={error ? true : undefined}
+        aria-required={q.required || undefined}
       />
     </Frame>
   )

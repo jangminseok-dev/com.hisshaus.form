@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -430,5 +432,52 @@ describe('오류·안내·표시', () => {
     expect(screen.queryByText('선택')).not.toBeInTheDocument()
     renderField(singleQ)
     expect(screen.queryByText('선택')).not.toBeInTheDocument()
+  })
+})
+
+describe('필수 여부를 보조 기기에 알린다', () => {
+  // 화면은 선택 문항에만 '선택' 을 붙이고 필수에는 표시가 없다. 보조 기기는 입력의 aria-required 로 필수를 듣는다.
+  // 값은 StepForm 이 넘긴 지금의 필수 여부(q.required)다.
+  it.each([
+    ['짧은 답', shortQ],
+    ['연락처', phoneQ],
+    ['이메일', emailQ],
+    ['긴 답', longQ],
+    ['날짜', dateQ],
+    ['동의', consentQ],
+  ])('%s 입력은 필수면 aria-required 이고 선택이면 아니다', (_, base) => {
+    const { unmount } = renderField(base)
+    expect(screen.getByLabelText(base.label)).toHaveAttribute('aria-required', 'true')
+    unmount()
+    renderField({ ...base, required: false })
+    expect(screen.getByLabelText(base.label)).not.toHaveAttribute('aria-required')
+  })
+
+  it('단일 선택의 라디오 그룹은 필수면 aria-required 이고 선택이면 아니다', () => {
+    const { unmount } = renderField(singleQ)
+    expect(screen.getByRole('radiogroup')).toBeRequired()
+    unmount()
+    renderField({ ...singleQ, required: false })
+    expect(screen.getByRole('radiogroup')).not.toHaveAttribute('aria-required')
+  })
+
+  it('복수 선택 그룹에는 aria-required 를 달지 않는다 — ARIA 가 group 에서 지원하지 않고 크로미움도 버린다', () => {
+    renderField(multiQ)
+    expect(screen.getByRole('group')).not.toHaveAttribute('aria-required')
+  })
+
+  it('흐린 글자 색(--mute)은 흰 바탕과 대비가 4.5:1 이상이다', () => {
+    // '선택' 표시(13px)·진행 'k / N'(14px)·입력 안내 글이 이 색이다. 작은 글자의 기준(WCAG AA)이 4.5:1 이다.
+    const css = readFileSync(join(import.meta.dirname, '..', 'app', 'globals.css'), 'utf8')
+    const token = (name: string) => new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6});`).exec(css)![1]
+    const luminance = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => {
+        const c = parseInt(hex.slice(i, i + 2), 16) / 255
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+      })
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const [fg, bg] = [luminance(token('mute')), luminance(token('bg'))]
+    expect((Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05)).toBeGreaterThanOrEqual(4.5)
   })
 })

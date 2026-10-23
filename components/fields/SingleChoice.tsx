@@ -18,6 +18,7 @@ export function SingleChoice({ q, value, error, onChange }: FieldProps) {
         aria-labelledby={ids.label}
         aria-describedby={described}
         aria-invalid={error ? true : undefined}
+        aria-required={q.required || undefined}
         className={styles.chips}
       >
         {(q.options ?? []).map((option) => (

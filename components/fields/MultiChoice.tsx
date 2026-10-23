@@ -4,7 +4,10 @@ import { OTHER_PREFIX } from '../../lib/validate'
 import styles from './Field.module.css'
 import { Chip, describedBy, fieldIds, type FieldProps, Frame, isOtherValue, OtherInput } from './parts'
 
-/** 여러 개 고르는 칩 묶음. 누를 때마다 켜고 끈다. 기타는 배열 안에 한 원소('기타: ' + 입력)뿐이다. */
+/**
+ * 여러 개 고르는 칩 묶음. 누를 때마다 켜고 끈다. 기타는 배열 안에 한 원소('기타: ' + 입력)뿐이다.
+ * 다른 필드와 달리 aria-required 를 달지 않는다: ARIA 가 group 역할에서 지원하지 않고 크로미움도 버린다.
+ */
 export function MultiChoice({ q, value, error, onChange }: FieldProps) {
   const ids = fieldIds(q)
   const picked = Array.isArray(value) ? value : []

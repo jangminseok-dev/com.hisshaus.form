@@ -922,12 +922,14 @@ describe('조건 문항', () => {
     setup({ initial: draft(2, validAnswers(applyForm)) })
     // 2순위는 날짜도 시간대도 선택이다.
     expect(within(box('wish2_slot')).getByText('선택')).toBeInTheDocument()
+    expect(within(box('wish2_slot')).getByRole('radiogroup')).not.toBeRequired()
     expect(isBlocked(action('submit'))).toBe(false)
 
     write('희망 날짜 2순위', '2026-10-30')
 
-    // 날짜를 고르면 시간대는 필수가 된다. 날짜 쪽은 여전히 선택이다.
+    // 날짜를 고르면 시간대는 필수가 된다(보조 기기에도). 날짜 쪽은 여전히 선택이다.
     expect(within(box('wish2_slot')).queryByText('선택')).not.toBeInTheDocument()
+    expect(within(box('wish2_slot')).getByRole('radiogroup')).toBeRequired()
     expect(within(box('wish2_date')).getByText('선택')).toBeInTheDocument()
     expect(isBlocked(action('submit'))).toBe(true)
     fireEvent.click(action('submit'))

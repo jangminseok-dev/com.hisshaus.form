@@ -23,6 +23,7 @@ export function ConsentField({ q, value, error, onChange }: FieldProps) {
           onChange={(e) => onChange(e.target.checked ? '동의' : '')}
           aria-describedby={describedBy(q, error, q.consentText ? textId : undefined)}
           aria-invalid={error ? true : undefined}
+          aria-required={q.required || undefined}
         />
         <label id={ids.label} htmlFor={ids.input} className={styles.checkLabel}>
           {q.label}

@@ -32,6 +32,7 @@ export function LongField({ q, value, error, onChange }: FieldProps) {
         onChange={(e) => onChange(e.target.value)}
         aria-describedby={describedBy(q, error)}
         aria-invalid={error ? true : undefined}
+        aria-required={q.required || undefined}
       />
     </Frame>
   )

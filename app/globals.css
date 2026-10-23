@@ -1,6 +1,7 @@
 :root {
   --ink: #1d1d1f;
-  --mute: #86868b;
+  /* 흰 바탕과 대비 5:1. '선택'(13px)·'k / N'(14px) 같은 작은 글자라 4.5:1 이상이어야 한다. */
+  --mute: #6e6e73;
   --line: #e5e5ea;
   --accent: #2f6f5e;
   --accent-ink: #ffffff;
