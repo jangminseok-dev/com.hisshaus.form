@@ -10,7 +10,7 @@ export const shop = {
   // 금액(10,000원)은 완료 화면 안내(components/Done.tsx)에도 적혀 있다. 바꾸면 둘 다 고친다.
   deposit: '10,000원 입금 시 확정',
   // 사장님이 채울 값: 첫 화면 큰 사진. 지금은 자리 표시 그림이다. public/hero.jpg 를 같은 이름으로 바꿔 넣는다.
-  // (카카오톡 링크 미리보기 그림은 public/og.jpg 이고 app/layout.tsx 가 가리킨다.)
+  // (카카오톡 링크 미리보기 그림은 public/og.jpg 이고 app/layout.tsx 와 app/survey/page.tsx 가 가리킨다.)
   heroImage: '/hero.jpg',
   ogTitle: '히스하우스 예약 신청',
   ogDescription: '히스하우스 예약 신청서를 작성해 주세요.',
