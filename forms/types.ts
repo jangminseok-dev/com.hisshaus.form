@@ -15,6 +15,8 @@ export interface Question {
   showIf?: { questionId: string; equals: string }
   /** 앞 문항이 그 값만 골랐으면 필수가 풀리고 숨는다 */
   optionalIfOnly?: { questionId: string; value: string }
+  /** 그 문항에 답이 있으면 required 가 거짓이어도 필수가 된다(예: 2순위 날짜를 골랐으면 2순위 시간대) */
+  requiredIf?: { questionId: string }
   /** 이 값이면 진행을 막는다(해요체 안내) */
   blockIf?: { value: string; message: string }
   /** consent 유형의 본문 */

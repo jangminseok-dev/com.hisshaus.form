@@ -1,4 +1,4 @@
-import { isRequired, isVisible } from '../forms/rules'
+import { isEmpty, isRequired, isVisible } from '../forms/rules'
 import type { Answers, FormDef, Group, Question } from '../forms/types'
 
 export interface FieldError {
@@ -10,10 +10,6 @@ export interface FieldError {
 export const SHORT_MAX = 200
 export const LONG_MAX = 3000
 export const OTHER_PREFIX = '기타: '
-
-function isEmpty(v: string | string[] | undefined): boolean {
-  return v === undefined || (Array.isArray(v) ? v.length === 0 : v.trim() === '')
-}
 
 function emptyMessage(q: Question): string {
   if (q.type === 'consent') return '동의해야 신청할 수 있어요'
@@ -85,10 +81,8 @@ export function validateGroup(group: Group, a: Answers, today: string): FieldErr
       errors.push({ questionId: q.id, message: q.blockIf!.message })
       continue
     }
-    // 특례: 2순위 날짜가 있으면 2순위 시간대도 필수.
-    const required = isRequired(q, a) || (q.id === 'wish2_slot' && !isEmpty(a['wish2_date']))
     if (isEmpty(v)) {
-      if (required) errors.push({ questionId: q.id, message: emptyMessage(q) })
+      if (isRequired(q, a)) errors.push({ questionId: q.id, message: emptyMessage(q) })
       continue
     }
     const message = checkValue(q, v!, today)

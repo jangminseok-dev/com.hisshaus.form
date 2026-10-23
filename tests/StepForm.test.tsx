@@ -665,4 +665,25 @@ describe('조건 문항', () => {
     expect(within(box('wish1_date')).queryByText('선택')).not.toBeInTheDocument()
     expect(screen.getByLabelText('희망 날짜 1순위')).toHaveAccessibleName('희망 날짜 1순위')
   })
+
+  it('2순위 날짜를 고르면 시간대의 선택 표시가 사라진다', () => {
+    setup({ initial: draft(2, validAnswers(applyForm)) })
+    // 2순위는 날짜도 시간대도 선택이다.
+    expect(within(box('wish2_slot')).getByText('선택')).toBeInTheDocument()
+    expect(isBlocked(action('submit'))).toBe(false)
+
+    write('희망 날짜 2순위', '2026-10-30')
+
+    // 날짜를 고르면 시간대는 필수가 된다. 날짜 쪽은 여전히 선택이다.
+    expect(within(box('wish2_slot')).queryByText('선택')).not.toBeInTheDocument()
+    expect(within(box('wish2_date')).getByText('선택')).toBeInTheDocument()
+    expect(isBlocked(action('submit'))).toBe(true)
+    fireEvent.click(action('submit'))
+    expect(within(box('wish2_slot')).getByRole('alert')).toHaveTextContent('하나를 골라 주세요')
+
+    // 날짜를 지우면 다시 선택이다.
+    write('희망 날짜 2순위', '')
+    expect(within(box('wish2_slot')).getByText('선택')).toBeInTheDocument()
+    expect(isBlocked(action('submit'))).toBe(false)
+  })
 })

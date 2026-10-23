@@ -29,6 +29,10 @@ describe('검사지 정의', () => {
     expect(qs.filter((x) => !x.required).map((x) => Number(x.id.slice(1)))).toEqual(optional)
   })
 
+  it('도입 안내에 없는 표시를 가리키는 "*표시는 필수 질문임" 줄이 없다', () => {
+    expect(surveyForm.groups[0].note).not.toContain('*표시는 필수 질문임')
+  })
+
   it('q84·q85 는 원문대로 선택이다', () => {
     expect(isRequired(q(84), { q83: ['미용실에서'] })).toBe(false)
     expect(isRequired(q(85), { q83: ['미용실에서'] })).toBe(false)

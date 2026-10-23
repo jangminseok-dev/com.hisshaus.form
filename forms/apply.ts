@@ -60,7 +60,15 @@ export const applyForm: FormDef = {
         { id: 'wish1_date', label: '희망 날짜 1순위', type: 'date', required: true },
         { id: 'wish1_slot', label: '시간대', type: 'single', required: true, options: SLOTS },
         { id: 'wish2_date', label: '희망 날짜 2순위', type: 'date', required: false },
-        { id: 'wish2_slot', label: '시간대', type: 'single', required: false, options: SLOTS },
+        // 2순위 날짜를 골랐으면 2순위 시간대도 필수다.
+        {
+          id: 'wish2_slot',
+          label: '시간대',
+          type: 'single',
+          required: false,
+          requiredIf: { questionId: 'wish2_date' },
+          options: SLOTS,
+        },
         {
           id: 'services',
           label: '히스하우스 이용 서비스',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyForm } from '../forms/apply'
-import { allQuestions, blockedBy, isRequired, isVisible, visibleAnswers } from '../forms/rules'
+import { allQuestions, blockedBy, isEmpty, isRequired, isVisible, visibleAnswers } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import type { Answers, FormDef, Group } from '../forms/types'
 import { validateForm, validateGroup } from '../lib/validate'
@@ -169,6 +169,94 @@ describe('규칙', () => {
     const shown = visibleAnswers(fake, a)
     expect(shown).not.toBe(a)
     expect(a).toEqual({ a: '아니오', b: '숨은 답' })
+  })
+})
+
+describe('isEmpty — 답이 없다는 판단은 한 곳', () => {
+  // each 는 배열 항목을 인자로 펼치므로 값 하나씩 한 겹 더 싼다(빈 배열·배열 답을 그대로 넘기려고).
+  it.each([[undefined], [''], ['   '], ['\t\n'], [[]]])('%j 는 비어 있다', (v) => {
+    expect(isEmpty(v)).toBe(true)
+  })
+
+  it.each([['가'], [' 가 '], [['x']]])('%j 는 비어 있지 않다', (v) => {
+    expect(isEmpty(v)).toBe(false)
+  })
+})
+
+describe('requiredIf — 앞 문항에 답이 있으면 필수', () => {
+  const wish2Slot = allQuestions(applyForm).find((q) => q.id === 'wish2_slot')!
+
+  it('2순위 시간대는 2순위 날짜를 골랐을 때만 필수다', () => {
+    expect(wish2Slot.required).toBe(false)
+    expect(wish2Slot.requiredIf).toEqual({ questionId: 'wish2_date' })
+    expect(isRequired(wish2Slot, {})).toBe(false)
+    expect(isRequired(wish2Slot, { wish2_date: '2026-10-30' })).toBe(true)
+  })
+
+  it('대상이 비었거나 공백뿐이면 선택이다', () => {
+    expect(isRequired(wish2Slot, { wish2_date: '' })).toBe(false)
+    expect(isRequired(wish2Slot, { wish2_date: '   ' })).toBe(false)
+  })
+
+  // 특례는 문항 정의에 있다. id 로 가리지 않는다.
+  const depends: FormDef = {
+    id: 'survey',
+    title: '조건',
+    groups: [
+      {
+        id: 'g',
+        title: 'g',
+        questions: [
+          { id: 'tags', label: 'tags', type: 'multi', required: false, options: ['x', 'y'] },
+          { id: 'why', label: 'why', type: 'short', required: false, requiredIf: { questionId: 'tags' } },
+          { id: 'gate', label: 'gate', type: 'single', required: false, options: ['예', '아니오'] },
+          {
+            id: 'hidden',
+            label: 'hidden',
+            type: 'short',
+            required: false,
+            requiredIf: { questionId: 'tags' },
+            showIf: { questionId: 'gate', equals: '예' },
+          },
+          { id: 'both', label: 'both', type: 'short', required: true, requiredIf: { questionId: 'tags' } },
+        ],
+      },
+    ],
+  }
+  const [, why, , hidden, both] = depends.groups[0].questions
+
+  it('대상이 배열이면 길이로 본다', () => {
+    expect(isRequired(why, { tags: [] })).toBe(false)
+    expect(isRequired(why, { tags: ['x'] })).toBe(true)
+  })
+
+  it('q.required 가 이미 참이면 대상과 상관없이 필수다', () => {
+    expect(isRequired(both, {})).toBe(true)
+    expect(isRequired(both, { tags: ['x'] })).toBe(true)
+  })
+
+  it('보이지 않는 문항은 대상에 답이 있어도 필수가 아니다', () => {
+    expect(isRequired(hidden, { tags: ['x'] })).toBe(false)
+    expect(isRequired(hidden, { tags: ['x'], gate: '예' })).toBe(true)
+  })
+
+  it('validateGroup 은 requiredIf 로 필수가 된 문항을 비웠으면 알린다', () => {
+    const g = depends.groups[0]
+    expect(msg(validateGroup(g, { tags: ['x'], both: '가' }, TODAY), 'why')).toBe('꼭 적어 주세요')
+    expect(msg(validateGroup(g, { tags: ['x'], both: '가', why: '가' }, TODAY), 'why')).toBeUndefined()
+    expect(msg(validateGroup(g, { tags: [], both: '가' }, TODAY), 'why')).toBeUndefined()
+  })
+
+  it('id 가 wish2_slot 이어도 requiredIf 가 없으면 필수가 아니다', () => {
+    const plain: Group = {
+      id: 'g',
+      title: 'g',
+      questions: [
+        { id: 'wish2_date', label: 'd', type: 'date', required: false },
+        { id: 'wish2_slot', label: 's', type: 'single', required: false, options: ['오전'] },
+      ],
+    }
+    expect(validateGroup(plain, { wish2_date: '2026-10-30' }, TODAY)).toEqual([])
   })
 })
 

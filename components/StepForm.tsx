@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-import { blockedBy, isVisible, visibleAnswers } from '../forms/rules'
+import { blockedBy, isRequired, isVisible, visibleAnswers } from '../forms/rules'
 import type { Answer, Answers, FormDef, Question } from '../forms/types'
 import type { Draft } from '../lib/draft'
 import { todayKst } from '../lib/format'
@@ -69,6 +69,9 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   // 필드 오류는 넘어가려 한 뒤에만 보인다. 막힘(blockIf) 안내는 곧바로 그 문항 아래에 보인다.
   const errorOf = (q: Question) =>
     showErrors || blocked?.questionId === q.id ? errors.find((e) => e.questionId === q.id)?.message : undefined
+
+  // 선택 표시는 지금 필수인지로 정한다. requiredIf 로 필수가 된 문항(2순위 시간대)은 선택이 아니다.
+  const asShown = (q: Question): Question => ({ ...q, required: isRequired(q, answers) })
 
   function emit(next: Answers, groupIndex: number) {
     onDraft({ answers: next, groupIndex, submissionId: initial.submissionId })
@@ -241,7 +244,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
         .map((q) => (
           <Field
             key={q.id}
-            q={q}
+            q={asShown(q)}
             value={answers[q.id]}
             error={errorOf(q)}
             today={todayNow}

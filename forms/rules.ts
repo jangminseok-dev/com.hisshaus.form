@@ -14,9 +14,15 @@ export function isVisible(q: Question, a: Answers): boolean {
   return true
 }
 
-/** 필수인가. 보이지 않으면 필수가 아니다. */
+/** 답이 없다. 없거나, 공백뿐인 글이거나, 빈 배열이다. 검증과 requiredIf 가 같은 판단을 쓴다. */
+export function isEmpty(v: string | string[] | undefined): boolean {
+  return v === undefined || (Array.isArray(v) ? v.length === 0 : v.trim() === '')
+}
+
+/** 필수인가. 보이지 않으면 필수가 아니다. requiredIf 의 문항에 답이 있으면 required 가 거짓이어도 필수다. */
 export function isRequired(q: Question, a: Answers): boolean {
-  return isVisible(q, a) && q.required
+  if (!isVisible(q, a)) return false
+  return q.required || (q.requiredIf !== undefined && !isEmpty(a[q.requiredIf.questionId]))
 }
 
 /** 보이는 문항 중 blockIf 값을 고른 첫 문항. 없으면 null. */
