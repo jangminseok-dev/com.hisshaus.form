@@ -1,4 +1,5 @@
 import type { Answers } from '../forms/types'
+import { isAnswers, isObject, isText, isTextList } from './guards'
 import { isSubmissionId } from './id'
 
 // 보호자가 창을 닫아도 같은 기기에서 이어 쓰게 하는 저장 층이다(브라우저 쪽에서 부른다).
@@ -56,20 +57,11 @@ function remove(key: string): void {
   }
 }
 
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
-
-const isText = (v: unknown): v is string => typeof v === 'string'
-
-const isTextList = (v: unknown): v is string[] => Array.isArray(v) && v.every(isText)
-
 // 저장된 값은 믿지 않는다. 옛 버전이 쓴 값이거나 손으로 고친 값이면 모양이 다를 수 있다.
 function isDraft(v: unknown): v is Draft {
   return (
     isObject(v) &&
-    isObject(v.answers) &&
-    Object.values(v.answers).every((a) => isText(a) || isTextList(a)) &&
+    isAnswers(v.answers) &&
     typeof v.groupIndex === 'number' &&
     Number.isInteger(v.groupIndex) &&
     v.groupIndex >= 0 &&

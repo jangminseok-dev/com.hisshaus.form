@@ -3,6 +3,7 @@ import { visibleAnswers } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import type { Answers, FormDef } from '../forms/types'
 import { nowKst, todayKst } from './format'
+import { isAnswers, isObject } from './guards'
 import { isSubmissionId } from './id'
 import { sheetRow, type Meta } from './sheet-row'
 import { appendRow as defaultAppendRow, type SheetTab } from './sheets'
@@ -28,17 +29,6 @@ export interface Deps {
 const NAME_MAX = 200
 
 const invalid = (): SubmitResult => ({ status: 'invalid', errors: [] })
-
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
-
-const isText = (v: unknown): v is string => typeof v === 'string'
-
-/** 값이 전부 문자열이거나 문자열 배열인 객체. 그 밖의 값은 검증기가 다루지 못한다. */
-function isAnswers(v: unknown): v is Answers {
-  return isObject(v) && Object.values(v).every((x) => isText(x) || (Array.isArray(x) && x.every(isText)))
-}
 
 /**
  * 신청서·검사지 공통 순서: 허니팟 → 본문 모양·ID → 숨은 문항의 답 버리기 → 답변 검증 → 시트 → 슬랙.
