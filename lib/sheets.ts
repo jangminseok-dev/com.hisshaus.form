@@ -17,7 +17,14 @@ let jwt: JWT | undefined
 async function accessToken(): Promise<string> {
   if (!jwt) {
     const { clientEmail, privateKey } = serviceAccount()
-    jwt = new JWT({ email: clientEmail, key: privateKey, scopes: [SCOPE] })
+    jwt = new JWT({
+      email: clientEmail,
+      key: privateKey,
+      scopes: [SCOPE],
+      // 토큰 요청에도 시트 POST 와 같은 제한을 건다(라이브러리 기본은 제한 없음).
+      // 한 시도마다의 제한이다: gaxios 가 시간 초과를 두 번 더 재시도해서 최악은 약 3배다.
+      transporterOptions: { timeout: TIMEOUT_MS },
+    })
   }
   const { token } = await jwt.getAccessToken()
   if (!token) throw new Error('토큰이 비어 있다')

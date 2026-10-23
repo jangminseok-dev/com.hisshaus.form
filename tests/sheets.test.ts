@@ -133,7 +133,12 @@ describe('시트 추가: 실제 토큰', () => {
     await fresh('예약신청', ['가'], { fetch })
     await fresh('검사지', ['나'], { fetch })
     expect(made).toEqual([
-      { email: 'sa@example.iam', key: 'FAKE-KEY', scopes: ['https://www.googleapis.com/auth/spreadsheets'] },
+      {
+        email: 'sa@example.iam',
+        key: 'FAKE-KEY',
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        transporterOptions: { timeout: 10_000 },
+      },
     ])
     expect(getAccessToken).toHaveBeenCalledTimes(2)
     expect(calls).toHaveLength(2)
