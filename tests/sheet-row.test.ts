@@ -38,6 +38,13 @@ describe('시트 행', () => {
     }
   })
 
+  it('예약신청 헤더에 같은 이름의 칸이 없다', () => {
+    const h = sheetHeader(applyForm)
+    expect(new Set(h).size).toBe(h.length)
+    expect(h).toContain('1순위 시간대')
+    expect(h).toContain('2순위 시간대')
+  })
+
   it('검사지 행도 100칸이다', () => {
     expect(sheetHeader(surveyForm)).toHaveLength(100)
     expect(sheetRow(surveyForm, {}, meta)).toHaveLength(100)

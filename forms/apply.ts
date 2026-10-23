@@ -58,12 +58,12 @@ export const applyForm: FormDef = {
       note: '원하는 날짜와 시간대를 알려 주시면 가능한지 확인하고 연락드려요. 안 맞으면 함께 조율해요.',
       questions: [
         { id: 'wish1_date', label: '희망 날짜 1순위', type: 'date', required: true },
-        { id: 'wish1_slot', label: '시간대', type: 'single', required: true, options: SLOTS },
+        { id: 'wish1_slot', label: '1순위 시간대', type: 'single', required: true, options: SLOTS },
         { id: 'wish2_date', label: '희망 날짜 2순위', type: 'date', required: false },
         // 2순위 날짜를 골랐으면 2순위 시간대도 필수다.
         {
           id: 'wish2_slot',
-          label: '시간대',
+          label: '2순위 시간대',
           type: 'single',
           required: false,
           requiredIf: { questionId: 'wish2_date' },

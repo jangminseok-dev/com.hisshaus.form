@@ -17,6 +17,14 @@ describe('신청서 정의', () => {
     expect(q('wish2_slot').required).toBe(false)
   })
 
+  it('시간대 라벨은 순위를 달고 겹치지 않는다 — 시트 헤더와 화면에서 1·2순위가 가려진다', () => {
+    const q = (id: string) => allQuestions(applyForm).find((x) => x.id === id)!
+    expect(q('wish1_slot').label).toBe('1순위 시간대')
+    expect(q('wish2_slot').label).toBe('2순위 시간대')
+    const labels = allQuestions(applyForm).map((x) => x.label)
+    expect(new Set(labels).size).toBe(labels.length)
+  })
+
   it('서비스 선택지에 교육미용 상담이 있다', () => {
     const services = allQuestions(applyForm).find((x) => x.id === 'services')!
     expect(services.options).toContain(TRAINING_SERVICE)

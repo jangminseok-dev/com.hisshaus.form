@@ -60,6 +60,9 @@ test('신청서를 끝까지 쓰면 완료 화면이 뜨고 시트 한 줄·슬�
   expect(cell('개인정보 수집·이용 동의')).toBe('동의')
   expect(cell('반려견 이름')).toBe(pet)
   expect(cell('희망 날짜 1순위')).toBe(WISH_DATE)
+  // 시간대 칸은 순위로 가려진다. 도우미는 필수인 1순위에서 첫 칩을 고르고 선택인 2순위는 비워 둔다.
+  expect(cell('1순위 시간대')).toBe('오전')
+  expect(cell('2순위 시간대')).toBe('')
   expect(cell('히스하우스 이용 서비스')).toBe('Grooming 미용')
 
   const [message] = slack
