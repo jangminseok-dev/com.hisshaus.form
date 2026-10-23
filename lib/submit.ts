@@ -1,5 +1,5 @@
 import { applyForm } from '../forms/apply'
-import { visibleAnswers } from '../forms/rules'
+import { isEmpty, visibleAnswers } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import type { Answers, FormDef } from '../forms/types'
 import { nowKst, todayKst } from './format'
@@ -30,8 +30,13 @@ const NAME_MAX = 200
 
 const invalid = (): SubmitResult => ({ status: 'invalid', errors: [] })
 
+/** 비었다고 보는 답(공백뿐인 글·빈 배열)을 뺀 새 답 맵. */
+function withoutEmpty(a: Answers): Answers {
+  return Object.fromEntries(Object.entries(a).filter(([, v]) => !isEmpty(v)))
+}
+
 /**
- * 신청서·검사지 공통 순서: 허니팟 → 본문 모양·ID → 숨은 문항의 답 버리기 → 답변 검증 → 시트 → 슬랙.
+ * 신청서·검사지 공통 순서: 허니팟 → 본문 모양·ID → 숨은 문항의 답·빈 답 버리기 → 답변 검증 → 시트 → 슬랙.
  * 로그에는 "무엇이 실패했나 + 신청 ID" 만 남긴다. 오류 객체·답변·요청 본문·주소는 찍지 않는다.
  */
 async function submitForm(
@@ -48,7 +53,9 @@ async function submitForm(
   if (!isSubmissionId(submissionId) || !isAnswers(given)) return invalid()
   // 숨은 문항의 답은 거부하지 않고 조용히 버린다: 화면이 옛 답을 지우지 않았을 뿐인 보호자를 막지 않으려는 것이다.
   // 검증은 숨은 문항을 건너뛰고 행·메시지는 숨김을 따지지 않으므로, 여기서 걸러야 길이·선택지 검증을 못 피한다.
-  const answers = visibleAnswers(form, given)
+  // 빈 답(공백뿐인 글·빈 배열)도 같은 까닭으로 버린다: 검증은 '답 없음' 으로 보고 건너뛰는데 행·메시지에는 그대로 실려
+  // 공백이 시트 칸에 들어가고, 날짜 칸은 슬랙에서 날짜로 읽혀 깨진다. 버리면 시트는 '', 슬랙은 '—' 다.
+  const answers = withoutEmpty(visibleAnswers(form, given))
 
   // 검사지만 신청 ID 를 이어서 받는다. 없는 것(undefined·null·'')은 괜찮고, 있으면 형식이 맞아야 한다.
   let applyId: string | undefined

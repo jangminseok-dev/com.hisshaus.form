@@ -62,6 +62,9 @@ function checkValue(q: Question, v: string | string[], today: string): string | 
       if (!Array.isArray(v)) return '고를 수 없는 값이에요'
       if (v.some((x) => emptyOther(q, x))) return '기타 내용을 적어 주세요'
       if (!v.every((x) => allowedChoice(q, x))) return '고를 수 없는 값이에요'
+      // 화면은 같은 칩을 두 번 넣지 못하고 기타도 하나뿐이다. 같은 값을 거듭 넣거나 고를 수 있는 수보다 많은 답은
+      // 손으로 만든 요청이라 거부한다(남기면 시트 한 칸이 끝없이 길어진다).
+      if (new Set(v).size < v.length || v.length > (q.options?.length ?? 0) + (q.other ? 1 : 0)) return '고를 수 없는 값이에요'
       return v.some((x) => x.length > SHORT_MAX) ? tooShort : null
     case 'date':
       if (typeof v !== 'string' || !isRealDate(v)) return '날짜를 골라 주세요'

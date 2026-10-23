@@ -217,6 +217,67 @@ describe('신청서 제출', () => {
   })
 })
 
+describe('공백뿐인 선택 답', () => {
+  // 비었다고 보는 답(forms/rules 의 isEmpty: 공백뿐인 글·빈 배열)은 검증 전에 버린다. 검증은 그런 답을 '없음' 으로 보고
+  // 건너뛰므로, 남기면 길이·모양 검사 없이 공백이 시트 칸에 들어가고 날짜 칸은 슬랙에서 날짜 꼴로 읽혀 깨진다.
+  const columnOf = (form: typeof applyForm, id: string) => 2 + allQuestions(form).findIndex((q) => q.id === id)
+  const question = (form: typeof applyForm, id: string) => allQuestions(form).find((q) => q.id === id)!
+
+  it('신청서의 선택 날짜·선택 단일 선택이 공백뿐이면 ok 이고, 시트 칸은 비고 슬랙은 답이 없을 때와 같다', async () => {
+    const { appendRow, sendSlack, deps } = fakes()
+    expect([question(applyForm, 'wish2_date'), question(applyForm, 'wish2_slot')].map((q) => [q.type, q.required])).toEqual([
+      ['date', false],
+      ['single', false],
+    ])
+    const base = validAnswers(applyForm)
+    const answers = { ...base, wish2_date: '   ', wish2_slot: ' \t' }
+    expect(await submitApply({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+
+    const row = appendRow.mock.calls[0][1]
+    expect(row[columnOf(applyForm, 'wish2_date')]).toBe('')
+    expect(row[columnOf(applyForm, 'wish2_slot')]).toBe('')
+    expect(row).toEqual(sheetRow(applyForm, base, meta))
+
+    const sent = sendSlack.mock.calls[0][0]
+    expect(JSON.stringify(sent)).not.toMatch(/undefined|NaN/)
+    expect(JSON.stringify(sent)).toContain(`*${question(applyForm, 'wish2_date').label}*\\n—`)
+    expect(sent).toEqual(applyMessages(base, meta))
+  })
+
+  it('검사지의 선택 장문·선택 단일 선택이 공백뿐이면 ok 이고, 시트 칸은 비고 슬랙은 — 다', async () => {
+    const { appendRow, sendSlack, deps } = fakes()
+    // q32 는 조건 없는 선택 장문, q31 은 조건 없는 선택 단일 선택이다(원문에 필수 표시가 없다).
+    const long = question(surveyForm, 'q32')
+    const single = question(surveyForm, 'q31')
+    expect([long, single].map((q) => [q.type, q.required, q.showIf])).toEqual([
+      ['long', false, undefined],
+      ['single', false, undefined],
+    ])
+    const base = validAnswers(surveyForm)
+    const answers = { ...base, q32: ' '.repeat(2_000), q31: '\n' }
+    expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+
+    const row = appendRow.mock.calls[0][1]
+    expect(row[columnOf(surveyForm, 'q32')]).toBe('')
+    expect(row[columnOf(surveyForm, 'q31')]).toBe('')
+    expect(row).toEqual(sheetRow(surveyForm, base, meta))
+
+    const sent = JSON.stringify(sendSlack.mock.calls[0][0])
+    expect(sent).not.toContain(' '.repeat(100))
+    expect(sent).toContain(`*${long.label}*\\n—`)
+    expect(sendSlack).toHaveBeenCalledWith(surveyMessages(base, meta))
+  })
+
+  it('복수 선택에 같은 값을 거듭 넣으면 invalid 이고 시트·슬랙을 부르지 않는다', async () => {
+    const { appendRow, sendSlack, deps } = fakes()
+    const answers = { ...validAnswers(applyForm), services: Array(1_000).fill('Hotel 호텔') }
+    const result = await submitApply({ submissionId: ID, answers }, deps)
+    expect(result).toEqual({ status: 'invalid', errors: [{ questionId: 'services', message: '고를 수 없는 값이에요' }] })
+    expect(appendRow).not.toHaveBeenCalled()
+    expect(sendSlack).not.toHaveBeenCalled()
+  })
+})
+
 describe('검사지 제출', () => {
   // 시트 행에서 그 문항 답의 위치: 접수 시각·신청 ID 다음부터 정의 순서
   const column = (id: string) => 2 + allQuestions(surveyForm).findIndex((q) => q.id === id)

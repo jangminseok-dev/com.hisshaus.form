@@ -308,3 +308,32 @@ describe('기타 선택지', () => {
     expect(msg(validateGroup(pet, { pet_sex: '기타: 직접' }, TODAY), 'pet_sex')).toBe('고를 수 없는 값이에요')
   })
 })
+
+describe('복수 선택의 중복·개수', () => {
+  // 화면은 같은 칩을 두 번 넣지 못하고 기타도 하나뿐이다. 그 밖의 답은 손으로 만든 요청이다(시트 한 칸이 끝없이 길어진다).
+  const services = (v: string[]) => msg(validateGroup(visit, { services: v }, TODAY), 'services')
+  const multi = surveyForm.groups.find((g) => g.id === 'd')!
+  const q16 = allQuestions(surveyForm).find((q) => q.id === 'q16')!
+  const q16Of = (v: string[]) => msg(validateGroup(multi, { q16: v }, TODAY), 'q16')
+
+  it('같은 선택지가 두 번 있으면 고를 수 없는 값이다', () => {
+    expect(services(['Hotel 호텔', 'Hotel 호텔'])).toBe('고를 수 없는 값이에요')
+    expect(services(['Grooming 미용', 'Hotel 호텔', 'Grooming 미용'])).toBe('고를 수 없는 값이에요')
+  })
+
+  it('같은 기타 값이 두 번 있어도 고를 수 없는 값이다', () => {
+    expect(q16Of(['기타: 소파', '기타: 소파'])).toBe('고를 수 없는 값이에요')
+  })
+
+  it('선택지 수(기타가 있으면 하나 더)보다 많으면 고를 수 없는 값이다', () => {
+    // q16 은 선택지 다섯 + 기타다. 서로 다른 기타 값 둘로 일곱 개를 만든다.
+    expect(q16.options).toHaveLength(5)
+    expect(q16.other).toBe(true)
+    expect(q16Of([...q16.options!, '기타: 가', '기타: 나'])).toBe('고를 수 없는 값이에요')
+  })
+
+  it('선택지를 모두 고르고 기타 하나를 더해도 통과한다', () => {
+    expect(q16Of([...q16.options!, '기타: 가'])).toBeUndefined()
+    expect(services(applyForm.groups[2].questions.find((q) => q.id === 'services')!.options!)).toBeUndefined()
+  })
+})
