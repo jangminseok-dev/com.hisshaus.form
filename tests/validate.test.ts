@@ -30,6 +30,24 @@ describe('답변 검증', () => {
     expect(errs).toEqual([])
   })
 
+  // 숫자·공백·하이픈·괄호와 맨 앞의 + 만 받고, 숫자는 9자 이상이어야 한다.
+  const phone = (v: string) => msg(validateGroup(guardian, { guardian_name: '가', guardian_phone: v, privacy_consent: '동의' }, TODAY), 'guardian_phone')
+
+  it.each(['+82 10-1234-5678', '(02) 123-4567', '010 1234 5678', '010-1234-5678', '02-123-4567'])('연락처 %s 는 통과한다', (v) => {
+    expect(phone(v)).toBeUndefined()
+  })
+
+  it.each([
+    ['글자가 섞이면', '010-1234-567가'],
+    ['영문이 섞이면', '+82 10-ABCD-5678'],
+    ['+ 가 맨 앞이 아니면', '010+1234-5678'],
+    ['+ 가 둘이면', '++82 10-1234-5678'],
+    ['다른 기호가 섞이면', '010.1234.5678'],
+    ['숫자가 9자 미만이면', '(02) 123-456'],
+  ])('연락처는 %s 거부한다', (_, v) => {
+    expect(phone(v)).toBe('연락처를 다시 확인해 주세요')
+  })
+
   it('짧은 답 201자는 거부하고 200자는 통과한다', () => {
     const base: Answers = { guardian_name: 'a'.repeat(200), guardian_phone: '01012345678', privacy_consent: '동의' }
     expect(validateGroup(guardian, base, TODAY)).toEqual([])

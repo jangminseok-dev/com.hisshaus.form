@@ -50,7 +50,8 @@ function checkValue(q: Question, v: string | string[], today: string): string | 
     case 'phone': {
       if (typeof v !== 'string') return '연락처를 다시 확인해 주세요'
       if (v.length > SHORT_MAX) return tooShort
-      const ok = /^[0-9\- ]+$/.test(v) && v.replace(/\D/g, '').length >= 9
+      // 숫자·공백·하이픈·괄호, 맨 앞의 + 만 받는다(+82 10-1234-5678, (02) 123-4567). 숫자는 9자 이상.
+      const ok = /^\+?[0-9\-() ]+$/.test(v) && v.replace(/\D/g, '').length >= 9
       return ok ? null : '연락처를 다시 확인해 주세요'
     }
     case 'single':
