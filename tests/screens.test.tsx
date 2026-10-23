@@ -114,6 +114,28 @@ describe('검사지 안내', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
+  // 이미 취소했거나 검사지를 낸 사람이 주소로 다시 열어 '교육미용은 아니에요' 를 또 누르면 취소 알림이 한 통 더 간다.
+  it('교육미용을 취소한 세션이면 검사지 안내는 완료로 보낸다', () => {
+    saveSession({ ...session, training: false })
+    const { container } = render(<TrainingIntro />)
+
+    expect(router.replace).toHaveBeenCalledTimes(1)
+    expect(router.replace).toHaveBeenCalledWith('/apply/done')
+    // 안내를 잠깐도 보이지 않는다(눌러서 취소 알림을 또 보낼 버튼이 없다).
+    expect(container).toBeEmptyDOMElement()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('검사지를 이미 냈으면 검사지 안내는 완료로 보낸다', () => {
+    saveSession({ ...session, surveyDone: true })
+    const { container } = render(<TrainingIntro />)
+
+    expect(router.replace).toHaveBeenCalledTimes(1)
+    expect(router.replace).toHaveBeenCalledWith('/apply/done')
+    expect(container).toBeEmptyDOMElement()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('제목·문단·상자·버튼이 있다', async () => {
     saveSession(session)
     render(<TrainingIntro />)
@@ -156,6 +178,8 @@ describe('검사지 안내', () => {
     fireEvent.click(await screen.findByRole('button', { name: '교육미용은 아니에요' }))
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/apply/done'))
+    // 세션을 고쳐도(training:false) 안내의 가드가 완료로 한 번 더 보내지 않는다.
+    expect(router.replace).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/apply/cancel-training')

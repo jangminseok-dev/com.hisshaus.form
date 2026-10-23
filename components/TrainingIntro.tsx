@@ -1,20 +1,29 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { clearDraft, saveSession } from '../lib/draft'
 import { postJson } from '../lib/post'
 import { useApplySession } from '../lib/use-session'
 import styles from './Screen.module.css'
 
-/** 교육미용을 고른 신청이 접수된 뒤, 검사지를 이어서 쓸지 묻는 화면. 신청 세션이 있어야 열린다. */
+/**
+ * 교육미용을 고른 신청이 접수된 뒤, 검사지를 이어서 쓸지 묻는 화면. 신청 세션이 있어야 열린다. 이미 교육미용을 취소했거나 검사지를
+ * 낸 세션이 주소로 다시 열면 안내를 보이지 않고 완료 화면으로 보낸다. 그대로 두면 '교육미용은 아니에요' 를 또 눌러 취소 알림이
+ * 한 통 더 간다.
+ */
 export function TrainingIntro() {
   const router = useRouter()
   const session = useApplySession()
   const [busy, setBusy] = useState(false)
+  const notNeeded = session !== null && (!session.training || session.surveyDone)
 
-  if (!session) return null
+  useEffect(() => {
+    if (notNeeded) router.replace('/apply/done')
+  }, [notNeeded])
+
+  if (!session || notNeeded) return null
 
   // 잘못 눌렀을 때 빠져나오는 길이다. 슬랙에 취소 알림을 한 통 보내되, 알림이 실패해도 보호자를 막지 않는다.
   const notTraining = async () => {
