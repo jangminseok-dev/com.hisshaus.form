@@ -25,19 +25,13 @@ describe('검사지 정의', () => {
   })
 
   it('필수 표시가 원문과 같다', () => {
-    const optional = [31, 32, 44, 46, 47, 48, 50, 60, 62, 63, 70, 76, 78, 81, 82, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]
+    const optional = [31, 32, 44, 46, 47, 48, 50, 60, 62, 63, 70, 76, 78, 81, 82, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]
     expect(qs.filter((x) => !x.required).map((x) => Number(x.id.slice(1)))).toEqual(optional)
   })
 
-  it('q83 에서 없음만 고르면 q84·q85 가 필수가 아니다', () => {
-    expect(isRequired(q(84), { q83: ['없음'] })).toBe(false)
-    expect(isRequired(q(85), { q83: ['없음'] })).toBe(false)
-  })
-
-  it('없음과 다른 것을 같이 고르면 q84·q85 는 필수다', () => {
-    const a = { q83: ['없음', '미용실에서'] }
-    expect(isRequired(q(84), a)).toBe(true)
-    expect(isRequired(q(85), a)).toBe(true)
+  it('q84·q85 는 원문대로 선택이다', () => {
+    expect(isRequired(q(84), { q83: ['미용실에서'] })).toBe(false)
+    expect(isRequired(q(85), { q83: ['미용실에서'] })).toBe(false)
   })
 
   it('q2 에서 동의하지 않음을 고르면 진행이 막힌다', () => {
