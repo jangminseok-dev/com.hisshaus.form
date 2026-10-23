@@ -32,6 +32,9 @@ function list(a: Answers, id: string): string[] {
 export function ApplyFlow() {
   const router = useRouter()
   const website = useRef<HTMLInputElement>(null)
+  // 제출이 접수됐다. 다음 화면이 그려지기 전에도 이 화면은 입력·뒤로 가기를 받는데, 그때 초안을 다시 저장하면 다음에 열 때
+  // 낸 신청이 되살아나 같은 신청 ID 로 또 보내게 된다. 접수된 뒤의 초안 저장은 버린다.
+  const submitted = useRef(false)
   const [start, setStart] = useState<{ initial: Draft; today: string } | null>(null)
 
   useEffect(() => {
@@ -52,6 +55,7 @@ export function ApplyFlow() {
       website: website.current?.value ?? '',
     })
     if (result !== 'ok') return result
+    submitted.current = true
 
     const services = list(answers, 'services')
     const training = services.includes(TRAINING_SERVICE)
@@ -78,7 +82,9 @@ export function ApplyFlow() {
         initial={initial}
         today={today}
         submitLabel="신청하기"
-        onDraft={(d) => saveDraft('apply', d)}
+        onDraft={(d) => {
+          if (!submitted.current) saveDraft('apply', d)
+        }}
         onSubmit={submit}
         onBackFromFirst={() => router.push('/')}
       />

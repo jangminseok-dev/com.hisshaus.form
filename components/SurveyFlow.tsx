@@ -22,6 +22,8 @@ import { StepForm } from './StepForm'
 export function SurveyFlow() {
   const router = useRouter()
   const website = useRef<HTMLInputElement>(null)
+  // 제출이 접수됐다. 다음 화면이 그려지기 전의 입력·뒤로 가기로 초안이 되살아나지 않게 그 뒤의 초안 저장은 버린다.
+  const submitted = useRef(false)
   const [start, setStart] = useState<{ initial: Draft; session: ApplySession | null; today: string } | null>(null)
 
   useEffect(() => {
@@ -58,6 +60,7 @@ export function SurveyFlow() {
       website: website.current?.value ?? '',
     })
     if (result !== 'ok') return result
+    submitted.current = true
 
     clearDraft('survey')
     if (session) saveSession({ ...session, surveyDone: true })
@@ -73,7 +76,9 @@ export function SurveyFlow() {
         today={today}
         submitLabel="제출하기"
         // StepForm 이 알리는 초안에는 applyId 가 없으니 처음 받은 값을 붙여 저장한다.
-        onDraft={(d) => saveDraft('survey', { ...d, applyId: initial.applyId })}
+        onDraft={(d) => {
+          if (!submitted.current) saveDraft('survey', { ...d, applyId: initial.applyId })
+        }}
         onSubmit={submit}
         onBackFromFirst={() => router.push(session ? '/apply/done' : '/')}
       />

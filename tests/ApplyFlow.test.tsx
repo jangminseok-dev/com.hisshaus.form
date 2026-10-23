@@ -171,6 +171,19 @@ describe('제출', () => {
     expect(router.push).not.toHaveBeenCalled()
   })
 
+  it('제출이 접수된 뒤에는 화면이 바뀌기 전에 입력이 와도 초안을 다시 저장하지 않는다', async () => {
+    draftAtLastGroup()
+    render(<ApplyFlow />)
+    fireEvent.click(await submitButton())
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/apply/done'))
+    expect(loadDraft('apply')).toBeNull()
+
+    // 실제 Next 도 다음 화면이 그려지기 전까지는 이 화면이 입력·뒤로 가기를 받는다(여기서는 가짜 router 라 그대로 떠 있다).
+    // 그때 초안을 다시 저장하면 다음에 신청서를 열 때 낸 신청이 되살아나 같은 신청 ID 로 또 보내게 된다.
+    fireEvent.change(screen.getByLabelText('희망 날짜 2순위'), { target: { value: '2099-02-01' } })
+    expect(loadDraft('apply')).toBeNull()
+  })
+
   it('교육미용을 골랐으면 검사지 안내로 간다', async () => {
     draftAtLastGroup({ services: ['Grooming 미용', TRAINING_SERVICE] })
     render(<ApplyFlow />)

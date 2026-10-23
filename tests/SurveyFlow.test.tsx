@@ -261,6 +261,20 @@ describe('검사지 제출', () => {
     expect(router.push).not.toHaveBeenCalled()
   })
 
+  it('제출이 접수된 뒤에는 화면이 바뀌기 전에 입력이 와도 초안을 다시 저장하지 않는다', async () => {
+    saveSession(session)
+    draftAtLastGroup(APPLY_ID)
+    render(<SurveyFlow />)
+    fireEvent.click(await submitButton())
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/survey/done'))
+    expect(loadDraft('survey')).toBeNull()
+
+    // 다음 화면이 그려지기 전의 입력이다. 초안이 되살아나면 다음에 검사지를 열 때 낸 검사지가 이어진다.
+    const q98 = surveyForm.groups[lastGroup].questions.find((q) => q.id === 'q98')!
+    fireEvent.click(within(screen.getByRole('radiogroup', { name: q98.label })).getByRole('radio', { name: '아니오' }))
+    expect(loadDraft('survey')).toBeNull()
+  })
+
   it('세션 없이 제출해도 세션을 새로 만들지 않는다', async () => {
     draftAtLastGroup(OTHER_ID)
     render(<SurveyFlow />)
