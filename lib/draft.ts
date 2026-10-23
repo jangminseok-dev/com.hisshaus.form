@@ -20,12 +20,16 @@ import { isSubmissionId } from './id'
  * `key` 는 초안을 새로 만들 때마다 만드는 무작위 열쇠다(신청 ID 와 별개, 복원된 초안은 같은 열쇠를 유지한다). 방문 기록 칸이
  * 어느 초안의 것인지 가리는 데 쓴다. 검사지는 신청서의 신청 ID 를 그대로 쓰므로, 신청 ID 로는 지난 검사지가 남긴 칸과 새로
  * 연 검사지를 가릴 수 없다.
+ *
+ * `applyId` 는 검사지 초안에만 있다: 신청 세션이 있을 때 새로 만든 초안이면 그 신청 ID 다. 다른 신청의 세션에서 열리면
+ * 이 값으로 가려 버린다. 세션 없이 쓰기 시작한 초안에는 없고, 나중에 세션이 생겨도 버리지 않는다.
  */
 export interface Draft {
   answers: Answers
   groupIndex: number
   submissionId: string
   key: string
+  applyId?: string
 }
 
 /** 신청이 접수된 뒤 검사지 안내·완료 화면이 이어 받는 정보. */
@@ -89,7 +93,8 @@ function isDraft(v: unknown): v is Draft {
     Number.isInteger(v.groupIndex) &&
     v.groupIndex >= 0 &&
     isSubmissionId(v.submissionId) &&
-    isSubmissionId(v.key)
+    isSubmissionId(v.key) &&
+    (v.applyId === undefined || isSubmissionId(v.applyId))
   )
 }
 

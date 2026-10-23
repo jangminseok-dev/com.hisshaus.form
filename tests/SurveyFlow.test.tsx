@@ -113,6 +113,8 @@ describe('검사지를 열 때', () => {
 
     const saved = loadDraft('survey')!
     expect(saved.submissionId).toBe(APPLY_ID)
+    // 어느 신청에 묶인 초안인지 적어 둔다. 다른 신청의 세션에서 열리면 이 값으로 가려 버린다.
+    expect(saved.applyId).toBe(APPLY_ID)
     // 신청 ID 는 신청서와 같지만 초안은 새 것이라 방문 기록 칸의 주인을 가리는 열쇠가 따로 있다.
     expect(isSubmissionId(saved.key)).toBe(true)
     expect(saved.key).not.toBe(APPLY_ID)
@@ -130,13 +132,21 @@ describe('검사지를 열 때', () => {
     expect(isSubmissionId(saved.submissionId)).toBe(true)
     expect(saved.submissionId).not.toBe(APPLY_ID)
     expect(saved.answers).toEqual({ q1: 'a@b.co' })
+    // 어느 신청에도 묶이지 않은 초안이다.
+    expect(saved).not.toHaveProperty('applyId')
     expect(loadSession()).toBeNull()
   })
 
-  it('검사지 초안의 신청 ID 가 세션과 다르면 버리고 새로 시작한다', async () => {
+  it('다른 신청에 묶인 검사지 초안은 버리고 새로 시작한다', async () => {
     saveSession(session)
     // 지난 신청 때 쓰던 검사지다. 네 번째 묶음까지 갔고 다른 사람의 이름이 들어 있다.
-    saveDraft('survey', { answers: { q3: '지난 보호자', q7: '지난 아이' }, groupIndex: 3, submissionId: OTHER_ID, key: OLD_KEY })
+    saveDraft('survey', {
+      answers: { q3: '지난 보호자', q7: '지난 아이' },
+      groupIndex: 3,
+      submissionId: OTHER_ID,
+      key: OLD_KEY,
+      applyId: OTHER_ID,
+    })
     render(<SurveyFlow />)
 
     // 첫 묶음에서 새로 시작한다.
@@ -149,13 +159,28 @@ describe('검사지를 열 때', () => {
     expect(loadDraft('survey')!.submissionId).toBe(APPLY_ID)
   })
 
-  it('검사지 초안의 신청 ID 가 세션과 같으면 이어 쓴다', async () => {
+  it('이 신청에 묶인 검사지 초안은 이어 쓰고 묶인 신청 ID 를 지킨다', async () => {
     saveSession(session)
-    saveDraft('survey', { answers: { q3: '고친 이름' }, groupIndex: 3, submissionId: APPLY_ID, key: KEY })
+    saveDraft('survey', { answers: { q3: '고친 이름' }, groupIndex: 3, submissionId: APPLY_ID, key: KEY, applyId: APPLY_ID })
     render(<SurveyFlow />)
 
     expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[3].title })).toBeInTheDocument()
     expect(screen.getByText('4 / 12')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '이전' }))
+    expect(loadDraft('survey')).toMatchObject({ groupIndex: 2, submissionId: APPLY_ID, key: KEY, applyId: APPLY_ID })
+  })
+
+  it('세션 없이 시작한 검사지 초안은 나중에 신청을 내도 버리지 않고 그대로 이어 쓴다', async () => {
+    // 사장님 링크(/survey)로 쓰기 시작한 검사지다. 그 뒤 같은 브라우저에서 신청서를 내서 세션이 생겼다.
+    saveDraft('survey', { answers: { q3: '먼저 쓴 이름' }, groupIndex: 3, submissionId: OTHER_ID, key: KEY })
+    saveSession(session)
+    render(<SurveyFlow />)
+
+    expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[3].title })).toBeInTheDocument()
+    expect(screen.getByText('4 / 12')).toBeInTheDocument()
+    // 미리 채우기는 새 초안에만 한다. 쓰던 답과 신청 ID 는 그대로다.
+    const kept = loadDraft('survey')!
+    expect(kept).toEqual({ answers: { q3: '먼저 쓴 이름' }, groupIndex: 3, submissionId: OTHER_ID, key: KEY })
   })
 
   it('세션 없이 연 검사지는 저장된 초안을 그대로 이어 쓴다', async () => {
@@ -203,6 +228,16 @@ describe('검사지 제출', () => {
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(init.signal).toBeInstanceOf(AbortSignal)
     expect(body).toEqual({ submissionId: APPLY_ID, answers, applyId: APPLY_ID, website: '' })
+  })
+
+  it('세션 없이 시작한 초안을 신청 뒤에 내면 신청 ID 는 초안의 것, applyId 는 세션의 것이다', async () => {
+    const answers = draftAtLastGroup(OTHER_ID)
+    saveSession(session)
+    render(<SurveyFlow />)
+    fireEvent.click(await submitButton())
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/survey/done'))
+
+    expect(sent().body).toEqual({ submissionId: OTHER_ID, answers, applyId: APPLY_ID, website: '' })
   })
 
   it('세션이 없으면 applyId 없이 보낸다', async () => {

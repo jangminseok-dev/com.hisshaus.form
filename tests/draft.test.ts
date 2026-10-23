@@ -83,6 +83,9 @@ const stores: Store[] = [
       ['key 가 10자가 아니면', { ...draft, key: 'Kk3dE5gH7' }],
       ['key 에 영숫자가 아닌 글자가 있으면', { ...draft, key: 'Kk3dE5gH7!' }],
       ['key 가 숫자이면', { ...draft, key: 1234567890 }],
+      ['applyId 가 10자가 아니면', { ...draft, applyId: 'Ab3dE5gH7' }],
+      ['applyId 가 null 이면', { ...draft, applyId: null }],
+      ['applyId 가 숫자이면', { ...draft, applyId: 1234567890 }],
       ...notObjects,
     ],
   },
@@ -333,6 +336,20 @@ describe('같은 탭 메모리 대체', () => {
     block()
     saveSession({ ...session, services: 'Grooming 미용' } as unknown as ApplySession)
     expect(loadSession()).toBeNull()
+  })
+})
+
+describe('검사지 초안의 신청 ID(applyId)', () => {
+  it('applyId 가 있는 초안을 그대로 저장하고 읽는다', () => {
+    const bound: Draft = { ...draft, applyId: 'Zz9Yy8Xx7W' }
+    saveDraft('survey', bound)
+    expect(loadDraft('survey')).toEqual(bound)
+  })
+
+  it('applyId 가 없는 초안도 읽는다(세션 없이 쓰기 시작한 검사지·신청서)', () => {
+    saveDraft('survey', draft)
+    expect(loadDraft('survey')).toEqual(draft)
+    expect(loadDraft('survey')).not.toHaveProperty('applyId')
   })
 })
 
