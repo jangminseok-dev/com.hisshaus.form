@@ -90,7 +90,7 @@ pnpm dev                     # http://localhost:3020
 
 ## Vercel 배포
 
-1. 이 저장소를 GitHub 에 올리고(저장소는 사용자가 만든다) Vercel 의 [New Project](https://vercel.com/new) 에서 그 저장소를 골라 가져온다. Next.js 로 자동 인식되고 빌드 설정은 바꾸지 않는다. 변수는 아직 넣지 않고 배포한다(빌드는 변수가 없어도 통과한다). 설치 단계에서 실패하면 이 절 맨 아래의 pnpm 항목을 본다.
+1. 이 저장소를 GitHub 에 올리고(저장소는 사용자가 만든다) Vercel 의 [New Project](https://vercel.com/new) 에서 그 저장소를 골라 가져온다. Next.js 로 자동 인식되고 빌드 설정은 바꾸지 않는다. 변수는 아직 넣지 않고 배포한다(빌드는 변수가 없어도 통과한다).
 2. 배포가 끝나면 `Settings` → `Environment Variables` 에 세 변수를 넣는다. 환경은 **Production 만** 고른다. 웹훅 주소와 키 JSON 은 `Secret` 으로 저장한다(저장 뒤에는 대시보드에서도 다시 볼 수 없다).
 3. 환경변수는 새 배포부터 적용되므로 `Deployments` 에서 다시 배포한다(변수를 바꿀 때마다 같다).
 4. 배포 주소에서 신청서를 한 번 직접 내서 슬랙 한 통이 오고 시트에 한 줄이 생기는지 본다. 시험 행은 시트에서 지운다. 빌드는 변수가 없어도 통과하므로, 배포가 성공했다고 변수가 맞게 들어간 것은 아니다.
@@ -100,7 +100,6 @@ pnpm dev                     # http://localhost:3020
 - Node.js 는 22.x 이상이어야 한다(`google-auth-library` 요구). Vercel 의 기본 24.x 면 된다(`Settings` → `Build and Deployment` → `Node.js Version`).
 - 세 API 경로(`app/api/**/route.ts`)는 시트 저장과 슬랙 전송이 끝난 뒤 응답하므로 `maxDuration` 을 30초로 올려 두었다. Hobby 는 이 값을 허용한다.
 - 서버 로그는 프로젝트의 `Logs` 에서 본다. Hobby 는 1시간 분량만 남는다. 로그에는 `시트 저장 실패`, `슬랙 전송 실패` 와 신청 ID 두 꼴만 찍힌다.
-- Vercel 은 lockfile 이 9.0 이면 pnpm 9 또는 10 을 고른다(새 프로젝트는 10 쪽). 9 가 걸리면 `pnpm-workspace.yaml` 에 `packages` 가 없어 설치가 `packages field missing or empty` 로 실패한다. 빌드 로그에서 pnpm 버전을 확인하고, 9 라면 `pnpm-workspace.yaml` 맨 위에 `packages:` 와 `  - '.'` 를 더한다(pnpm 9·10·11 에서 `--frozen-lockfile` 설치가 되는 것을 확인했다).
 
 ## 도메인 연결 (나중)
 
