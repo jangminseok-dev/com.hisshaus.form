@@ -392,8 +392,8 @@ describe('검사지 제출', () => {
 
   it('숨은 문항의 답은 시트·슬랙에서 빠진다', async () => {
     const { appendRow, sendSlack, deps } = fakes()
-    // q59·q81 이 '아니오' 라서 긴 답 문항 q60·q82 는 숨은 문항이다. 화면이 옛 답을 지우지 않은 경우를 흉내 낸다.
-    const visible = { ...validAnswers(surveyForm), q59: '아니오', q81: '아니오' }
+    // q59 가 '아니오', q80·q81 이 둘 다 '아니오' 라서 긴 답 문항 q60·q82 는 숨은 문항이다. 화면이 옛 답을 지우지 않은 경우를 흉내 낸다.
+    const visible = { ...validAnswers(surveyForm), q59: '아니오', q80: '아니오', q81: '아니오' }
     const hidden = '숨'.repeat(40_000)
     const answers = { ...visible, q60: hidden, q82: hidden }
     expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
@@ -438,7 +438,10 @@ describe('검사지 제출', () => {
     const whenShown = await submitSurvey({ submissionId: ID, answers: { ...validAnswers(surveyForm), q81: '네', q82: tooLong } }, deps)
     expect(whenShown.status === 'invalid' && whenShown.errors).toEqual([{ questionId: 'q82', message: '3,000자까지 적을 수 있어요' }])
     expect(appendRow).not.toHaveBeenCalled()
-    const whenHidden = await submitSurvey({ submissionId: ID, answers: { ...validAnswers(surveyForm), q81: '아니오', q82: tooLong } }, deps)
+    const whenHidden = await submitSurvey(
+      { submissionId: ID, answers: { ...validAnswers(surveyForm), q80: '아니오', q81: '아니오', q82: tooLong } },
+      deps,
+    )
     expect(whenHidden).toEqual({ status: 'ok' })
   })
 

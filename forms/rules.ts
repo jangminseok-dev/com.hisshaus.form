@@ -1,12 +1,21 @@
-import type { Answers, FormDef, Group, Question } from './types'
+import type { Answers, FormDef, Group, Question, ShowIf } from './types'
 
 function asArray(v: string | string[] | undefined): string[] {
   return v === undefined ? [] : Array.isArray(v) ? v : [v]
 }
 
-/** 보이는 문항인가. showIf 가 안 맞거나 optionalIfOnly 가 맞으면 숨는다. */
+/** showIf 조건 하나가 맞나. 답이 equals 와 같거나(배열이면 그중 하나와 같거나) 참. */
+function matches(c: ShowIf, a: Answers): boolean {
+  const v = a[c.questionId]
+  return typeof v === 'string' && (Array.isArray(c.equals) ? c.equals.includes(v) : v === c.equals)
+}
+
+/** 보이는 문항인가. showIf(여럿이면 하나라도)가 안 맞거나 optionalIfOnly 가 맞으면 숨는다. */
 export function isVisible(q: Question, a: Answers): boolean {
-  if (q.showIf && a[q.showIf.questionId] !== q.showIf.equals) return false
+  if (q.showIf) {
+    const conds = Array.isArray(q.showIf) ? q.showIf : [q.showIf]
+    if (!conds.some((c) => matches(c, a))) return false
+  }
   if (q.optionalIfOnly) {
     const picked = asArray(a[q.optionalIfOnly.questionId])
     if (picked.length > 0 && picked.every((v) => v === q.optionalIfOnly!.value)) return false

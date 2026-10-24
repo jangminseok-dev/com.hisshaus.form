@@ -68,6 +68,10 @@ function checkValue(q: Question, v: string | string[], today: string, a: Answers
       // 화면은 같은 칩을 두 번 넣지 못하고 기타도 하나뿐이다. 같은 값을 거듭 넣거나 고를 수 있는 수보다 많은 답은
       // 손으로 만든 요청이라 거부한다(남기면 시트 한 칸이 끝없이 길어진다).
       if (new Set(v).size < v.length || v.length > (q.options?.length ?? 0) + (q.other ? 1 : 0)) return '고를 수 없는 값이에요'
+      // '없음' 같은 배타 선택지는 혼자만 고를 수 있다. 화면이 막지만 손으로 만든 요청은 거부한다.
+      if (q.exclusive && v.includes(q.exclusive) && v.length > 1) return `${q.exclusive}은 다른 것과 같이 고를 수 없어요`
+      // a 에서 하나, b 에서 하나처럼 접두마다 하나씩.
+      if (q.onePer?.some((p) => v.filter((x) => x.startsWith(p)).length > 1)) return '같은 묶음에서는 하나만 골라 주세요'
       return v.some((x) => x.length > SHORT_MAX) ? tooShort : null
     case 'date':
       if (typeof v !== 'string' || !isRealDate(v)) return '날짜를 골라 주세요'

@@ -5,7 +5,7 @@
 ## 꼭 지킬 것
 
 - 응답·주석·테스트 이름·커밋 메시지는 한국어다. 커밋과 푸시는 사용자가 요청할 때만 한다.
-- 화면 문구는 해요체다. "~입니다/~됩니다/~십시오" 를 쓰지 않는다. 단 검사지(`forms/survey.ts`)의 질문·선택지·안내문은 구글폼 원문 그대로 두고 오타("영영제", "편균" 등)도 고치지 않는다. 원문과 달라지는 곳은 설계 문서 5절에 적힌 것뿐이다(도입 묶음의 개인정보 수집 안내문 포함). `tests/survey-verbatim.test.ts` 가 원본 덤프(`tests/survey-original.txt`)와 문항마다 대조한다.
+- 화면 문구는 해요체다. "~입니다/~됩니다/~십시오" 를 쓰지 않는다. 단 검사지(`forms/survey.ts`)의 질문·선택지·안내문은 구글폼 원문 그대로 둔다. 원문과 달라지는 곳은 `tests/survey-verbatim.test.ts` 의 RULINGS·FIXES·OPTION_FIXES·INSTRUCTION_HINT 에 전부 적혀 있고(사장님 결정으로 고친 오타·틀린 숫자·설명, 구글폼용 선택 안내 삭제) 설계 문서 5절이 그 근거다. 거기 없는 글자는 바꾸지 않는다. `tests/survey-verbatim.test.ts` 가 원본 덤프(`tests/survey-original.txt`)와 문항마다 대조한다.
 - 화면 어디에도 전체 문항 수·소요 시간("98문항", "약 3분")·묶음 진행 표시(`2 / 4`, 진행 막대)를 적지 않는다(사용자 결정 2026-10-24).
 - 예약금은 교육미용 상담 50,000원, 그 밖 10,000원이다(`lib/deposit.ts`). 금액 글은 `content/shop.ts`·`forms/apply.ts` 예약금 안내문에도 있다.
 - `process.env` 는 `lib/config.ts` 에서만 읽는다. `NEXT_PUBLIC_` 변수를 만들지 않는다. 필수 변수는 `SLACK_WEBHOOK_URL`·`GOOGLE_SERVICE_ACCOUNT_JSON`·`GOOGLE_SHEET_ID` 셋이다. `SLACK_MENTION` 은 선택(알림 멘션). `SHEETS_BASE_URL`·`SHEETS_FAKE_TOKEN` 은 e2e 전용이고 production 에서는 읽지 않는다.

@@ -1,13 +1,18 @@
 import type { FormDef } from './types'
 
-// 질문·선택지·안내문은 원본 검사지 그대로다(오타 포함). 고치지 않는다.
+// 질문·선택지·안내문은 원본 검사지 그대로다. 원문과 다른 곳은 2026-10-24 사장님 결정으로 고친 것뿐이고 전부
+// tests/survey-verbatim.test.ts 의 FIXES 에 적혀 있다(오타, 틀린 숫자, 잘못 복사된 설명, 나이 선택지 통일). 구글폼에서만 필요했던
+// "한 개만 선택해주세요"·"해당 사항에 모두 표시하세요" 안내는 뺐다(칩이 하나/여러 개를 알아서 제한한다).
 // "기타: (직접 입력)" 은 options 에 넣지 않고 other: true 로 표시한다.
 
-const ONE = '한 개만 선택해주세요.'
-const ONE_ITEM = '한 개의 항목만 선택해주세요'
-const ALL = '해당 사항에 모두 표시하세요.'
-const ALL_PLEASE = '해당 사항에 모두 표시해주세요.'
-const AGES = ['생후 6개월형 미만', '6개월 ~ 1세령', '1~2세령', '2세령 이상']
+/** q71 에서 교육해본 적이 있는 답(첫 선택지 '뭔가를 교육해본 적은 없다' 를 뺀 넷). */
+const TRAINED = {
+  questionId: 'q71',
+  equals: ['전문가와 교육 해본 적은 없지만 집에서 해보았다.', '훈련소를 다니다가 도중에 그만두었다.', '훈련소를 다녀봤고 수료했다.', '훈련소에 맡겨봤고 훈련 받은 경험이 있다.'],
+}
+/** q71 에서 훈련소 경험이 있는 답. */
+const SCHOOLED = { questionId: 'q71', equals: ['훈련소를 다니다가 도중에 그만두었다.', '훈련소를 다녀봤고 수료했다.', '훈련소에 맡겨봤고 훈련 받은 경험이 있다.'] }
+const AGES = ['생후 6개월령 미만', '6개월 ~ 1세령', '1~2세령', '2세령 이상']
 const YES_NO = ['네', '아니오']
 const RECENT_HINT = '언제, 어디에서 일어났는지, 공격행동의 경우 어떤 대상을 향해 공격성을 보였으며 어떻게 대처해주셨는지 자세히 적어주세요.'
 const NONE_HINT = '없다면 없음 이라고 적어주세요!'
@@ -41,7 +46,6 @@ export const surveyForm: FormDef = {
           label: '의뢰인은 히스하우스에서 반려견의 행동 컨설팅에 필요한 최소한의 개인정보 수집 및 이용에 동의합니다. (동의하지 않는 경우 서비스 이용이 불가합니다.)',
           type: 'single',
           required: true,
-          hint: ONE_ITEM,
           options: ['동의함', '동의하지 않음 (서비스 이용 불가)'],
           blockIf: { value: '동의하지 않음 (서비스 이용 불가)', message: '동의하지 않으면 검사지를 진행할 수 없어요' },
         },
@@ -59,7 +63,7 @@ export const surveyForm: FormDef = {
         { id: 'q8', label: '반려견 견종과 모색', type: 'short', required: true, hint: '예) 비숑프리제(흰색)' },
         { id: 'q9', label: '반려견의 생년월일', type: 'short', required: true, hint: '정확하지 않은 경우 년도까지만 작성해주셔도 됩니다.' },
         { id: 'q10', label: '반려견의 몸무게', type: 'short', required: true, hint: '정확하지 않은 경우 대략적인 무게를 적어주시면 됩니다. 예) 7kg' },
-        { id: 'q11', label: '반려견의 성별', type: 'single', required: true, hint: ONE, options: ['수컷', '중성화 된 수컷', '암컷', '중성화 된 암컷'] },
+        { id: 'q11', label: '반려견의 성별', type: 'single', required: true, options: ['수컷', '중성화 된 수컷', '암컷', '중성화 된 암컷'] },
         {
           id: 'q12',
           label: '다니는 동물병원의 이름과 연락처 주치의 성함을 적어주세요',
@@ -79,7 +83,6 @@ export const surveyForm: FormDef = {
           label: '반려견은 사회화시기 (2~4개월)에 몇 명의 사람과 접촉하고 소통을 하였습니까? (스쳐지나간 행인 제외)',
           type: 'single',
           required: true,
-          hint: ONE,
           options: ['10명 이하', '20명 이하', '30명 이하'],
           other: true,
         },
@@ -137,13 +140,12 @@ export const surveyForm: FormDef = {
           required: true,
           hint: '예) 하루 00회 or 일주일에 00회 or 한달에 00회',
         },
-        { id: 'q19', label: '미용과 관련한 문제행동이 처음 발생한 것은 언제입니까?', type: 'single', required: true, hint: ONE_ITEM, options: AGES },
+        { id: 'q19', label: '미용과 관련한 문제행동이 처음 발생한 것은 언제입니까?', type: 'single', required: true, options: AGES },
         {
           id: 'q20',
           label: '언제부터 미용과 관련한 문제행동을 수정해야겠다고 인식하였습니까?',
           type: 'single',
           required: true,
-          hint: ONE,
           options: AGES,
         },
         {
@@ -151,7 +153,8 @@ export const surveyForm: FormDef = {
           label: '미용과 관련한 문제행동이 시작된 후 현재까지 문제행동의 빈도와 정도, 내용 등에 변화가 있었습니까?',
           type: 'multi',
           required: true,
-          hint: ['a에서 1개, b에서 12개 골라주세요 (a : 빈도, b : 정도)', '', '해당 사항에 모두 표시하세요.'].join('\n'),
+          hint: 'a에서 1개, b에서 1개 골라주세요 (a : 빈도, b : 정도)',
+          onePer: ['a.', 'b.'],
           options: [
             'a. 빈도가 많아졌다.',
             'a. 빈도가 적어졌다.',
@@ -163,15 +166,14 @@ export const surveyForm: FormDef = {
         },
         { id: 'q22', label: '미용과 관련된 문제행동의 계기라고 생각되는 것과, 사건이 일어났던 상황을 자세하게 적어주세요.', type: 'long', required: true },
         { id: 'q23', label: '가장 최근에 일어난 미용과 관련한 문제행동을 자세히 적어주세요.', type: 'long', required: true, hint: RECENT_HINT },
-        { id: 'q24', label: '최근보다 전에 일어난 미용과 관련한 문제행동을 자세히 적어주세요.', type: 'long', required: true, hint: RECENT_HINT },
-        { id: 'q25', label: '위 사건보다 더 이전에 일어난 미용과 관련한 문제행동을 자세히 적어주세요', type: 'long', required: true, hint: RECENT_HINT },
-        { id: 'q26', label: '미용과 관련한 문제행동 관련하여 기타 특별한 사건이 있었다면 자세히 적어주세요.', type: 'long', required: true, hint: RECENT_HINT },
+        { id: 'q24', label: '최근보다 전에 일어난 미용과 관련한 문제행동을 자세히 적어주세요.', type: 'long', required: false, hint: RECENT_HINT },
+        { id: 'q25', label: '위 사건보다 더 이전에 일어난 미용과 관련한 문제행동을 자세히 적어주세요', type: 'long', required: false, hint: RECENT_HINT },
+        { id: 'q26', label: '미용과 관련한 문제행동 관련하여 기타 특별한 사건이 있었다면 자세히 적어주세요.', type: 'long', required: false, hint: RECENT_HINT },
         {
           id: 'q27',
           label: '미용과 관련한 문제행동을 수정하기 위하여 어떤 것을 해보셨습니까?',
           type: 'multi',
           required: true,
-          hint: ALL,
           options: [
             '꾸짖었다. (주로 음성을 사용.)',
             '육체적으로 체벌 (엉덩이 때리기, 줄 당기기 등...)',
@@ -187,7 +189,6 @@ export const surveyForm: FormDef = {
           label: '위의 수정을 위한 노력은 미용과 관련한 문제행동 개선에 도움이 되었습니까?',
           type: 'single',
           required: true,
-          hint: '한 개의 항목만 선택해주세요',
           options: ['도움이 많이 되었다.', '잘 모르겠다.', '도움이 되지 않은 것 같다.', '오히려 약화된 것 같다.'],
           other: true,
         },
@@ -204,24 +205,24 @@ export const surveyForm: FormDef = {
           required: true,
           options: [
             '공격행동 (타견, 타인을 향한 으르렁거림, 짖으며 달려들기, 무는 시늉, 물기 등...)',
-            '파괴행동 (집안의 물건을 부수건나 씹는 등의 행동)',
+            '파괴행동 (집안의 물건을 부수거나 씹는 등의 행동)',
             '짖음 (외부인 또는 외부 소음에 짖음)',
             '공포증 (두려워하는 반응, 떨거나, 숨거나, 헥헥거림, 침흘림, 얼어붙어 꼼짝하지 못함 등...)',
             '부적절한 배변',
             '자해 (미용 상황 이외에서 자신의 신체를 훼손하는 행위, 꼬리나 발톱 등을 씹기, 공격하기 등...)',
             '분리불안 (보호자와 헤어지면 먹이 먹지 못함. 하울링, 낑낑거림, 짖음, 물건 파괴 등...)',
-            '요구적인 행동 (보호자와 헤어지면 먹이 먹지 못함, 하울링, 낑낑거림, 짖음, 물건 파괴 등...)',
+            '요구적인 행동 (관심을 끌려고 짖거나 앞발로 긁음 등)',
             '없음',
           ],
           other: true,
+          exclusive: '없음',
         },
         {
           id: 'q31',
           label: '처음으로 위의 문제행동이 발생한 것은 언제입니까?',
           type: 'single',
           required: false,
-          hint: ONE_ITEM,
-          options: ['생후 6개월령 미만', '6개월~1세령', '1~2세령', '2세 이상'],
+          options: AGES,
         },
         { id: 'q32', label: '위의 문제행동의 계기가 될 만한 것과 구체적인 문제행동의 내용을 적어주세요', type: 'long', required: false },
       ],
@@ -235,7 +236,6 @@ export const surveyForm: FormDef = {
           label: '반려견은 주로 어떤 먹이를 먹고 있습니까?',
           type: 'single',
           required: true,
-          hint: ONE_ITEM,
           options: ['건조 사료', '반건조 사료', '습식 사료 (캔에 들은 것)', '건조 사료 + 습식 토핑', '사람 음식 (쌀, 고기, 생선 등...)'],
           other: true,
         },
@@ -244,7 +244,6 @@ export const surveyForm: FormDef = {
           label: '반려견은 주로 어떤 방식으로 먹이를 먹습니까?',
           type: 'multi',
           required: true,
-          hint: ALL,
           options: ['밥그릇에 먹는다.', '노즈워크 하며 먹는다.', '트레이닝 보상으로 사용한다.'],
           other: true,
         },
@@ -255,10 +254,9 @@ export const surveyForm: FormDef = {
           label: '반려견에게 먹이를 급여하는 방식과 가까운 것을 골라주세요.',
           type: 'single',
           required: true,
-          hint: ONE_ITEM,
           options: [
             '자율 급식 (밥그릇에 사료가 채워진 채로, 남기면 그대로 주며, 1시간 이상)',
-            '제한 급식 (3분 이내에 다 밥을 다 먹거나, 남길 시 밥그릇을 치운다.)',
+            '제한 급식 (3분 이내에 밥을 다 먹거나, 남길 시 밥그릇을 치운다.)',
           ],
         },
         { id: 'q38', label: '주로 누가 먹이를 줍니까?', type: 'short', required: true },
@@ -266,8 +264,14 @@ export const surveyForm: FormDef = {
         { id: 'q40', label: '반려견이 가장 좋아하는 간식은 무엇인가요?', type: 'short', required: true },
         { id: 'q41', label: '하루에 몇 회 간식을 급여합니까?', type: 'short', required: true },
         { id: 'q42', label: '간식은 어떤 상황에서 급여하나요?', type: 'short', required: true },
-        { id: 'q43', label: '영영제를 급여하고 있습니까?', type: 'single', required: true, hint: '한 개만 선택해주세요.', options: ['그렇다.', '아니다'] },
-        { id: 'q44', label: '영양제를 급여 중인 경우, 어떤 목적으로 어떤 종류의 영양제를 급여하고 있는지 적어주세요', type: 'long', required: false },
+        { id: 'q43', label: '영양제를 급여하고 있습니까?', type: 'single', required: true, options: ['그렇다.', '아니다'] },
+        {
+          id: 'q44',
+          label: '영양제를 급여 중인 경우, 어떤 목적으로 어떤 종류의 영양제를 급여하고 있는지 적어주세요',
+          type: 'long',
+          required: false,
+          showIf: { questionId: 'q43', equals: '그렇다.' },
+        },
       ],
     },
     {
@@ -285,23 +289,21 @@ export const surveyForm: FormDef = {
         { id: 'q46', label: '반려견은 실외 환경에서 어떤 반응과 행동을 보입니까? (공원이나 놀이터, 운동장 등 실외 환경)', type: 'long', required: false },
         { id: 'q47', label: '반려견은 집 이외에 실내 환경에서 어떤 반응과 행동을 보입니까? (카페, 동물병원, 자동차 안 등...)', type: 'long', required: false },
         { id: 'q48', label: '반려견은 다른 강아지에게 어떤 반응을 보입니까?', type: 'long', required: false },
-        { id: 'q49', label: '반려견에게 휴식 공간이 있습니까?', type: 'single', required: true, hint: ONE, options: ['예', '아니오'] },
+        { id: 'q49', label: '반려견에게 휴식 공간이 있습니까?', type: 'single', required: true, options: ['예', '아니오'] },
         {
           id: 'q50',
           label: '반려견에게 휴식 공간이 있다고 대답할 경우, 어떤 공간인지 골라주세요.',
           type: 'multi',
           required: false,
-          hint: '해당사항에 모두 표시하세요.',
           options: ['울타리', '케이지 (크레이트, 켄넬, 플라스틱 이동장처럼 생긴 것)', '방석이나 매트'],
           other: true,
           showIf: { questionId: 'q49', equals: '예' },
         },
         {
           id: 'q51',
-          label: '반려견은 방에 어디에서 잡니까?',
+          label: '반려견은 밤에 어디에서 잡니까?',
           type: 'multi',
           required: true,
-          hint: '해당 사항에 모두 선택하세요',
           options: ['집 밖에서', '집 안에 자유로운 장소에서', '전용 하우스', '당신의 침대'],
           other: true,
         },
@@ -313,7 +315,6 @@ export const surveyForm: FormDef = {
           label: '반려견은 매일 어떤 운동을 하고 있습니까?',
           type: 'multi',
           required: true,
-          hint: ALL,
           options: [
             '리쉬를 하고 산책하기',
             '리쉬 없이 함께 산책하기',
@@ -326,16 +327,15 @@ export const surveyForm: FormDef = {
         },
         {
           id: 'q56',
-          label: '반려견이 하루 편균 야외에서 보내는 시간은 얼마나 됩니까?',
+          label: '반려견이 하루 평균 야외에서 보내는 시간은 얼마나 됩니까?',
           type: 'single',
           required: true,
-          hint: ONE_ITEM,
           options: ['전혀 없다.', '1시간 미만', '6시간 미만', '6시간 이상'],
           other: true,
         },
         { id: 'q57', label: '반려견과 주로 어떤 놀이를 하고 있습니까?', type: 'long', required: true },
         { id: 'q58', label: '주로 어떤 장난감을 가지고 노나요?', type: 'long', required: true },
-        { id: 'q59', label: '반려견은 다른 개와 놀 수 있습니까?', type: 'single', required: true, hint: ONE_ITEM, options: ['네', '아니오'] },
+        { id: 'q59', label: '반려견은 다른 개와 놀 수 있습니까?', type: 'single', required: true, options: ['네', '아니오'] },
         {
           id: 'q60',
           label: '위 질문에 네, 라고 대답하셨다면 하루에 어느 정도 시간 만큼 다른 개와 어울립니까?',
@@ -343,22 +343,20 @@ export const surveyForm: FormDef = {
           required: false,
           showIf: { questionId: 'q59', equals: '네' },
         },
-        { id: 'q61', label: '반려견은 집 안에서 배변을 합니까?', type: 'single', required: true, hint: ONE_ITEM, options: ['네', '아니오'] },
+        { id: 'q61', label: '반려견은 집 안에서 배변을 합니까?', type: 'single', required: true, options: ['네', '아니오'] },
         {
           id: 'q62',
           label: '위 질문에 네, 라고 대답 하셨다면 소,대변 어떤 것을 집 안에서 할 수 있습니까?',
           type: 'single',
           required: false,
-          hint: ONE_ITEM,
           options: ['소변', '대변', '둘 다'],
           showIf: { questionId: 'q61', equals: '네' },
         },
         {
           id: 'q63',
-          label: '화장실 이외에 장소에서 배변활동을 하기도 합니까?',
+          label: '화장실 이외의 장소에서 배변활동을 하기도 합니까?',
           type: 'single',
           required: false,
-          hint: ONE_ITEM,
           options: ['네', '아니오', '가끔'],
           other: true,
         },
@@ -377,13 +375,12 @@ export const surveyForm: FormDef = {
           required: true,
           hint: '예) 동거묘가 있다. 3살 수컷 서로 모르는 척 한다. 등 없다면 없다고 적어주세요.',
         },
-        { id: 'q67', label: '의뢰인이 거주하는 장소는 어느 곳에 가깝습니까?', type: 'single', required: true, hint: ONE_ITEM, options: ['도심', '도심외곽', '시골'] },
+        { id: 'q67', label: '의뢰인이 거주하는 장소는 어느 곳에 가깝습니까?', type: 'single', required: true, options: ['도심', '도심외곽', '시골'] },
         {
           id: 'q68',
-          label: '의뢰인이 주거 형태는 어느 곳에 가깝습니까?',
+          label: '의뢰인의 주거 형태는 어느 곳에 가깝습니까?',
           type: 'single',
           required: true,
-          hint: ONE_ITEM,
           options: ['단독주택(마당 있음)', '아파트', '빌라', '원룸'],
           other: true,
         },
@@ -395,10 +392,9 @@ export const surveyForm: FormDef = {
       questions: [
         {
           id: 'q69',
-          label: '집에서 현재 하고 계신 관리를 골라주세요 (중복선택 가능',
+          label: '집에서 현재 하고 계신 관리를 골라주세요 (중복 선택 가능)',
           type: 'multi',
           required: true,
-          hint: ALL,
           options: [
             '빗질(눈앞과 머리)',
             '빗질(몸, 다리, 꼬리)',
@@ -442,19 +438,25 @@ export const surveyForm: FormDef = {
           label: '의뢰인의 반려견은 트레이닝 경험이 있습니까?',
           type: 'single',
           required: true,
-          hint: ONE_ITEM,
           options: [
             '뭔가를 교육해본 적은 없다',
             '전문가와 교육 해본 적은 없지만 집에서 해보았다.',
             '훈련소를 다니다가 도중에 그만두었다.',
-            '훈현소를 다녀봤고 수료했다.',
+            '훈련소를 다녀봤고 수료했다.',
             '훈련소에 맡겨봤고 훈련 받은 경험이 있다.',
           ],
         },
-        { id: 'q72', label: '몇 살 때 트레이닝을 시작했습니까?', type: 'short', required: true },
-        { id: 'q73', label: '집에서 훈련은 주로 누가 했습니까?', type: 'short', required: true },
-        { id: 'q74', label: '주로 어떤 방식으로 트레이닝 했는지 구체적으로 적어주세요', type: 'long', required: true },
-        { id: 'q75', label: '훈련소 경험이 있는 경우 어떤 방식으로 트레이닝을 받았으며 어느 정도의 기간 동안 훈련을 받아왔었나요?', type: 'long', required: true },
+        // q72~q75 는 교육해본 적이 있을 때만(q75 는 훈련소 경험이 있을 때만) 보인다. 원문은 늘 필수라 답을 지어내야 했다.
+        { id: 'q72', label: '몇 살 때 트레이닝을 시작했습니까?', type: 'short', required: true, showIf: TRAINED },
+        { id: 'q73', label: '집에서 훈련은 주로 누가 했습니까?', type: 'short', required: true, showIf: TRAINED },
+        { id: 'q74', label: '주로 어떤 방식으로 트레이닝 했는지 구체적으로 적어주세요', type: 'long', required: true, showIf: TRAINED },
+        {
+          id: 'q75',
+          label: '훈련소 경험이 있는 경우 어떤 방식으로 트레이닝을 받았으며 어느 정도의 기간 동안 훈련을 받아왔었나요?',
+          type: 'long',
+          required: true,
+          showIf: SCHOOLED,
+        },
         {
           id: 'q76',
           label: '반려견이 당신의 요청을 따르지 않는 순간이 있습니까? 있다면 어떤 상황인지 구체적으로 적어주세요.',
@@ -468,16 +470,14 @@ export const surveyForm: FormDef = {
           label: '반려견이 장난을 치거나 바람직하지 못한 행동을 한 경우 어떤 방식으로 반려견을 꾸짖습니까?',
           type: 'single',
           required: false,
-          hint: ONE_ITEM,
           options: ['말로 혼낸다', '체벌한다(육체적으로, 엉덩이를 때리거나 겁을 주거나)', '무시한다'],
           other: true,
         },
         {
           id: 'q79',
-          label: '반려견이 할 수 있는 개인기가 있다면? (중복 선택 가능',
+          label: '반려견이 할 수 있는 개인기가 있다면? (중복 선택 가능)',
           type: 'multi',
           required: true,
-          hint: '해당 사항에 모두 표시해주세요.',
           options: [
             '손! (손바닥 위에 앞발 올리기)',
             '코! (손가락을 말아서 보여주면 코 가져다 대기)',
@@ -486,6 +486,7 @@ export const surveyForm: FormDef = {
             '없음',
           ],
           other: true,
+          exclusive: '없음',
         },
       ],
     },
@@ -493,14 +494,17 @@ export const surveyForm: FormDef = {
       id: 'j',
       title: '병력에 관한 설문',
       questions: [
-        { id: 'q80', label: '현재 치료 받고 있는 질병이 있습니까?', type: 'single', required: true, hint: ONE_ITEM, options: YES_NO },
-        { id: 'q81', label: '과거에 치료 받은 경험이 있습니까?', type: 'single', required: false, hint: ONE_ITEM, options: YES_NO },
+        { id: 'q80', label: '현재 치료 받고 있는 질병이 있습니까?', type: 'single', required: true, options: YES_NO },
+        { id: 'q81', label: '과거에 치료 받은 경험이 있습니까?', type: 'single', required: false, options: YES_NO },
         {
           id: 'q82',
           label: '위 질문에 네, 라고 대답했다면 어떤 치료였나요? 과거, 현재 모두 적어주세요.',
           type: 'long',
           required: false,
-          showIf: { questionId: 'q81', equals: '네' },
+          showIf: [
+            { questionId: 'q80', equals: '네' },
+            { questionId: 'q81', equals: '네' },
+          ],
         },
       ],
     },
@@ -514,7 +518,6 @@ export const surveyForm: FormDef = {
           label: '다음 중 반려견이 무는 시늉, 또는 무는 행동, 으르렁거림, 짖음,달려들기 등의 행동을 보이는 문항을 체크해주세요',
           type: 'multi',
           required: true,
-          hint: '해당 사항에 모두 표시해주세요',
           options: [
             '반려견을 쓰다듬는다',
             '반려견을 껴안는다',
@@ -546,7 +549,7 @@ export const surveyForm: FormDef = {
             '반려견을 방에 가만히 내버려둔다',
             '목걸이를 찼다가 풀었다가 반복한다',
             '반려견의 발을 닦인다',
-            '반려견 목욖을 한다',
+            '반려견 목욕을 한다',
             '반려견을 수건으로 닦아준다',
             '반려견에게 양치질을 해준다',
             '반려견의 얼굴과 입주변을 만진다',
@@ -566,13 +569,13 @@ export const surveyForm: FormDef = {
             '없음',
           ],
           other: true,
+          exclusive: '없음',
         },
         {
           id: 'q84',
           label: '공격 행동의 대상은? 해당하는 모든 사람을 체크해주세요.',
           type: 'multi',
           required: false,
-          hint: '해당 사항에 모두 표시하세요',
           options: ['반려인', '반려인과 가족', '가족 외의 다른 사람', '다른 강아지', '다른 동물'],
         },
         {
@@ -580,7 +583,6 @@ export const surveyForm: FormDef = {
           label: '의뢰인은 반려견이 공격적으로 변할 것 같은 때를 예상할 수 있습니까?',
           type: 'single',
           required: false,
-          hint: ONE_ITEM,
           options: YES_NO,
         },
         {
@@ -588,9 +590,8 @@ export const surveyForm: FormDef = {
           label: '반려견이 공격행동의 특징이 있다면 골라주세요.',
           type: 'multi',
           required: false,
-          hint: ALL,
           options: [
-            '갑작스런 공격 행동이 일어나기 때문에 이중견격이라고 느낀다',
+            '갑작스런 공격 행동이 일어나기 때문에 이중인격이라고 느낀다',
             '도발당하지도 않으면서 공격행동이 일어난다',
             '공격 행동이 일어난 후에 갑자기 고분고분해진다',
             '공격 행동을 취한 후에 미안한 듯이 하고 있다',
@@ -601,17 +602,17 @@ export const surveyForm: FormDef = {
           ],
           other: true,
         },
-        { id: 'q87', label: '반려견이 피가 날 정도로 누군가를 물어 본 경험이 있습니까?', type: 'single', required: false, hint: ONE_ITEM, options: YES_NO },
-        { id: 'q88', label: '처음으로 출혈이 날 것 같은 공격을 한 것은 생후 몇 살 쯤 이었습니까?', type: 'short', required: false },
-        { id: 'q89', label: '피가 날 정도로 무는 행동을 한 것은 몇 번 정도 입니까?', type: 'short', required: false },
-        { id: 'q90', label: '피나 나지 않아도 문 적이 있다면 몇 번 정도 입니까?', type: 'short', required: false },
+        { id: 'q87', label: '반려견이 피가 날 정도로 누군가를 물어 본 경험이 있습니까?', type: 'single', required: false, options: YES_NO },
+        // q88·q89 는 피가 날 정도로 문 적이 있을 때만.
+        { id: 'q88', label: '처음으로 출혈이 날 것 같은 공격을 한 것은 생후 몇 살 쯤 이었습니까?', type: 'short', required: false, showIf: { questionId: 'q87', equals: '네' } },
+        { id: 'q89', label: '피가 날 정도로 무는 행동을 한 것은 몇 번 정도 입니까?', type: 'short', required: false, showIf: { questionId: 'q87', equals: '네' } },
+        { id: 'q90', label: '피가 나지 않아도 문 적이 있다면 몇 번 정도 입니까?', type: 'short', required: false },
         { id: 'q91', label: '공격 행동(으르렁거린다, 무는 시늉을 한다, 실제로 문다 등)은 전부 몇 번 있었습니까?', type: 'short', required: false },
         {
           id: 'q92',
           label: '반려견은 어떤 곳을 물었습니까?',
           type: 'multi',
           required: false,
-          hint: '해당 사항에 모두 선택해주세요',
           options: ['발', '손 또는 발', '얼굴', '엉덩이나 등'],
           other: true,
         },
@@ -629,13 +630,12 @@ export const surveyForm: FormDef = {
           label: '반려견의 교육을 진행할 때 어느 정도의 각오를 하고 있습니까?',
           type: 'single',
           required: true,
-          hint: ONE_ITEM,
           options: [
             '문제 행동은 그렇게 심각하지 않지만, 이왕이면 스트레스를 줄여주고 싶어서 신청',
             '문제 행동은 그렇게 심각하지는 않지만, 가능하면 수정하고 싶고 수정이 안된다면 그냥 어르고 달래서라도 미용 하면 좋겠음',
             '문제 행동이 그렇게까지 심각한 것 같지는 않고, 육체적인 건강이 더 중요하므로 저항하더라도 미용을 한다고 생각함',
-            '문제 행동이 삼각하긴 하나, 눈꼽을 떼거나, 발을 씻기거나, 목욕을 하는 등의 위생관리도 중요해서 안할 수는 없을 것 같음',
-            '문제 행동은 꽤 심각하므로 꼮 수정하고 싶고, 멘탈 케어가 최우선이므로 교육 중 반려견에게서 거부 반응이 관찰되는 모든 행위를 중단할 각오가 되어있음(목욕, 발 씻기, 눈꼽 떼주기 등...)',
+            '문제 행동이 심각하긴 하나, 눈꼽을 떼거나, 발을 씻기거나, 목욕을 하는 등의 위생관리도 중요해서 안할 수는 없을 것 같음',
+            '문제 행동은 꽤 심각하므로 꼭 수정하고 싶고, 멘탈 케어가 최우선이므로 교육 중 반려견에게서 거부 반응이 관찰되는 모든 행위를 중단할 각오가 되어있음(목욕, 발 씻기, 눈꼽 떼주기 등...)',
             '문제행동은 상당히 심각하기 때문에 꼭 수정하고 싶고, 수정이 안될 경우 양육을 포기 또는 안락사도 고려 중임',
           ],
           other: true,
@@ -645,11 +645,10 @@ export const surveyForm: FormDef = {
           label: '의뢰인의 최종 목표는 무엇인가요?',
           type: 'multi',
           required: true,
-          hint: ALL_PLEASE,
           options: ['집 근처 일반 미용실에서 미용을 받고 싶다.', '히스하우스에서 미용을 받고 싶다', '셀프 미용을 할 예정이다.'],
           other: true,
         },
-        { id: 'q98', label: '필요하다면 약물의 병행 또한 고려하고 있다.', type: 'single', required: true, hint: ONE_ITEM, options: YES_NO },
+        { id: 'q98', label: '필요하다면 약물의 병행 또한 고려하고 있다.', type: 'single', required: true, options: YES_NO },
       ],
     },
   ],

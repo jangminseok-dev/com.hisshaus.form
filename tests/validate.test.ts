@@ -149,6 +149,21 @@ describe('답변 검증', () => {
     })
   })
 
+  it("배타 선택지('없음')가 다른 답과 같이 오거나 접두마다 하나를 넘기면 거부한다(손으로 만든 요청)", () => {
+    const g: Group = {
+      id: 'g',
+      title: 'g',
+      questions: [
+        { id: 'm', label: 'm', type: 'multi', required: true, options: ['x', 'y', '없음'], exclusive: '없음' },
+        { id: 'p', label: 'p', type: 'multi', required: true, options: ['a. 1', 'a. 2', 'b. 1'], onePer: ['a.', 'b.'] },
+      ],
+    }
+    expect(msg(validateGroup(g, { m: ['없음'], p: ['a. 1', 'b. 1'] }, TODAY), 'm')).toBeUndefined()
+    expect(msg(validateGroup(g, { m: ['x', 'y'], p: ['a. 1'] }, TODAY), 'p')).toBeUndefined()
+    expect(msg(validateGroup(g, { m: ['x', '없음'], p: ['a. 1'] }, TODAY), 'm')).toBe('없음은 다른 것과 같이 고를 수 없어요')
+    expect(msg(validateGroup(g, { m: ['x'], p: ['a. 1', 'a. 2'] }, TODAY), 'p')).toBe('같은 묶음에서는 하나만 골라 주세요')
+  })
+
   it('복수 선택이 빈 배열이면 거부한다', () => {
     const errs = validateGroup(visit, { services: [] }, TODAY)
     expect(msg(errs, 'services')).toBe('하나 이상 골라 주세요')

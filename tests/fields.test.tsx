@@ -224,6 +224,29 @@ describe('복수 선택', () => {
     expect(last()).toEqual(['호텔'])
   })
 
+  it("배타 선택지('없음')를 고르면 나머지가 풀리고, 다른 것을 고르면 '없음' 이 풀린다 — 기타도 같다", () => {
+    const q: Question = { ...multiQ, options: ['미용', '호텔', '없음'], other: true, exclusive: '없음' }
+    const { last } = renderField(q, { initial: ['미용', '호텔'] })
+    fireEvent.click(screen.getByRole('checkbox', { name: '없음' }))
+    expect(last()).toEqual(['없음'])
+    fireEvent.click(screen.getByRole('checkbox', { name: '미용' }))
+    expect(last()).toEqual(['미용'])
+    fireEvent.click(screen.getByRole('checkbox', { name: '없음' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: '기타' }))
+    expect(last()).toEqual(['기타: '])
+  })
+
+  it('접두마다 하나(onePer)면 같은 접두의 칩은 라디오처럼 바뀐다', () => {
+    const q: Question = { ...multiQ, options: ['a. 많아졌다', 'a. 적어졌다', 'b. 심해졌다', 'b. 좋아졌다'], onePer: ['a.', 'b.'] }
+    const { last } = renderField(q)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'a. 많아졌다' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'b. 심해졌다' }))
+    expect(last()).toEqual(['a. 많아졌다', 'b. 심해졌다'])
+    fireEvent.click(screen.getByRole('checkbox', { name: 'a. 적어졌다' }))
+    expect(last()).toEqual(['b. 심해졌다', 'a. 적어졌다'])
+    expect(screen.getByRole('checkbox', { name: 'a. 많아졌다' })).not.toBeChecked()
+  })
+
   it('칩 묶음은 그룹이고 이름이 문항 그대로다', () => {
     renderField(multiQ)
     expect(screen.getByRole('group')).toHaveAccessibleName('이용 서비스')
