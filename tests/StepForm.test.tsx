@@ -115,14 +115,14 @@ describe('화면 틀', () => {
 
   it('묶음에 note 가 있으면 제목 아래에 보인다', () => {
     setup({ initial: draft(2) })
-    const note = screen.getByText(/고른 서비스마다 희망 일시를 묻는 묶음이 이어져요/)
+    const note = screen.getByText(/서비스별 희망 날짜와 요청 사항을 여쭤봐요/)
     const title = screen.getByRole('heading', { level: 2 })
     expect(title.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('note 가 없는 묶음에는 note 자리가 없다', () => {
     setup()
-    expect(screen.queryByText(/고른 서비스마다 희망 일시를 묻는 묶음이 이어져요/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/서비스별 희망 날짜와 요청 사항을 여쭤봐요/)).not.toBeInTheDocument()
   })
 
   it('검사지는 묶음 번호로만 진행을 보여 주고 전체 문항 수나 시간은 적지 않는다', () => {
@@ -244,6 +244,26 @@ describe('서비스별 묶음', () => {
     delete answers.services
     return setup({ initial: draft(groupIndexOf(applyForm, 'visit'), answers) })
   }
+
+  it('서비스를 더 골라도 진행 막대는 되돌아가지 않는다 — 서비스별 묶음은 한 단계로 친다', () => {
+    atVisit()
+    const fill = () => screen.getByRole('heading', { level: 2 }).parentElement!.nextElementSibling!.firstElementChild as HTMLElement
+    // 보호자·반려견·이용 서비스·(서비스별)·예약금 안내 다섯 단계 중 셋째다.
+    expect(fill().style.width).toBe('60%')
+
+    chooseMany(SERVICES_LABEL, HOTEL_SERVICE)
+    chooseMany(SERVICES_LABEL, GROOMING_SERVICE)
+    expect(screen.getByText('3 / 6')).toBeInTheDocument()
+    expect(fill().style.width).toBe('60%')
+
+    // 서비스별 단계 안에서는 보이는 묶음 수로 나눠 조금씩 찬다: 미용(1/2) → 호텔(2/2).
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('grooming')
+    expect(fill().style.width).toBe('70%')
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('hotel')
+    expect(fill().style.width).toBe('80%')
+  })
 
   it('서비스를 둘 고르면 그 두 묶음만 정의 순서로 이어지고 진행 표시는 보이는 묶음만 센다', () => {
     atVisit()

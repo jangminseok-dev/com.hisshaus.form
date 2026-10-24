@@ -15,7 +15,7 @@ export const applyForm: FormDef = {
   groups: [
     {
       id: 'guardian',
-      title: '보호자',
+      title: '보호자 정보',
       questions: [
         { id: 'guardian_name', label: '보호자 성함', type: 'short', required: true },
         { id: 'guardian_phone', label: '보호자 연락처', type: 'phone', required: true },
@@ -25,16 +25,15 @@ export const applyForm: FormDef = {
           type: 'consent',
           required: true,
           consentText: [
-            '보호자 성함·연락처와 반려견 정보를 받아요.',
-            '예약 상담과 안내에만 써요.',
-            `예약이 끝난 뒤 ${shop.privacyRetention}까지 보관하고 지워요.`,
+            '보호자 성함·연락처와 반려견 정보는 예약 상담과 안내에만 사용해요.',
+            `예약이 끝난 뒤 ${shop.privacyRetention}까지 보관하고, 그 뒤에는 지워요.`,
           ].join('\n'),
         },
       ],
     },
     {
       id: 'pet',
-      title: '반려견',
+      title: '반려견 정보',
       questions: [
         { id: 'pet_name', label: '반려견 이름', type: 'short', required: true },
         { id: 'pet_breed', label: '반려견 견종', type: 'short', required: true },
@@ -57,8 +56,8 @@ export const applyForm: FormDef = {
     },
     {
       id: 'visit',
-      title: '이용 안내',
-      note: '고른 서비스마다 희망 일시를 묻는 묶음이 이어져요.',
+      title: '이용 서비스',
+      note: '서비스를 고르면 다음 화면에서 서비스별 희망 날짜와 요청 사항을 여쭤봐요.',
       questions: [
         {
           id: 'services',
@@ -122,7 +121,7 @@ export const applyForm: FormDef = {
       id: 'training',
       // 구글폼 섹션 제목 그대로(선택지 '교육미용 / …' 와 띄어쓰기가 다른 것도 원문대로).
       title: '교육 미용 / 미용 트레이닝 상담',
-      note: '교육 안내 사항은 개별로 안내드려요.',
+      note: '교육에 대한 자세한 안내는 따로 연락드려요.',
       showIf: { questionId: 'services', includes: TRAINING_SERVICE },
       questions: [
         // 라벨은 시트 열 이름이라 미용 묶음의 '희망 시간대' 와 겹치지 않게 앞에 교육미용을 붙였다.
@@ -134,7 +133,7 @@ export const applyForm: FormDef = {
     {
       id: 'deposit',
       title: '예약금 안내',
-      note: '신청서를 확인한 뒤 연락드려요. 날짜·시간을 맞춘 다음 예약금 10,000원을 입금하면 예약이 확정돼요.',
+      note: '신청서를 확인한 뒤 연락드릴게요. 날짜와 시간을 맞춘 뒤 예약금 10,000원을 입금해 주시면 예약이 확정돼요.',
       questions: [
         { id: 'request', label: '마지막으로 요청 사항이 있으면 편하게 말씀해주세요!', type: 'long', required: false, hint: '고마워요 :)' },
       ],

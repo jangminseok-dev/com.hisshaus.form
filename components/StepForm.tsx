@@ -41,6 +41,23 @@ function prevVisible(form: FormDef, from: number, a: Answers): number {
 }
 
 /**
+ * 진행 막대의 비율. showIf 가 있는 연속한 묶음(서비스별 묶음)은 **한 단계**로 친다. 그래야 이용 서비스에서 서비스를 더 골라도
+ * 막대가 되돌아가지 않는다. 단계 안에서는 보이는 묶음 수로 나눠 조금씩 찬다. 글자로 보이는 `k / N` 은 실제 묶음 수다.
+ */
+function progressRatio(form: FormDef, index: number, a: Answers): number {
+  const phases: number[][] = []
+  form.groups.forEach((g, i) => {
+    const last = phases.at(-1)
+    if (g.showIf && last && form.groups[last[0]].showIf) last.push(i)
+    else phases.push([i])
+  })
+  const p = phases.findIndex((ids) => ids.includes(index))
+  const shown = phases[p].filter((i) => isGroupVisible(form.groups[i], a))
+  const j = shown.indexOf(index)
+  return (p + (j + 1) / Math.max(shown.length, 1)) / phases.length
+}
+
+/**
  * 복원한 묶음 번호가 숨은 묶음이면(서비스별 묶음에서 저장했다가 그 서비스를 뺀 초안) 그 **앞**의 보이는 묶음으로.
  * 뒤로 맞추면 아직 안 본 필수 묶음을 건너뛰어 제출 버튼에 닿는다. 앞으로 맞추면 다음을 눌러 정상 경로로 간다.
  */
@@ -297,12 +314,14 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
         <button
           type="button"
           className={styles.back}
-          aria-label="이전"
           data-action="back"
           disabled={submitting || (index === 0 && !onBackFromFirst)}
           onClick={goBack}
         >
-          ‹
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <path d="M12.5 4.5 7 10l5.5 5.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          이전
         </button>
         <h2 key={group.id} ref={titleRef} tabIndex={-1} className={styles.title}>
           {group.title}
@@ -310,7 +329,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
         <span className={styles.count}>{`${position} / ${shownGroups.length}`}</span>
       </div>
       <div className={styles.progress} aria-hidden="true">
-        <div className={styles.fill} style={{ width: `${(position / shownGroups.length) * 100}%` }} />
+        <div className={styles.fill} style={{ width: `${progressRatio(form, index, answers) * 100}%` }} />
       </div>
       {notice && (
         <p ref={noticeRef} role="alert" className={styles.notice}>

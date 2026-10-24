@@ -228,14 +228,14 @@ test('화면 어디에도 입니다 체가 없다', async ({ page }) => {
 
   await page.goto('/hisshaus')
   await expect(page.getByRole('heading', { name: '예약 신청' })).toBeVisible()
-  await expectHaeyo('예약 확정이 아니에요')
+  await expectHaeyo('예약이 확정돼요')
 
   await page.getByRole('link', { name: '예약 신청서' }).click()
   // 도우미가 고르는 미용에 교육미용을 더해, 서비스별 묶음 둘과 예약금 안내까지 본다. 교육미용은 검사지 안내로 이어진다.
   for (const [group, title] of [
-    ['guardian', '보호자'],
-    ['pet', '반려견'],
-    ['visit', '이용 안내'],
+    ['guardian', '보호자 정보'],
+    ['pet', '반려견 정보'],
+    ['visit', '이용 서비스'],
     ['grooming', 'Grooming 미용'],
     ['training', '교육 미용 / 미용 트레이닝 상담'],
     ['deposit', '예약금 안내'],

@@ -18,7 +18,8 @@ export const shop = {
   // (카카오톡 링크 미리보기 그림은 public/og.jpg 이고 app/layout.tsx 와 app/survey/page.tsx 가 가리킨다.)
   // <img> 주소에는 basePath 가 붙지 않아서 직접 붙인다.
   heroImage: `${BASE_PATH}/hero.jpg`,
-  // 첫 화면 오른쪽 위 인스타그램 아이콘이 여는 주소. 공유 링크의 추적 값(?rpxt=…)은 뺐다.
+  // 첫 화면 정보 줄의 인스타그램 링크. 공유 링크의 추적 값(?rpxt=…)은 뺐다. handle 은 화면에 @hisshaus 로 보인다.
+  instagramHandle: 'hisshaus',
   instagramUrl: 'https://www.instagram.com/hisshaus/',
   ogTitle: '히스하우스 예약 신청',
   ogDescription: '히스하우스 예약 신청서를 작성해 주세요.',

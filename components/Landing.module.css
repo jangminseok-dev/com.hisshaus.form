@@ -6,9 +6,6 @@
 
 /* 로고 줄. 아래 검정 선은 매장 벽의 몰딩 레일을 따른 것이다. */
 .head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin: 0 16px;
   padding: 18px 0 14px;
   border-bottom: 1px solid var(--ink);
@@ -24,20 +21,27 @@
   line-height: 1;
 }
 
-/* 누르기 쉽게 44px 칸을 주고, 오른쪽 여백은 아이콘 끝이 다른 줄 끝과 맞도록 그만큼 당긴다. */
+/* 정보 줄의 인스타그램 링크: 아이콘 + @아이디. 누르기 쉽게 위아래로 44px 를 채우고, 줄 높이에 맞춰 여백을 되돌린다. */
 .social {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  margin: -10px -10px -10px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: -9px 0;
   color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-/* 사진은 칸(480px) 끝까지 채운다. 불러오기 전에도 자리가 잡히도록 비율을 고정한다. */
+/* 사진은 글과 같은 16px 여백 안에 둔다(로고 줄의 선·글·상자와 양쪽 끝이 맞는다). 불러오기 전에도 자리가 잡히도록 비율을 고정한다. */
+.hero {
+  padding: 16px 16px 0;
+}
+
 .photo {
   display: block;
   width: 100%;
+  border-radius: var(--radius);
   height: auto;
   aspect-ratio: 4 / 3;
   object-fit: cover;
@@ -59,6 +63,8 @@
 .intro p {
   margin: 0 0 10px;
   line-height: 1.65;
+  /* 마지막 줄에 한두 글자만 남지 않게 줄을 고르게 나눈다. */
+  text-wrap: pretty;
   word-break: keep-all;
   overflow-wrap: anywhere;
 }

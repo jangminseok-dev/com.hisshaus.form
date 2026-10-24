@@ -79,7 +79,7 @@ afterEach(() => {
 describe('신청서를 열 때', () => {
   it('저장된 초안이 없으면 새 신청 ID 로 첫 묶음부터 연다', async () => {
     render(<ApplyFlow />)
-    expect(await screen.findByRole('heading', { level: 2, name: '보호자' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 2, name: '보호자 정보' })).toBeInTheDocument()
     // 서비스를 고르기 전에는 서비스별 묶음이 하나도 끼지 않는다.
     expect(screen.getByText('1 / 4')).toBeInTheDocument()
 
@@ -97,7 +97,7 @@ describe('신청서를 열 때', () => {
   it('저장된 초안이 있으면 그 묶음과 답으로 이어 쓴다', async () => {
     saveDraft('apply', { answers: { guardian_name: '김하나' }, groupIndex: 1, submissionId: ID, key: KEY })
     render(<ApplyFlow />)
-    expect(await screen.findByRole('heading', { level: 2, name: '반려견' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 2, name: '반려견 정보' })).toBeInTheDocument()
     expect(screen.getByText('2 / 4')).toBeInTheDocument()
 
     // 이어 쓰는 동안 신청 ID 는 그대로다.
@@ -150,7 +150,7 @@ describe('신청서를 열 때', () => {
     }
     saveSession(before)
     render(<ApplyFlow />)
-    await screen.findByRole('heading', { level: 2, name: '보호자' })
+    await screen.findByRole('heading', { level: 2, name: '보호자 정보' })
     // 앞으로 가기로 완료 화면에 다시 닿아도 세션을 읽을 수 있어야 한다.
     expect(loadSession()).toEqual(before)
   })
@@ -401,7 +401,7 @@ describe('신청을 낸 뒤 뒤로 가기', () => {
     // 뒤로: 낸 칸 바로 앞의 지난 칸(위치 1)으로 돌아와 신청서가 다시 열린다. 새 신청이다.
     await goBack()
     render(<ApplyFlow />)
-    expect(await screen.findByRole('heading', { level: 2, name: '보호자' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 2, name: '보호자 정보' })).toBeInTheDocument()
     expect(history.state).toMatchObject({ hhForm: 'apply', hhStep: 0, hhPos: 0 })
     expect(history.state.hhKey).not.toBe(OLD_KEY)
 

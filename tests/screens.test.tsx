@@ -77,8 +77,8 @@ describe('첫 화면', () => {
     expect(within(section('intro')).getByRole('heading', { level: 1, name: '예약 신청' })).toBeInTheDocument()
     const paragraphs = Array.from(section('intro').querySelectorAll('p')).map((p) => p.textContent)
     expect(paragraphs).toEqual([
-      '이 신청서는 예약 확정이 아니에요. 신청서를 확인한 뒤 따로 연락드리고, 최종 안내를 받으면 예약이 확정돼요.',
-      '아이의 편안한 케어를 위해 충분히 상담한 뒤 예약을 진행해요.',
+      '신청서를 보내 주시면 확인한 뒤 연락드려요. 날짜와 시간을 맞추고 예약금 입금이 확인되면 예약이 확정돼요.',
+      '아이가 편안하게 케어받을 수 있도록 충분히 상담한 뒤 예약을 진행해요.',
     ])
 
     // 양식 둘은 링크 이름이 제목 줄이고(설명 줄은 이름에 들어가지 않는다) 각자 양식으로 간다.
@@ -91,10 +91,10 @@ describe('첫 화면', () => {
     expect(within(section('choices')).getByRole('link', { name: '심층 행동 분석 검사지' })).toHaveAttribute('href', '/survey')
     // 설명 줄은 이름이 아니라 설명으로 들린다.
     expect(within(section('choices')).getByRole('link', { name: '예약 신청서' })).toHaveAccessibleDescription(
-      '미용·데이케어·호텔·교육미용 상담 예약을 신청해요',
+      '미용, 데이케어, 호텔, 교육미용 상담을 예약해요',
     )
     expect(within(section('choices')).getByRole('link', { name: '심층 행동 분석 검사지' })).toHaveAccessibleDescription(
-      '교육미용 상담 전에 반려견의 행동에 대해 알려 주세요',
+      '교육미용 상담 전에 반려견의 행동을 미리 알려 주세요',
     )
     // 첫 화면에는 아래 고정 버튼이 없다.
     expect(screen.queryByRole('link', { name: '예약 신청하기' })).not.toBeInTheDocument()
@@ -108,6 +108,7 @@ describe('첫 화면', () => {
       '위치',
       '영업시간',
       '예약금',
+      '소식',
     ])
   })
 
@@ -117,12 +118,14 @@ describe('첫 화면', () => {
       shop.address,
       shop.hours,
       shop.deposit,
+      `@${shop.instagramHandle}`,
     ])
   })
 
-  it('머리글의 인스타그램 아이콘은 매장 인스타그램을 새 탭으로 연다', () => {
+  it('정보 줄의 인스타그램 링크는 매장 인스타그램을 새 탭으로 연다', () => {
     render(<Landing />)
-    const link = within(section('head')).getByRole('link', { name: '히스하우스 인스타그램' })
+    const link = within(section('info')).getByRole('link', { name: '히스하우스 인스타그램' })
+    expect(link).toHaveTextContent('@hisshaus')
     expect(link).toHaveAttribute('href', 'https://www.instagram.com/hisshaus/')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
@@ -333,12 +336,24 @@ describe('완료 화면', () => {
 })
 
 describe('검사지 완료 화면', () => {
-  it('제목과 안내가 있다', () => {
+  it('신청서를 내고 이어서 쓴 경우: 신청과 함께 전달됐다고 알리고 다음 순서와 처음으로 링크가 있다', async () => {
+    saveSession({ ...session, surveyDone: true })
     const { container } = render(<SurveyDone />)
     expect(screen.getByRole('heading', { level: 1, name: '검사지가 접수되었어요' })).toBeInTheDocument()
-    expect(screen.getByText('히스하우스가 내용을 확인하고 연락드려요.')).toBeInTheDocument()
+    expect(await screen.findByText('보리의 예약 신청과 함께 히스하우스에 전달됐어요.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: '다음 순서' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '처음으로' })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('link', { name: '예약 신청서 쓰기' })).not.toBeInTheDocument()
     expect(container.textContent).not.toContain('입니다')
     expect(container.textContent).not.toContain('됩니다')
+  })
+
+  it('검사지만 바로 쓴 경우(세션 없음): 신청서도 써 달라고 안내하고 신청서 링크가 있다', async () => {
+    render(<SurveyDone />)
+    expect(await screen.findByRole('link', { name: '예약 신청서 쓰기' })).toHaveAttribute('href', '/apply')
+    expect(screen.getByText(/검사지만으로는 예약이 잡히지 않아요/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '처음으로' })).toHaveAttribute('href', '/')
+    expect(screen.queryByText(/예약 신청과 함께/)).not.toBeInTheDocument()
   })
 })
 

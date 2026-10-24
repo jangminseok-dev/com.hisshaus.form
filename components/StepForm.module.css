@@ -7,7 +7,7 @@
 
 .bar {
   display: grid;
-  grid-template-columns: 44px 1fr auto;
+  grid-template-columns: auto 1fr auto;
   grid-template-areas:
     'back . count'
     'title title title';
@@ -17,16 +17,20 @@
 
 .back {
   grid-area: back;
-  width: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   height: 44px;
-  /* 화살표 모양이 16px 여백선에 붙게 한다. */
-  margin-left: -12px;
-  padding: 0;
+  /* 화살표가 16px 여백선에 붙게 한다. */
+  margin-left: -6px;
+  padding: 0 10px 0 6px;
   border: 0;
+  border-radius: var(--radius);
   background: none;
   color: var(--ink);
   font: inherit;
-  font-size: 32px;
+  font-size: 16px;
+  font-weight: 600;
   line-height: 1;
   cursor: pointer;
 }
