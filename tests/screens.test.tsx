@@ -291,7 +291,7 @@ describe('완료 화면', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('완료 화면은 요약·다음 순서·가린 연락처를 보여 준다', async () => {
+  it('완료 화면은 요약·다음 순서·연락처를 보여 준다', async () => {
     saveSession(session)
     const { container } = render(<Done />)
 
@@ -315,8 +315,6 @@ describe('완료 화면', () => {
 
     // 방금 적은 본인이 확인하는 자리라 번호를 가리지 않는다.
     expect(screen.getByText('곧 010-1234-5678 로 연락드릴게요.')).toBeInTheDocument()
-    // 가운데 네 자리는 화면에 나오지 않는다.
-    expect(container.textContent).not.toContain('1234')
     expect(container.textContent).not.toContain('입니다')
     expect(container.textContent).not.toContain('됩니다')
     expect(router.replace).not.toHaveBeenCalled()
