@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 
-import { blockedBy, isRequired, isVisible, visibleAnswers } from '../forms/rules'
+import { blockedBy, isGroupVisible, isRequired, isVisible, visibleAnswers, visibleGroups } from '../forms/rules'
 import type { Answer, Answers, FormDef, Question } from '../forms/types'
 import type { Draft } from '../lib/draft'
 import { todayKst } from '../lib/format'
@@ -29,6 +29,27 @@ const RECHECK = '입력한 내용을 다시 확인해 주세요.'
 
 const clamp = (i: number, total: number) => Math.min(Math.max(i, 0), total - 1)
 
+/** from 뒤의 첫 보이는 묶음 번호. 없으면 -1. */
+function nextVisible(form: FormDef, from: number, a: Answers): number {
+  return form.groups.findIndex((g, i) => i > from && isGroupVisible(g, a))
+}
+
+/** from 앞의 마지막 보이는 묶음 번호. 없으면 -1. */
+function prevVisible(form: FormDef, from: number, a: Answers): number {
+  for (let i = from - 1; i >= 0; i--) if (isGroupVisible(form.groups[i], a)) return i
+  return -1
+}
+
+/**
+ * 복원한 묶음 번호가 숨은 묶음이면(서비스별 묶음에서 저장했다가 그 서비스를 뺀 초안) 그 **앞**의 보이는 묶음으로.
+ * 뒤로 맞추면 아직 안 본 필수 묶음을 건너뛰어 제출 버튼에 닿는다. 앞으로 맞추면 다음을 눌러 정상 경로로 간다.
+ */
+function snap(form: FormDef, i: number, a: Answers): number {
+  if (isGroupVisible(form.groups[i], a)) return i
+  const prev = prevVisible(form, i, a)
+  return prev === -1 ? nextVisible(form, i, a) : prev
+}
+
 /**
  * 묶음을 어떻게 옮기나. push: 방문 기록에 칸을 쌓는다(다음). replace: 지금 칸을 고쳐 쓴다(앞에 쌓은 칸이 없을 때의 이전,
  * 서버가 거절한 뒤의 복구). pop: 브라우저가 이미 옮겼다(뒤로·앞으로 가기).
@@ -52,7 +73,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   const sid = initial.submissionId
   const key = initial.key
   const [answers, setAnswers] = useState<Answers>(initial.answers)
-  const [index, setIndex] = useState(() => clamp(initial.groupIndex, total))
+  const [index, setIndex] = useState(() => snap(form, clamp(initial.groupIndex, total), initial.answers))
   const [showErrors, setShowErrors] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [notice, setNotice] = useState('')
@@ -77,7 +98,10 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   const shownIndex = useRef(index)
 
   const group = form.groups[index]
-  const isLast = index === total - 1
+  // 묶음은 보이는 것 사이로만 옮긴다. 서비스별 묶음은 그 서비스를 골랐을 때만 끼고, 진행 표시도 보이는 묶음만 센다.
+  const shownGroups = visibleGroups(form, answers)
+  const position = shownGroups.indexOf(group) + 1
+  const isLast = nextVisible(form, index, answers) === -1
   const todayNow = freshToday > today ? freshToday : today
   const errors = validateGroup(group, answers, todayNow)
   const blocked = blockedBy(group, answers)
@@ -133,7 +157,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
       history.back()
     } else {
       // 앞에 이 화면이 쌓은 칸이 없다(가운데서 복원됐거나 여러 칸을 한 번에 돌아왔다). 지금 칸을 앞 묶음으로 고쳐 쓴다.
-      moveTo(indexRef.current - 1, 'replace')
+      moveTo(prevVisible(form, indexRef.current, answersRef.current), 'replace')
     }
   }
 
@@ -165,8 +189,9 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
       setReveal((n) => n + 1)
       return
     }
-    if (!isLast) {
-      moveTo(indexRef.current + 1, 'push')
+    const next = nextVisible(form, indexRef.current, answersRef.current)
+    if (next !== -1) {
+      moveTo(next, 'push')
       return
     }
     submittingRef.current = true
@@ -221,7 +246,19 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
       return
     }
     if (!Number.isInteger(s.hhStep) || !Number.isInteger(s.hhPos)) return
-    moveTo(clamp(s.hhStep, total), 'pop', s.hhPos)
+    const a = answersRef.current
+    const step = clamp(s.hhStep, total)
+    let target = step
+    if (!isGroupVisible(form.groups[step], a)) {
+      // 칸이 가리키는 묶음이 지금은 숨어 있다(그 서비스를 뺐다). 그 칸 기준이 아니라 지금 묶음에서 간 방향의 다음 보이는 묶음으로
+      // 간다. 앞으로 가기가 아직 안 본 필수 묶음을 건너뛰지 않고, 뒤로 가기가 같은 묶음을 두 번 보이지 않는다.
+      const forward = s.hhPos > posRef.current
+      const byDirection = forward ? nextVisible(form, indexRef.current, a) : prevVisible(form, indexRef.current, a)
+      target = byDirection === -1 ? snap(form, step, a) : byDirection
+      // 칸이 보이는 묶음을 가리키게 고쳐 둔다. 다음에 같은 칸에 닿으면 방향 없이도 맞는다.
+      history.replaceState(entryState(target, s.hhPos), '')
+    }
+    moveTo(target, 'pop', s.hhPos)
   })
   useEffect(() => {
     const listen = (event: PopStateEvent) => onPopState(event)
@@ -270,10 +307,10 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
         <h2 key={group.id} ref={titleRef} tabIndex={-1} className={styles.title}>
           {group.title}
         </h2>
-        <span className={styles.count}>{`${index + 1} / ${total}`}</span>
+        <span className={styles.count}>{`${position} / ${shownGroups.length}`}</span>
       </div>
       <div className={styles.progress} aria-hidden="true">
-        <div className={styles.fill} style={{ width: `${((index + 1) / total) * 100}%` }} />
+        <div className={styles.fill} style={{ width: `${(position / shownGroups.length) * 100}%` }} />
       </div>
       {notice && (
         <p ref={noticeRef} role="alert" className={styles.notice}>

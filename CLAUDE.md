@@ -13,7 +13,8 @@
 - 시트는 `valueInputOption=RAW` 로만 쓴다(`lib/sheets.ts`). 보호자가 적은 `=...` 가 수식이 되지 않게 `USER_ENTERED` 로 바꾸지 않는다.
 - 제출 순서는 검증 → 시트 → 슬랙이다. 시트 실패는 실패로 답하고, 슬랙 실패는 기록이 남았으므로 성공으로 답한다.
 - 외부 스크립트·외부 글꼴·분석 도구를 넣지 않는다. 브라우저가 부르는 곳은 이 웹뿐이다. Vercel 전용 기능에 기대지 않고, 첫 화면 사진은 `next/image` 가 아니라 `<img>` 다(이미지 최적화 사용량을 쓰지 않는다).
-- 문항 정의(`forms/`)가 단일 출처다. 화면·검증·시트 행·슬랙 메시지가 모두 그것을 읽는다. 문항을 바꾸면 시트 열이 바뀌므로 `pnpm sheet:header` 로 헤더를 다시 확인한다. 다만 일부 문항 id 는 코드가 직접 쓴다: 슬랙 머리글·알림 줄(`lib/slack-blocks.ts`), 신청 세션(`components/ApplyFlow.tsx`), 검사지 미리 채우기(`components/SurveyFlow.tsx`), 문항 정의 안의 `requiredIf`·`showIf`. id 를 바꾸면 그곳도 고친다.
+- 문항 정의(`forms/`)가 단일 출처다. 화면·검증·시트 행·슬랙 메시지가 모두 그것을 읽는다. 문항을 바꾸면 시트 열이 바뀌므로 `pnpm sheet:header` 로 헤더를 다시 확인한다. 다만 일부 문항 id 는 코드가 직접 쓴다: 슬랙 머리글·알림 줄(`lib/slack-blocks.ts`), 신청 세션(`components/ApplyFlow.tsx`), 희망 일시 요약(`lib/wish.ts`), 검사지 미리 채우기(`components/SurveyFlow.tsx`), 문항 정의 안의 `showIf`(문항·묶음)·`requiredIf`. id 를 바꾸면 그곳도 고친다.
+- 신청서의 서비스별 묶음(`grooming`·`daycare`·`hotel`·`training`)은 묶음 `showIf` 로 고른 서비스일 때만 보인다. 묶음을 옮기는 코드는 `visibleGroups`·`isGroupVisible` 을 거쳐야 하고, 보내는 답·검증·슬랙 본문은 숨은 묶음을 빼야 한다.
 - 새 신청을 시작할 때 신청 세션을 지우지 않는다. 완료 화면에서 뒤로 가기만 해도 세션이 사라져, 앞으로 가기 때 완료 화면이 첫 화면으로 튕긴다. 세션은 다음 제출이 덮어쓴다.
 - 뒤로 가기·방문 기록 코드(`components/StepForm.tsx`)를 고치면 e2e 로 확인한다. jsdom 은 실제 Next 의 `popstate` 를 재현하지 못한다.
 - e2e 는 진짜 서비스를 부르지 않는다. 포트 3030·3031 의 전용 서버와 가짜 슬랙·시트만 쓰고 `reuseExistingServer: false` 를 유지한다. `pnpm e2e` 전에 개발 서버(3020)를 끈다.

@@ -26,7 +26,7 @@ const session: ApplySession = {
   guardianPhone: '010-1234-5678',
   petName: '보리',
   services: ['Grooming 미용', TRAINING_SERVICE],
-  wish1: '10월 28일 (수) 오전',
+  wish: '10월 28일 (수) 오전',
   training: true,
   surveyDone: false,
 }
@@ -57,14 +57,14 @@ afterEach(() => {
 })
 
 describe('첫 화면', () => {
-  it('매장 이름·사진·제목·안내·정보·버튼이 구역별로 있다', () => {
+  it('매장 이름·사진·제목·안내·양식 둘·정보가 구역별로 있다', () => {
     render(<Landing />)
     expect(Array.from(document.querySelectorAll('[data-section]')).map((e) => e.getAttribute('data-section'))).toEqual([
       'head',
       'hero',
       'intro',
+      'choices',
       'info',
-      'cta',
     ])
 
     expect(section('head')).toHaveTextContent(shop.name)
@@ -74,15 +74,30 @@ describe('첫 화면', () => {
     expect(photo).toHaveAttribute('width')
     expect(photo).toHaveAttribute('height')
 
-    expect(within(section('intro')).getByRole('heading', { level: 1, name: '예약 신청서' })).toBeInTheDocument()
+    expect(within(section('intro')).getByRole('heading', { level: 1, name: '예약 신청' })).toBeInTheDocument()
     const paragraphs = Array.from(section('intro').querySelectorAll('p')).map((p) => p.textContent)
     expect(paragraphs).toEqual([
       '이 신청서는 예약 확정이 아니에요. 신청서를 확인한 뒤 따로 연락드리고, 최종 안내를 받으면 예약이 확정돼요.',
       '아이의 편안한 케어를 위해 충분히 상담한 뒤 예약을 진행해요.',
     ])
 
-    const cta = within(section('cta')).getByRole('link', { name: '예약 신청하기' })
-    expect(cta).toHaveAttribute('href', '/apply')
+    // 양식 둘은 링크 이름이 제목 줄이고(설명 줄은 이름에 들어가지 않는다) 각자 양식으로 간다.
+    const choices = within(section('choices')).getAllByRole('link')
+    expect(choices.map((l) => [l.textContent?.includes('예약 신청서') ? '예약 신청서' : '검사지', l.getAttribute('href')])).toEqual([
+      ['예약 신청서', '/apply'],
+      ['검사지', '/survey'],
+    ])
+    expect(within(section('choices')).getByRole('link', { name: '예약 신청서' })).toHaveAttribute('href', '/apply')
+    expect(within(section('choices')).getByRole('link', { name: '심층 행동 분석 검사지' })).toHaveAttribute('href', '/survey')
+    // 설명 줄은 이름이 아니라 설명으로 들린다.
+    expect(within(section('choices')).getByRole('link', { name: '예약 신청서' })).toHaveAccessibleDescription(
+      '미용·데이케어·호텔·교육미용 상담 예약을 신청해요',
+    )
+    expect(within(section('choices')).getByRole('link', { name: '심층 행동 분석 검사지' })).toHaveAccessibleDescription(
+      '교육미용 상담 전에 반려견의 행동에 대해 알려 주세요',
+    )
+    // 첫 화면에는 아래 고정 버튼이 없다.
+    expect(screen.queryByRole('link', { name: '예약 신청하기' })).not.toBeInTheDocument()
   })
 
   it('첫 화면에 소요 시간 줄이 없다', () => {
@@ -103,6 +118,23 @@ describe('첫 화면', () => {
       shop.hours,
       shop.deposit,
     ])
+  })
+
+  it('머리글의 인스타그램 아이콘은 매장 인스타그램을 새 탭으로 연다', () => {
+    render(<Landing />)
+    const link = within(section('head')).getByRole('link', { name: '히스하우스 인스타그램' })
+    expect(link).toHaveAttribute('href', 'https://www.instagram.com/hisshaus/')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('주소를 누르면 네이버 지도를 새 탭으로 연다', () => {
+    render(<Landing />)
+    const link = screen.getByRole('link', { name: shop.address })
+    expect(link).toHaveAttribute('href', shop.mapUrl)
+    expect(link.getAttribute('href')).toMatch(/^https:\/\/map\.naver\.com\//)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
   it('첫 화면 문구에 "~입니다" 가 없다', () => {

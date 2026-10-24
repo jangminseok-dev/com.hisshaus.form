@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { applyForm } from '../forms/apply'
-import { allQuestions } from '../forms/rules'
+import { applyForm, DAYCARE_SERVICE, GROOMING_SERVICE, HOTEL_SERVICE, TRAINING_SERVICE } from '../forms/apply'
+import { allQuestions, visibleGroups } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import {
   BLOCKS_LIMIT,
@@ -15,7 +15,7 @@ import {
 } from '../lib/slack-blocks'
 
 const meta = { submissionId: 'abcDEF1234', receivedAt: '2026-10-23 10:00:00' }
-const base = { guardian_name: '홍길동', pet_name: '초코', services: ['목욕', '전체미용'], wish1_date: '2026-10-28', wish1_slot: '오전' }
+const base = { guardian_name: '홍길동', pet_name: '초코', services: [GROOMING_SERVICE], groom_date: '2026-10-28', groom_time: '오전' }
 
 const sections = (ms: SlackMessage[]) =>
   ms.flatMap((m) => m.blocks).flatMap((b: Block) => (b.type === 'section' ? [b.text.text] : []))
@@ -28,13 +28,46 @@ describe('슬랙 메시지', () => {
     const ms = applyMessages(base, meta)
     expect(ms).toHaveLength(1)
     expect(ms[0].blocks[0]).toEqual({ type: 'header', text: { type: 'plain_text', text: '🐾 새 예약 신청 — 초코 (홍길동)' } })
-    expect(ms[0].text).toBe('새 예약 신청: 초코 (홍길동) · 목욕, 전체미용 · 10월 28일 (수) 오전')
+    expect(ms[0].text).toBe('새 예약 신청: 초코 (홍길동) · Grooming 미용 · 10월 28일 (수) 오전')
   })
 
-  it('모든 문항 라벨이 본문에 있다', () => {
+  it('보이는 묶음의 모든 문항 라벨이 본문에 있다', () => {
     const t = allText(applyMessages(base, meta))
-    for (const q of allQuestions(applyForm)) expect(t).toContain(`*${q.label}*`)
+    for (const g of visibleGroups(applyForm, base)) for (const q of g.questions) expect(t).toContain(`*${q.label}*`)
     expect(t).toContain('—')
+  })
+
+  it('고르지 않은 서비스 묶음은 본문에 없고 고른 묶음은 있다', () => {
+    const title = (id: string) => `*${applyForm.groups.find((g) => g.id === id)!.title}*`
+    const label = (id: string) => `*${allQuestions(applyForm).find((q) => q.id === id)!.label}*`
+
+    const one = allText(applyMessages(base, meta))
+    expect(one).toContain(title('grooming'))
+    expect(one).toContain(title('deposit'))
+    for (const id of ['daycare', 'hotel', 'training']) expect(one).not.toContain(title(id))
+    expect(one).not.toContain(label('hotel_checkin'))
+
+    const two = { ...base, services: [GROOMING_SERVICE, HOTEL_SERVICE], hotel_checkin: '11/3 15:00', hotel_checkout: '11/5 11:00' }
+    const t = allText(applyMessages(two, meta))
+    expect(t).toContain(title('grooming'))
+    expect(t).toContain(title('hotel'))
+    expect(t).toContain(`${label('hotel_checkin')}\n11/3 15:00`)
+    for (const id of ['daycare', 'training']) expect(t).not.toContain(title(id))
+    expect(t).not.toContain(label('daycare_date'))
+    // 묶음 순서는 정의 순서다.
+    expect(t.indexOf(title('grooming'))).toBeLessThan(t.indexOf(title('hotel')))
+    expect(t.indexOf(title('hotel'))).toBeLessThan(t.indexOf(title('deposit')))
+  })
+
+  it('알림 미리보기에 고른 서비스의 희망 일시(wishText)가 들어간다', () => {
+    const two = { ...base, services: [GROOMING_SERVICE, HOTEL_SERVICE], hotel_checkin: '11/3 15:00', hotel_checkout: '11/5 11:00' }
+    expect(applyMessages(two, meta)[0].text).toBe(
+      '새 예약 신청: 초코 (홍길동) · Grooming 미용, Hotel 호텔 · 미용 10월 28일 (수) 오전, 호텔 11/3 15:00 체크인',
+    )
+    const training = { ...base, services: [DAYCARE_SERVICE, TRAINING_SERVICE], daycare_date: '2026-10-29', training_date: '2026-10-30' }
+    expect(applyMessages(training, meta)[0].text).toBe(
+      `새 예약 신청: 초코 (홍길동) · ${DAYCARE_SERVICE}, ${TRAINING_SERVICE} · 데이케어 10월 29일 (목), 교육미용 10월 30일 (금)`,
+    )
   })
 
   it('특수문자를 이스케이프한다', () => {

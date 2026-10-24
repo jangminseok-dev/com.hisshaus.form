@@ -1,9 +1,10 @@
 import { applyForm } from '../forms/apply'
-import { allQuestions } from '../forms/rules'
+import { allQuestions, visibleGroups } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import type { Answers, FormDef } from '../forms/types'
-import { answerText, dateKo } from './format'
+import { answerText } from './format'
 import type { Meta } from './sheet-row'
+import { wishText } from './wish'
 
 export type Block =
   | { type: 'header'; text: { type: 'plain_text'; text: string } }
@@ -107,7 +108,8 @@ function buildMessages(
   }
 
   if (firstSection) add(section(escapeMrkdwn(firstSection)))
-  for (const g of form.groups) {
+  // 숨은 묶음(고르지 않은 서비스)은 싣지 않는다.
+  for (const g of visibleGroups(form, a)) {
     add({ type: 'divider' })
     add(section(`*${escapeMrkdwn(g.title)}*`))
     const lines = g.questions.map((q) => ({ label: q.label, answer: answerText(q, a) }))
@@ -131,9 +133,7 @@ export function applyMessages(a: Answers, meta: Meta): SlackMessage[] {
   const pet = val(a, 'pet_name')
   const guardian = val(a, 'guardian_name')
   const services = answerText(allQuestions(applyForm).find((q) => q.id === 'services')!, a)
-  const date = val(a, 'wish1_date')
-  const wish1 = `${date ? dateKo(date) : ''} ${val(a, 'wish1_slot')}`.trim()
-  const notice = escapeMrkdwn(`새 예약 신청: ${pet} (${guardian}) · ${services} · ${wish1}`)
+  const notice = escapeMrkdwn(`새 예약 신청: ${pet} (${guardian}) · ${services} · ${wishText(a)}`)
   return buildMessages(applyForm, a, meta, `🐾 새 예약 신청 — ${pet} (${guardian})`, notice)
 }
 

@@ -133,10 +133,12 @@
   cursor: pointer;
 }
 
-/* 채울 곳이 남은 버튼은 꺼진 모양이지만 누를 수 있다(누르면 빈 곳으로 데려간다). 보내는 중에는 진짜 disabled 다. */
+/* 채울 곳이 남은 버튼은 꺼진 모양이지만 누를 수 있다(누르면 빈 곳으로 데려간다). 보내는 중에는 진짜 disabled 다.
+   살아 있는 버튼이라 글자 대비를 지킨다(mute/paper 5.6:1). */
 .primary[aria-disabled='true'],
 .primary:disabled {
-  background: var(--line);
+  border: 1px solid var(--line);
+  background: var(--paper);
   color: var(--mute);
 }
 

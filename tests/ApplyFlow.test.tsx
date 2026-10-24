@@ -22,8 +22,13 @@ const FAILED = '지금은 보낼 수 없어요. 잠시 뒤 다시 눌러 주세�
 const fetchMock = vi.fn<typeof fetch>()
 const reply = (status: number, body?: object) => new Response(body === undefined ? null : JSON.stringify(body), { status })
 
-/** 마지막 묶음에서 보내기만 남은 신청서를 저장소에 둔다. 두 번째로 읽을 답이 어떤 값인지 알 수 있게 값을 정해 둔다. */
-function draftAtLastGroup(over: Answers = {}): Answers {
+const groupIndexOf = (id: string) => applyForm.groups.findIndex((g) => g.id === id)
+/** 마지막 묶음(예약금 안내)의 번호. validAnswers 는 미용만 고르므로 보이는 묶음은 보호자·반려견·이용 안내·미용·예약금 안내 다섯이다. */
+const LAST = groupIndexOf('deposit')
+const REQUEST_LABEL = '마지막으로 요청 사항이 있으면 편하게 말씀해주세요!'
+
+/** 그 묶음까지 채운 신청서를 저장소에 둔다. 두 번째로 읽을 답이 어떤 값인지 알 수 있게 값을 정해 둔다. */
+function draftAt(groupId: string, over: Answers = {}): Answers {
   const answers: Answers = {
     ...validAnswers(applyForm),
     guardian_name: '김하나',
@@ -31,9 +36,12 @@ function draftAtLastGroup(over: Answers = {}): Answers {
     pet_name: '보리',
     ...over,
   }
-  saveDraft('apply', { answers, groupIndex: 2, submissionId: ID, key: KEY })
+  saveDraft('apply', { answers, groupIndex: groupIndexOf(groupId), submissionId: ID, key: KEY })
   return answers
 }
+
+/** 마지막 묶음에서 보내기만 남은 신청서를 저장소에 둔다. */
+const draftAtLastGroup = (over: Answers = {}) => draftAt('deposit', over)
 
 const submitButton = () => screen.findByRole('button', { name: '신청하기' })
 
@@ -72,7 +80,8 @@ describe('신청서를 열 때', () => {
   it('저장된 초안이 없으면 새 신청 ID 로 첫 묶음부터 연다', async () => {
     render(<ApplyFlow />)
     expect(await screen.findByRole('heading', { level: 2, name: '보호자' })).toBeInTheDocument()
-    expect(screen.getByText('1 / 3')).toBeInTheDocument()
+    // 서비스를 고르기 전에는 서비스별 묶음이 하나도 끼지 않는다.
+    expect(screen.getByText('1 / 4')).toBeInTheDocument()
 
     // 입력하면 초안이 저장되고, 그 신청 ID 는 브라우저가 만든 10자다.
     fireEvent.change(screen.getByLabelText('보호자 성함'), { target: { value: '김하나' } })
@@ -89,7 +98,7 @@ describe('신청서를 열 때', () => {
     saveDraft('apply', { answers: { guardian_name: '김하나' }, groupIndex: 1, submissionId: ID, key: KEY })
     render(<ApplyFlow />)
     expect(await screen.findByRole('heading', { level: 2, name: '반려견' })).toBeInTheDocument()
-    expect(screen.getByText('2 / 3')).toBeInTheDocument()
+    expect(screen.getByText('2 / 4')).toBeInTheDocument()
 
     // 이어 쓰는 동안 신청 ID 는 그대로다.
     fireEvent.change(screen.getByLabelText('반려견 이름'), { target: { value: '보리' } })
@@ -111,14 +120,14 @@ describe('신청서를 열 때', () => {
     // 모듈을 읽은 뒤에 시계를 옮긴다. 읽을 때 굳은 날짜라면 희망 날짜 12월 24일이 아직 미래로 보인다.
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-12-25T10:00:00+09:00'))
-    draftAtLastGroup({ wish1_date: '2026-12-24' })
+    draftAt('grooming', { groom_date: '2026-12-24' })
     render(<ApplyFlow />)
 
-    const submit = await submitButton()
-    expect(submit).toHaveAttribute('aria-disabled', 'true')
-    fireEvent.click(submit)
+    const next = await screen.findByRole('button', { name: '다음' })
+    expect(next).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(next)
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(screen.getByLabelText('희망 날짜 1순위')).toHaveAttribute('min', '2026-12-25')
+    expect(screen.getByLabelText('희망 예약 날짜')).toHaveAttribute('min', '2026-12-25')
   })
 
   it('서버에서 그릴 때는 저장소를 읽지 않고 아무것도 그리지 않는다', () => {
@@ -135,7 +144,7 @@ describe('신청서를 열 때', () => {
       guardianPhone: '010-1234-5678',
       petName: '보리',
       services: ['Grooming 미용'],
-      wish1: '1월 1일 (목) 오전',
+      wish: '1월 1일 (목) 오전',
       training: false,
       surveyDone: false,
     }
@@ -160,8 +169,8 @@ describe('제출', () => {
       guardianPhone: '010-1234-5678',
       petName: '보리',
       services: ['Grooming 미용'],
-      // 2099-01-01 은 목요일이다. 시간대는 첫 선택지.
-      wish1: '1월 1일 (목) 오전',
+      // 2099-01-01 은 목요일이다. 시간대는 선택이라 비어 있다.
+      wish: '1월 1일 (목)',
       training: false,
       surveyDone: false,
     })
@@ -180,7 +189,7 @@ describe('제출', () => {
 
     // 실제 Next 도 다음 화면이 그려지기 전까지는 이 화면이 입력·뒤로 가기를 받는다(여기서는 가짜 router 라 그대로 떠 있다).
     // 그때 초안을 다시 저장하면 다음에 신청서를 열 때 낸 신청이 되살아나 같은 신청 ID 로 또 보내게 된다.
-    fireEvent.change(screen.getByLabelText('희망 날짜 2순위'), { target: { value: '2099-02-01' } })
+    fireEvent.change(screen.getByLabelText(REQUEST_LABEL), { target: { value: '늦게 적은 요청' } })
     expect(loadDraft('apply')).toBeNull()
   })
 
@@ -232,7 +241,7 @@ describe('제출', () => {
   })
 
   it('503 이면 failed 로 입력이 남는다', async () => {
-    const answers = draftAtLastGroup()
+    const answers = draftAtLastGroup({ request: '문 앞에서 기다릴게요' })
     fetchMock.mockResolvedValue(reply(503, { ok: false }))
     render(<ApplyFlow />)
     fireEvent.click(await submitButton())
@@ -241,8 +250,8 @@ describe('제출', () => {
     expect(router.replace).not.toHaveBeenCalled()
     expect(loadSession()).toBeNull()
     // 초안도 입력도 그대로고 다시 보낼 수 있다.
-    expect(loadDraft('apply')).toEqual({ answers, groupIndex: 2, submissionId: ID, key: KEY })
-    expect(screen.getByLabelText('희망 날짜 1순위')).toHaveValue(answers.wish1_date)
+    expect(loadDraft('apply')).toEqual({ answers, groupIndex: LAST, submissionId: ID, key: KEY })
+    expect(screen.getByLabelText(REQUEST_LABEL)).toHaveValue('문 앞에서 기다릴게요')
     expect(screen.getByRole('button', { name: '신청하기' })).toBeEnabled()
   })
 
@@ -342,7 +351,7 @@ describe('세션', () => {
       guardianPhone: '010-0000-0000',
       petName: '지난 아이',
       services: ['Hotel 호텔'],
-      wish1: '1월 1일 (목) 오후',
+      wish: '1월 1일 (목) 오후',
       training: true,
       surveyDone: true,
     })
@@ -366,7 +375,7 @@ describe('세션', () => {
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/apply/done'))
 
     const { unmount } = render(<Done />)
-    expect(await screen.findByText('보리 · Grooming 미용 · 1월 1일 (목) 오전 희망')).toBeInTheDocument()
+    expect(await screen.findByText('보리 · Grooming 미용 · 1월 1일 (목) 희망')).toBeInTheDocument()
     expect(router.replace).toHaveBeenCalledTimes(1)
     unmount()
   })
@@ -380,9 +389,8 @@ describe('신청을 낸 뒤 뒤로 가기', () => {
     saveDraft('apply', { answers: validAnswers(applyForm), groupIndex: 0, submissionId: ID, key: OLD_KEY })
     const first = render(<ApplyFlow />)
 
-    // 끝 묶음까지 넘기며(칸 둘을 쌓고) 낸다.
-    fireEvent.click(await screen.findByRole('button', { name: '다음' }))
-    fireEvent.click(await screen.findByRole('button', { name: '다음' }))
+    // 끝 묶음까지 넘기며(보호자→반려견→이용 안내→미용→예약금 안내, 칸 넷을 쌓고) 낸다.
+    for (let i = 0; i < 4; i++) fireEvent.click(await screen.findByRole('button', { name: '다음' }))
     fireEvent.click(await submitButton())
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/apply/done'))
 
@@ -397,11 +405,11 @@ describe('신청을 낸 뒤 뒤로 가기', () => {
     expect(history.state).toMatchObject({ hhForm: 'apply', hhStep: 0, hhPos: 0 })
     expect(history.state.hhKey).not.toBe(OLD_KEY)
 
-    // 다시 뒤로: 지난 신청서의 첫 칸을 건너뛰고 양식 앞 페이지에서 멈춘다. 묶음도 초안도 그대로다.
+    // 다시 뒤로: 지난 신청서의 남은 칸 셋(이용 안내·반려견·보호자)을 하나씩 건너뛰고 양식 앞 페이지에서 멈춘다. 묶음도 초안도 그대로다.
     const back = vi.spyOn(history, 'back')
     history.back()
     await waitFor(() => expect(history.state).toEqual({ page: 'landing' }))
-    expect(back).toHaveBeenCalledTimes(1 + 1)
+    expect(back).toHaveBeenCalledTimes(1 + 3)
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('보호자')
     expect(loadDraft('apply')).toBeNull()
   })
