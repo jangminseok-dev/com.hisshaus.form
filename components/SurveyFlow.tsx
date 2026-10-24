@@ -24,7 +24,7 @@ export function SurveyFlow() {
   const website = useRef<HTMLInputElement>(null)
   // 제출이 접수됐다. 다음 화면이 그려지기 전의 입력·뒤로 가기로 초안이 되살아나지 않게 그 뒤의 초안 저장은 버린다.
   const submitted = useRef(false)
-  const [start, setStart] = useState<{ initial: Draft; session: ApplySession | null; today: string } | null>(null)
+  const [start, setStart] = useState<{ initial: Draft; session: ApplySession | null; today: string; fromApply: boolean } | null>(null)
 
   useEffect(() => {
     const session = loadSession()
@@ -37,6 +37,9 @@ export function SurveyFlow() {
     }
     setStart({
       session,
+      // 신청 완료·검사지 안내 화면에서 넘어왔으면 주소에 ?from=apply 가 있다. 첫 묶음의 이전은 그때만 완료 화면으로 돌아가고,
+      // 첫 화면이나 링크로 바로 열었으면(지난 신청 세션이 남아 있어도) 첫 화면으로 간다.
+      fromApply: new URLSearchParams(window.location.search).get('from') === 'apply',
       today: todayKst(),
       initial: initial ?? {
         answers: session ? { q3: session.guardianName, q4: session.guardianPhone, q7: session.petName } : {},
@@ -50,7 +53,7 @@ export function SurveyFlow() {
   }, [])
 
   if (!start) return null
-  const { initial, session, today } = start
+  const { initial, session, today, fromApply } = start
 
   async function submit(answers: Answers) {
     const result = await postJson('/api/survey', {
@@ -80,7 +83,7 @@ export function SurveyFlow() {
           if (!submitted.current) saveDraft('survey', { ...d, applyId: initial.applyId })
         }}
         onSubmit={submit}
-        onBackFromFirst={() => router.push(session ? '/apply/done' : '/')}
+        onBackFromFirst={() => router.push(fromApply && session ? '/apply/done' : '/')}
       />
       <Honeypot ref={website} />
     </>

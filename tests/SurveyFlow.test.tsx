@@ -71,7 +71,8 @@ const goBack = () =>
 
 beforeEach(() => {
   localStorage.clear()
-  history.replaceState(null, '')
+  // 주소도 되돌린다. ?from=apply 를 쓴 테스트가 다음 테스트에 새지 않게.
+  history.replaceState(null, '', '/hisshaus/survey')
   router.push.mockReset()
   router.replace.mockReset()
   fetchMock.mockReset()
@@ -189,14 +190,24 @@ describe('검사지를 열 때', () => {
     expect(loadDraft('survey')!.submissionId).toBe(OTHER_ID)
   })
 
-  it('첫 묶음의 이전은 세션이 있으면 신청 완료 화면으로 보낸다', async () => {
+  it('첫 묶음의 이전은 신청 흐름에서 넘어왔고(?from=apply) 세션이 있으면 신청 완료 화면으로 보낸다', async () => {
     saveSession(session)
+    history.replaceState(null, '', '/hisshaus/survey?from=apply')
     render(<SurveyFlow />)
     fireEvent.click(await screen.findByRole('button', { name: '이전' }))
     expect(router.push).toHaveBeenCalledWith('/apply/done')
   })
 
-  it('첫 묶음의 이전은 세션이 없으면 첫 화면으로 보낸다', async () => {
+  it('첫 묶음의 이전은 첫 화면·링크로 바로 열었으면 지난 신청 세션이 있어도 첫 화면으로 보낸다', async () => {
+    saveSession(session)
+    history.replaceState(null, '', '/hisshaus/survey')
+    render(<SurveyFlow />)
+    fireEvent.click(await screen.findByRole('button', { name: '이전' }))
+    expect(router.push).toHaveBeenCalledWith('/')
+  })
+
+  it('첫 묶음의 이전은 세션이 없으면 ?from=apply 가 있어도 첫 화면으로 보낸다', async () => {
+    history.replaceState(null, '', '/hisshaus/survey?from=apply')
     render(<SurveyFlow />)
     fireEvent.click(await screen.findByRole('button', { name: '이전' }))
     expect(router.push).toHaveBeenCalledWith('/')

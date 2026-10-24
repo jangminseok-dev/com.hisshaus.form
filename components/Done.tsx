@@ -29,7 +29,7 @@ export function Done() {
       <p className={styles.text}>{maskPhone(session.guardianPhone)} 로 연락드려요.</p>
       {session.training && !session.surveyDone && (
         <div className={styles.actions}>
-          <Link className={styles.primary} href="/survey">
+          <Link className={styles.primary} href="/survey?from=apply">
             검사지 이어서 쓰기
           </Link>
         </div>

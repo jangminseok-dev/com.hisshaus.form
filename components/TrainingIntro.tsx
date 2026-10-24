@@ -49,7 +49,7 @@ export function TrainingIntro() {
         </p>
       </div>
       <div className={styles.actions}>
-        <button type="button" className={styles.primary} disabled={busy} onClick={() => router.push('/survey')}>
+        <button type="button" className={styles.primary} disabled={busy} onClick={() => router.push('/survey?from=apply')}>
           검사지 작성 시작
         </button>
         <button type="button" className={styles.secondary} disabled={busy} onClick={notTraining}>

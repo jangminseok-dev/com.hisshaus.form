@@ -207,7 +207,7 @@ describe('검사지 안내', () => {
     saveSession(session)
     render(<TrainingIntro />)
     fireEvent.click(await screen.findByRole('button', { name: '검사지 작성 시작' }))
-    expect(router.push).toHaveBeenCalledWith('/survey')
+    expect(router.push).toHaveBeenCalledWith('/survey?from=apply')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -317,7 +317,7 @@ describe('완료 화면', () => {
     saveSession(session)
     render(<Done />)
     const link = await screen.findByRole('link', { name: '검사지 이어서 쓰기' })
-    expect(link).toHaveAttribute('href', '/survey')
+    expect(link).toHaveAttribute('href', '/survey?from=apply')
   })
 
   it.each([

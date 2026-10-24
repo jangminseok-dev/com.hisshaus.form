@@ -134,7 +134,7 @@ test('검사지를 낸 뒤 완료 화면에서 뒤로 두 번이면 지난 칸�
 
   // 첫 번째 뒤로: 새 검사지(처음 묶음). 지난 검사지의 묶음으로 뛰지 않는다.
   await page.goBack()
-  await expect(page).toHaveURL(/\/survey$/)
+  await expect(page).toHaveURL(/\/survey\?from=apply$/)
   await expectGroup(page, 'a')
   const seen = await recordGroups(page)
 
