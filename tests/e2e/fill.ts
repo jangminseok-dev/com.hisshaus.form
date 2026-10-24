@@ -127,14 +127,17 @@ export async function fillUntil(page: Page, target: string, onGroup?: () => Prom
   }
 }
 
-/** 첫 화면에서 `예약 신청하기` 를 눌러 신청서의 첫 묶음을 연다. */
+/** 첫 화면에서 `예약 신청서` 링크를 눌러 신청서의 첫 묶음을 연다. */
 export async function openApply(page: Page): Promise<void> {
   await page.goto('/hisshaus')
-  await page.getByRole('link', { name: '예약 신청하기' }).click()
+  await page.getByRole('link', { name: '예약 신청서' }).click()
   await expectGroup(page, 'guardian')
 }
 
-/** 첫 화면부터 신청서 세 묶음을 채우고 `신청하기` 를 누른다. 결과 화면은 기다리지 않는다. */
+/**
+ * 첫 화면부터 신청서를 끝까지 채우고 `신청하기` 를 누른다. 결과 화면은 기다리지 않는다.
+ * 이용 안내에서 고른 서비스의 묶음(기본은 도우미가 첫 선택지인 미용을, training 이면 교육미용만)과 예약금 안내를 거친다.
+ */
 export async function writeApply(page: Page, o: { pet?: string; training?: boolean } = {}): Promise<void> {
   await openApply(page)
   await setText(page, 'guardian_name', GUARDIAN)
@@ -145,6 +148,9 @@ export async function writeApply(page: Page, o: { pet?: string; training?: boole
   await fillGroup(page)
   await goNext(page)
   if (o.training) await choose(page, 'services', TRAINING_SERVICE)
+  await fillGroup(page)
+  await goNext(page)
+  await fillUntil(page, 'deposit')
   await fillGroup(page)
   await page.locator('[data-action="submit"]').click()
 }

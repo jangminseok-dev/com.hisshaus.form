@@ -1,15 +1,37 @@
-/* 첫 화면. 색·모서리는 app/globals.css 의 토큰을 쓴다. */
+/* 첫 화면. 색·모서리는 app/globals.css 의 토큰을 쓴다. 매장처럼 따뜻한 흰 바탕에 검정 선·검정 글자만 쓴다. */
 
 .page {
-  /* 아래 고정 막대(버튼 52px + 위아래 12px)가 마지막 줄을 가리지 않게 그만큼 비운다. */
-  padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
 }
 
+/* 로고 줄. 아래 검정 선은 매장 벽의 몰딩 레일을 따른 것이다. */
 .head {
-  padding: 18px 16px;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 16px;
+  padding: 18px 0 14px;
+  border-bottom: 1px solid var(--ink);
+}
+
+/* 사진 속 로고처럼 세리프 대문자. 글자 사이를 띄워 간판처럼 읽힌다. */
+.wordmark {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* 누르기 쉽게 44px 칸을 주고, 오른쪽 여백은 아이콘 끝이 다른 줄 끝과 맞도록 그만큼 당긴다. */
+.social {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -10px -10px -10px 0;
+  color: inherit;
 }
 
 /* 사진은 칸(480px) 끝까지 채운다. 불러오기 전에도 자리가 잡히도록 비율을 고정한다. */
@@ -41,9 +63,61 @@
   overflow-wrap: anywhere;
 }
 
-.info {
+/* 작성할 양식 둘. 매장 메뉴판처럼 검정 테두리 한 상자에 두 줄, 사이는 가는 선이다. */
+.choices {
   margin: 24px 16px 0;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.choice + .choice {
   border-top: 1px solid var(--line);
+}
+
+.choice:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.choiceText {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.choiceTitle {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.choiceDesc {
+  color: var(--mute);
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.chevron {
+  flex: none;
+}
+
+.info {
+  margin: 28px 16px 0;
+  border-top: 1px solid var(--ink);
 }
 
 .row {
@@ -57,7 +131,7 @@
 .row dt {
   font-size: 14px;
   line-height: 1.7;
-  opacity: 0.72;
+  color: var(--mute);
 }
 
 .row dd {
@@ -67,36 +141,12 @@
   overflow-wrap: anywhere;
 }
 
-/* 신청서 화면(StepForm)의 아래 고정 막대와 같은 모양. 480px 칸 안에 맞춘다. */
-.cta {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 10;
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--line);
-  background: var(--bg);
+.lines {
+  white-space: pre-line;
 }
 
-.button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 52px;
-  padding: 12px 16px;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 17px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.mapLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }

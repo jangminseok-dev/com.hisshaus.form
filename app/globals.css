@@ -1,13 +1,18 @@
 :root {
-  --ink: #1d1d1f;
-  /* 흰 바탕과 대비 5:1. '선택'(13px)·'k / N'(14px) 같은 작은 글자라 4.5:1 이상이어야 한다. */
-  --mute: #6e6e73;
-  --line: #e5e5ea;
-  --accent: #2f6f5e;
-  --accent-ink: #ffffff;
-  --danger: #c0392b;
-  --bg: #ffffff;
-  --radius: 12px;
+  /* 매장 색: 따뜻한 흰 벽(bg), 검정 몰딩·문틀(ink), 입력칸과 카드는 조금 더 흰 종이색(paper). 버튼과 고른 칩은 검정이다. */
+  --ink: #1c1b19;
+  /* 바탕과 대비 5.1:1. '선택'(13px)·'k / N'(14px) 같은 작은 글자라 4.5:1 이상이어야 한다. */
+  --mute: #6b665f;
+  --line: #d9d3c8;
+  --accent: #1c1b19;
+  --accent-ink: #f6f3ed;
+  --danger: #b3261e;
+  --bg: #f6f3ed;
+  --paper: #fffdf9;
+  /* 매장 간판·사진 속 로고 같은 각이 선 모양. */
+  --radius: 6px;
+  /* 로고 'HISS HAUS' 만 쓰는 세리프. 외부 글꼴을 받지 않으니 기기에 있는 것 중 고른다(아이폰 Bodoni 72·Didot, 그 밖은 기본 세리프). */
+  --serif: 'Bodoni 72', Didot, Baskerville, 'Times New Roman', serif;
 }
 
 *,

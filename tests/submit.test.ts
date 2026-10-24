@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
-import { applyForm } from '../forms/apply'
-import { allQuestions, isVisible } from '../forms/rules'
+import { applyForm, GROOMING_SERVICE, HOTEL_SERVICE } from '../forms/apply'
+import { allQuestions, isVisible, visibleAnswers } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import { sheetRow } from '../lib/sheet-row'
 import type { SheetTab } from '../lib/sheets'
@@ -42,8 +42,17 @@ function fakes() {
 }
 
 describe('테스트 픽스처', () => {
-  it('validAnswers 는 두 양식의 검증을 통과한다', () => {
-    for (const form of [applyForm, surveyForm]) expect(validateForm(form, validAnswers(form), TODAY)).toEqual([])
+  it('validAnswers 는 두 양식의 검증을 통과하고 숨은 묶음·숨은 문항의 답을 담지 않는다', () => {
+    for (const form of [applyForm, surveyForm]) {
+      const a = validAnswers(form)
+      expect(validateForm(form, a, TODAY)).toEqual([])
+      expect(visibleAnswers(form, a)).toEqual(a)
+    }
+    // 신청서는 미용만 고르므로 다른 서비스 묶음의 답은 없다.
+    const apply = validAnswers(applyForm)
+    expect(apply.services).toEqual([GROOMING_SERVICE])
+    expect(apply).toHaveProperty('groom_date')
+    for (const id of ['daycare_date', 'hotel_checkin', 'hotel_checkout', 'training_date']) expect(apply).not.toHaveProperty(id)
   })
 })
 
@@ -174,15 +183,15 @@ describe('신청서 제출', () => {
     const body = { submissionId: ID, answers: validAnswers(applyForm) }
     // 고른 날짜(2099-01-01)가 주입한 오늘보다 앞이면 거부한다.
     const late = await submitApply(body, { ...deps, today: () => '2099-06-01' })
-    expect(late.status === 'invalid' && late.errors.map((e) => e.questionId)).toEqual(['wish1_date'])
+    expect(late.status === 'invalid' && late.errors.map((e) => e.questionId)).toEqual(['groom_date'])
     expect(appendRow).not.toHaveBeenCalled()
   })
 
   it('today 와 now 를 주지 않으면 한국 시각의 오늘과 지금을 쓴다', async () => {
     const { appendRow, sendSlack } = fakes()
     const base = validAnswers(applyForm)
-    const past = await submitApply({ submissionId: ID, answers: { ...base, wish1_date: '2000-01-01' } }, { appendRow, sendSlack })
-    expect(past.status === 'invalid' && past.errors.map((e) => e.questionId)).toEqual(['wish1_date'])
+    const past = await submitApply({ submissionId: ID, answers: { ...base, groom_date: '2000-01-01' } }, { appendRow, sendSlack })
+    expect(past.status === 'invalid' && past.errors.map((e) => e.questionId)).toEqual(['groom_date'])
     expect(appendRow).not.toHaveBeenCalled()
 
     expect(await submitApply({ submissionId: ID, answers: base }, { appendRow, sendSlack })).toEqual({ status: 'ok' })
@@ -223,25 +232,46 @@ describe('공백뿐인 선택 답', () => {
   const columnOf = (form: typeof applyForm, id: string) => 2 + allQuestions(form).findIndex((q) => q.id === id)
   const question = (form: typeof applyForm, id: string) => allQuestions(form).find((q) => q.id === id)!
 
-  it('신청서의 선택 날짜·선택 단일 선택이 공백뿐이면 ok 이고, 시트 칸은 비고 슬랙은 답이 없을 때와 같다', async () => {
+  it('신청서의 선택 짧은 글·선택 단일 선택이 공백뿐이면 ok 이고, 시트 칸은 비고 슬랙은 답이 없을 때와 같다', async () => {
     const { appendRow, sendSlack, deps } = fakes()
-    expect([question(applyForm, 'wish2_date'), question(applyForm, 'wish2_slot')].map((q) => [q.type, q.required])).toEqual([
-      ['date', false],
+    // 미용의 희망 시간대(짧은 글)와 호텔의 숙박 경험(단일 선택)은 선택 문항이다. 호텔 묶음이 보이게 호텔도 고른다.
+    expect([question(applyForm, 'groom_time'), question(applyForm, 'hotel_stayed')].map((q) => [q.type, q.required])).toEqual([
+      ['short', false],
       ['single', false],
     ])
-    const base = validAnswers(applyForm)
-    const answers = { ...base, wish2_date: '   ', wish2_slot: ' \t' }
+    const base = { ...validAnswers(applyForm), services: [GROOMING_SERVICE, HOTEL_SERVICE], hotel_checkin: '11/3 15:00', hotel_checkout: '11/5 11:00' }
+    const answers = { ...base, groom_time: '   ', hotel_stayed: ' \t' }
     expect(await submitApply({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
 
     const row = appendRow.mock.calls[0][1]
-    expect(row[columnOf(applyForm, 'wish2_date')]).toBe('')
-    expect(row[columnOf(applyForm, 'wish2_slot')]).toBe('')
+    expect(row[columnOf(applyForm, 'groom_time')]).toBe('')
+    expect(row[columnOf(applyForm, 'hotel_stayed')]).toBe('')
     expect(row).toEqual(sheetRow(applyForm, base, meta))
 
     const sent = sendSlack.mock.calls[0][0]
     expect(JSON.stringify(sent)).not.toMatch(/undefined|NaN/)
-    expect(JSON.stringify(sent)).toContain(`*${question(applyForm, 'wish2_date').label}*\\n—`)
+    expect(JSON.stringify(sent)).toContain(`*${question(applyForm, 'groom_time').label}*\\n—`)
     expect(sent).toEqual(applyMessages(base, meta))
+    // 공백뿐인 시간대는 알림 미리보기의 희망 일시에도 붙지 않는다.
+    expect(sent[0].text).toContain('· 미용 1월 1일 (목), 호텔 11/3 15:00 체크인')
+  })
+
+  it('고르지 않은 서비스 묶음의 답은 검증하지 않고 시트·슬랙에서 빠진다', async () => {
+    const { appendRow, sendSlack, deps } = fakes()
+    // 미용만 골랐다. 호텔·데이케어 묶음의 옛 답(틀린 날짜·선택지 밖 값·너무 긴 글)이 남아 있어도 거부하지 않고 버린다.
+    const visible = validAnswers(applyForm)
+    const answers = { ...visible, daycare_date: '2000-01-01', hotel_stayed: '선택지 밖 값', hotel_caution: '숨'.repeat(40_000) }
+    expect(await submitApply({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+
+    const row = appendRow.mock.calls[0][1]
+    expect(row[columnOf(applyForm, 'daycare_date')]).toBe('')
+    expect(row[columnOf(applyForm, 'hotel_stayed')]).toBe('')
+    expect(row[columnOf(applyForm, 'hotel_caution')]).toBe('')
+    expect(row).toEqual(sheetRow(applyForm, visible, meta))
+
+    const sent = sendSlack.mock.calls[0][0]
+    expect(JSON.stringify(sent)).not.toContain('숨'.repeat(100))
+    expect(sent).toEqual(applyMessages(visible, meta))
   })
 
   it('검사지의 선택 장문·선택 단일 선택이 공백뿐이면 ok 이고, 시트 칸은 비고 슬랙은 — 다', async () => {
@@ -270,7 +300,8 @@ describe('공백뿐인 선택 답', () => {
 
   it('복수 선택에 같은 값을 거듭 넣으면 invalid 이고 시트·슬랙을 부르지 않는다', async () => {
     const { appendRow, sendSlack, deps } = fakes()
-    const answers = { ...validAnswers(applyForm), services: Array(1_000).fill('Hotel 호텔') }
+    // 미용을 거듭 넣는다(호텔이면 호텔 묶음이 보여 체크인·체크아웃 오류도 같이 난다).
+    const answers = { ...validAnswers(applyForm), services: Array(1_000).fill(GROOMING_SERVICE) }
     const result = await submitApply({ submissionId: ID, answers }, deps)
     expect(result).toEqual({ status: 'invalid', errors: [{ questionId: 'services', message: '고를 수 없는 값이에요' }] })
     expect(appendRow).not.toHaveBeenCalled()

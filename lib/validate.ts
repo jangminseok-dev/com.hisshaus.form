@@ -1,4 +1,4 @@
-import { isEmpty, isRequired, isVisible } from '../forms/rules'
+import { isEmpty, isRequired, isVisible, visibleGroups } from '../forms/rules'
 import type { Answers, FormDef, Group, Question } from '../forms/types'
 
 export interface FieldError {
@@ -95,6 +95,7 @@ export function validateGroup(group: Group, a: Answers, today: string): FieldErr
   return errors
 }
 
+/** 양식 전체. 숨은 묶음은 검증하지 않는다(그 답은 보내지도 않는다). */
 export function validateForm(form: FormDef, a: Answers, today: string): FieldError[] {
-  return form.groups.flatMap((g) => validateGroup(g, a, today))
+  return visibleGroups(form, a).flatMap((g) => validateGroup(g, a, today))
 }

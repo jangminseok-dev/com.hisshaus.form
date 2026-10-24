@@ -29,6 +29,7 @@
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  background: var(--paper);
   font-size: 15px;
   line-height: 1.65;
   word-break: keep-all;
@@ -90,8 +91,8 @@
 }
 
 .secondary {
-  border: 1px solid var(--line);
-  background: var(--bg);
+  border: 1px solid var(--ink);
+  background: var(--paper);
   color: var(--ink);
 }
 

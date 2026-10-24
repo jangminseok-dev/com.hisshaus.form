@@ -10,7 +10,7 @@ const session: ApplySession = {
   guardianPhone: '010-1234-5678',
   petName: '보리',
   services: ['Grooming 미용'],
-  wish1: '10월 28일 (수) 오전',
+  wish: '10월 28일 (수) 오전',
   training: false,
   surveyDone: false,
 }

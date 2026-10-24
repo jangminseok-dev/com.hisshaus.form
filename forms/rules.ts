@@ -34,17 +34,30 @@ export function blockedBy(group: Group, a: Answers): { questionId: string; messa
   return null
 }
 
+/** 보이는 묶음인가. showIf 의 문항에서 그 값을 골랐을 때만 보인다. */
+export function isGroupVisible(g: Group, a: Answers): boolean {
+  return !g.showIf || asArray(a[g.showIf.questionId]).includes(g.showIf.includes)
+}
+
+/** 지금 답으로 보이는 묶음만, 정의 순서대로. 화면 진행·검증·슬랙이 같은 목록을 쓴다. */
+export function visibleGroups(form: FormDef, a: Answers): Group[] {
+  return form.groups.filter((g) => isGroupVisible(g, a))
+}
+
 export function allQuestions(form: FormDef): Question[] {
   return form.groups.flatMap((g) => g.questions)
 }
 
-/** 보이는 문항의 답만 남긴 새 답 맵. 숨은 문항의 답과 양식에 없는 키는 버린다. */
+/** 보이는 묶음의 보이는 문항의 답만 남긴 새 답 맵. 숨은 묶음·숨은 문항의 답과 양식에 없는 키는 버린다. */
 export function visibleAnswers(form: FormDef, a: Answers): Answers {
   const shown: Answers = {}
-  // 부모는 자식보다 앞에 정의된다. 받은 답이 아니라 지금까지 걸러 만든 결과로 보이는지 따져야
-  // 숨은 부모의 옛 답 때문에 자식이 보이는 것으로 잘못 가려지지 않는다.
-  for (const q of allQuestions(form)) {
-    if (isVisible(q, shown) && a[q.id] !== undefined) shown[q.id] = a[q.id]
+  // 부모는 자식보다 앞에 정의된다(서비스 문항은 서비스별 묶음보다 앞). 받은 답이 아니라 지금까지 걸러 만든 결과로
+  // 보이는지 따져야 숨은 부모의 옛 답 때문에 자식이 보이는 것으로 잘못 가려지지 않는다.
+  for (const g of form.groups) {
+    if (!isGroupVisible(g, shown)) continue
+    for (const q of g.questions) {
+      if (isVisible(q, shown) && a[q.id] !== undefined) shown[q.id] = a[q.id]
+    }
   }
   return shown
 }

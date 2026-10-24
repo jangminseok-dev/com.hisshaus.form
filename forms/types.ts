@@ -27,6 +27,8 @@ export interface Group {
   id: string
   title: string
   note?: string
+  /** 앞 묶음의 복수 선택 문항에서 이 값을 골랐을 때만 보인다(이용 서비스별 묶음) */
+  showIf?: { questionId: string; includes: string }
   questions: Question[]
 }
 

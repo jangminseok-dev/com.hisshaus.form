@@ -26,7 +26,7 @@ test.beforeEach(async ({ request }) => {
 })
 
 const done = (page: Page) => page.getByRole('heading', { name: '신청이 접수되었어요' })
-const FORBIDDEN = /입니다|됩니다|십시오/
+const FORBIDDEN = /입니다|됩니다|십시오|합니다/
 
 /** 슬랙 통의 mrkdwn 본문(섹션 글)을 한 덩이로. */
 function mrkdwn(message: SlackMessage): string {
@@ -59,11 +59,13 @@ test('신청서를 끝까지 쓰면 완료 화면이 뜨고 시트 한 줄·슬�
   expect(cell('보호자 연락처')).toBe(PHONE)
   expect(cell('개인정보 수집·이용 동의')).toBe('동의')
   expect(cell('반려견 이름')).toBe(pet)
-  expect(cell('희망 날짜 1순위')).toBe(WISH_DATE)
-  // 시간대 칸은 순위로 가려진다. 도우미는 필수인 1순위에서 첫 칩을 고르고 선택인 2순위는 비워 둔다.
-  expect(cell('1순위 시간대')).toBe('오전')
-  expect(cell('2순위 시간대')).toBe('')
   expect(cell('히스하우스 이용 서비스')).toBe('Grooming 미용')
+  // 미용 묶음의 필수 날짜는 채우고 선택 시간대는 비워 둔다. 고르지 않은 서비스 묶음의 칸은 빈 채로 남는다.
+  expect(cell('희망 예약 날짜')).toBe(WISH_DATE)
+  expect(cell('희망 시간대')).toBe('')
+  expect(cell('희망 이용 날짜')).toBe('')
+  expect(cell('체크인 날짜 / 시간')).toBe('')
+  expect(cell('교육미용 희망 날짜')).toBe('')
 
   const [message] = slack
   // 머리글은 평문이라 그대로, 알림 미리보기와 본문(mrkdwn)은 & < > 를 이스케이프한다.
@@ -74,6 +76,10 @@ test('신청서를 끝까지 쓰면 완료 화면이 뜨고 시트 한 줄·슬�
   expect(message.text).toContain(`보리&lt;3 &amp; 4&gt; (${GUARDIAN})`)
   expect(mrkdwn(message)).toContain('*반려견 이름*\n보리&lt;3 &amp; 4&gt;')
   expect(mrkdwn(message)).not.toContain('<3')
+  // 본문은 고른 서비스(미용)의 묶음만 싣는다.
+  expect(mrkdwn(message)).toContain('*Grooming 미용*')
+  expect(mrkdwn(message)).not.toContain('*Hotel 호텔*')
+  expect(mrkdwn(message)).not.toContain('*Daycare 데이케어*')
   // 시트와 슬랙이 같은 신청 ID 로 이어진다.
   expect(JSON.stringify(message.blocks.at(-1))).toContain(applyId)
 })
@@ -119,15 +125,16 @@ for (const width of [320, 390]) {
   test(`폭 ${width} 에서 가로 넘침이 없다`, async ({ page }) => {
     await page.setViewportSize({ width, height: 700 })
     await page.goto('/hisshaus')
-    await expect(page.getByRole('heading', { name: '예약 신청서' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '예약 신청' })).toBeVisible()
     await expectNoHorizontalOverflow(page, width)
 
-    await page.getByRole('link', { name: '예약 신청하기' }).click()
-    for (const group of ['guardian', 'pet', 'visit']) {
+    await page.getByRole('link', { name: '예약 신청서' }).click()
+    // 도우미는 이용 서비스에서 첫 선택지(미용)를 고르므로 미용 묶음과 예약금 안내가 이어진다.
+    for (const group of ['guardian', 'pet', 'visit', 'grooming', 'deposit']) {
       await expectGroup(page, group)
       await expectNoHorizontalOverflow(page, width)
       await fillGroup(page)
-      if (group !== 'visit') await goNext(page)
+      if (group !== 'deposit') await goNext(page)
     }
     await page.locator('[data-action="submit"]').click()
     await expect(done(page)).toBeVisible()
@@ -156,7 +163,7 @@ test('브라우저 뒤로 가기는 이전 묶음으로 간다', async ({ page }
   // 처음 묶음에서 더 뒤로 가면 양식을 떠난다.
   await page.goBack()
   await expect(page).toHaveURL(/\/hisshaus$/)
-  await expect(page.getByRole('link', { name: '예약 신청하기' })).toBeVisible()
+  await expect(page.getByRole('link', { name: '예약 신청서' })).toBeVisible()
 })
 
 test('새로 고침으로 복원된 뒤 이전은 앞 묶음으로 간다', async ({ page }) => {
@@ -204,10 +211,10 @@ test('신청을 마치고 완료 화면에서 뒤로 두 번이면 양식을 떠
   await expect(page.locator('[data-question="guardian_name"] input')).toHaveValue('')
   const seen = await recordGroups(page)
 
-  // 두 번째 뒤로: 지난 신청이 남긴 칸을 건너뛰어 첫 화면까지 간다.
+  // 두 번째 뒤로: 지난 신청이 남긴 칸(미용·예약금 안내까지 넷)을 건너뛰어 첫 화면까지 간다.
   await page.goBack()
   await expect(page).toHaveURL(/\/hisshaus$/)
-  await expect(page.getByRole('link', { name: '예약 신청하기' })).toBeVisible()
+  await expect(page.getByRole('link', { name: '예약 신청서' })).toBeVisible()
   expect(await seen()).toEqual(['guardian'])
 })
 
@@ -220,23 +227,25 @@ test('화면 어디에도 입니다 체가 없다', async ({ page }) => {
   }
 
   await page.goto('/hisshaus')
-  await expect(page.getByRole('heading', { name: '예약 신청서' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '예약 신청' })).toBeVisible()
   await expectHaeyo('예약 확정이 아니에요')
 
-  await page.getByRole('link', { name: '예약 신청하기' }).click()
+  await page.getByRole('link', { name: '예약 신청서' }).click()
+  // 도우미가 고르는 미용에 교육미용을 더해, 서비스별 묶음 둘과 예약금 안내까지 본다. 교육미용은 검사지 안내로 이어진다.
   for (const [group, title] of [
     ['guardian', '보호자'],
     ['pet', '반려견'],
-    ['visit', '희망 일시·서비스'],
+    ['visit', '이용 안내'],
+    ['grooming', 'Grooming 미용'],
+    ['training', '교육 미용 / 미용 트레이닝 상담'],
+    ['deposit', '예약금 안내'],
   ]) {
     await expectGroup(page, group)
     await expectHaeyo(title)
     await fillGroup(page)
-    if (group !== 'visit') await goNext(page)
+    if (group === 'visit') await choose(page, 'services', TRAINING_SERVICE)
+    if (group !== 'deposit') await goNext(page)
   }
-
-  // 교육미용을 골라 검사지 안내를 본다.
-  await choose(page, 'services', TRAINING_SERVICE)
   await page.locator('[data-action="submit"]').click()
   await expect(page).toHaveURL(/\/apply\/training$/)
   await expect(page.getByRole('heading', { name: '심층 행동 분석 검사지를 이어서 작성해요' })).toBeVisible()
@@ -284,13 +293,13 @@ test('없는 주소는 404 와 한국어 안내를 보이고 처음으로 돌아
   expect(res?.status()).toBe(404)
   await expect(page.getByRole('heading', { name: '페이지를 찾을 수 없어요' })).toBeVisible()
   await page.getByRole('link', { name: '처음으로' }).click()
-  await expect(page.getByRole('heading', { name: '예약 신청서' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '예약 신청' })).toBeVisible()
 })
 
 test('도메인 첫 주소는 신청서 첫 화면(/hisshaus)으로 보내고, 첫 화면 사진이 열린다', async ({ page }) => {
   await page.goto('/')
   await expect(page).toHaveURL(/\/hisshaus$/)
-  await expect(page.getByRole('link', { name: '예약 신청하기' })).toBeVisible()
+  await expect(page.getByRole('link', { name: '예약 신청서' })).toBeVisible()
   // <img> 주소에는 basePath 가 저절로 붙지 않는다. 빠지면 그림이 깨진다.
   const photo = page.locator('img').first()
   await expect(photo).toHaveAttribute('src', '/hisshaus/hero.jpg')

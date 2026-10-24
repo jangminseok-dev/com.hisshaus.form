@@ -5,16 +5,21 @@ import { BASE_PATH } from '../lib/base-path'
 export const shop = {
   name: 'Hiss Haus',
   nameKo: '히스하우스',
-  // 사장님이 채울 값: 매장 주소. 첫 화면 정보 줄의 '위치' 에 나온다.
-  address: '주소는 추후 입력',
-  // 사장님이 채울 값: 영업시간. 첫 화면 정보 줄의 '영업시간' 에 나온다.
-  hours: '영업시간은 추후 입력',
+  // 매장 주소. 첫 화면 정보 줄의 '위치' 에 나온다.
+  address: '경기 수원시 팔달구 인계로 21 제2상가 104호',
+  // 주소를 누르면 여는 네이버 지도. 주소로 찾은 위치에서 '도착' 을 누르면 길찾기가 된다.
+  // 매장이 네이버 지도에 등록되면 그 장소 링크(naver.me/…)로 바꾸면 매장 이름·리뷰가 함께 보인다.
+  mapUrl: `https://map.naver.com/p/search/${encodeURIComponent('경기 수원시 팔달구 인계로 21')}`,
+  // 영업시간. 첫 화면 정보 줄의 '영업시간' 에 나온다. 줄마다 한 줄로 보인다.
+  hours: '월~수 10:00~16:00\n목~일 10:00~20:00',
   // 금액(10,000원)은 완료 화면 안내(components/Done.tsx)에도 적혀 있다. 바꾸면 둘 다 고친다.
   deposit: '10,000원 입금 시 확정',
-  // 사장님이 채울 값: 첫 화면 큰 사진. 지금은 자리 표시 그림이다. public/hero.jpg 를 같은 이름으로 바꿔 넣는다.
+  // 첫 화면 큰 사진(매장 내부). 바꿀 때는 public/hero.jpg 를 같은 이름으로 덮어쓴다.
   // (카카오톡 링크 미리보기 그림은 public/og.jpg 이고 app/layout.tsx 와 app/survey/page.tsx 가 가리킨다.)
   // <img> 주소에는 basePath 가 붙지 않아서 직접 붙인다.
   heroImage: `${BASE_PATH}/hero.jpg`,
+  // 첫 화면 오른쪽 위 인스타그램 아이콘이 여는 주소. 공유 링크의 추적 값(?rpxt=…)은 뺐다.
+  instagramUrl: 'https://www.instagram.com/hisshaus/',
   ogTitle: '히스하우스 예약 신청',
   ogDescription: '히스하우스 예약 신청서를 작성해 주세요.',
   // 사장님이 채울 값: 개인정보 보유 기간. 지금은 자리 표시 '1년'.

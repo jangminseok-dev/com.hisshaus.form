@@ -6,9 +6,10 @@ import { useEffect, useRef, useState } from 'react'
 import { applyForm, TRAINING_SERVICE } from '../forms/apply'
 import type { Answers } from '../forms/types'
 import { clearDraft, loadDraft, saveDraft, saveSession, type Draft } from '../lib/draft'
-import { dateKo, todayKst } from '../lib/format'
+import { todayKst } from '../lib/format'
 import { newSubmissionId } from '../lib/id'
 import { postJson } from '../lib/post'
+import { wishText } from '../lib/wish'
 import { Honeypot } from './Honeypot'
 import { StepForm } from './StepForm'
 
@@ -65,7 +66,7 @@ export function ApplyFlow() {
       guardianPhone: text(answers, 'guardian_phone'),
       petName: text(answers, 'pet_name'),
       services,
-      wish1: `${dateKo(text(answers, 'wish1_date'))} ${text(answers, 'wish1_slot')}`,
+      wish: wishText(answers),
       training,
       surveyDone: false,
     })

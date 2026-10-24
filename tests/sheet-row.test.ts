@@ -41,8 +41,12 @@ describe('시트 행', () => {
   it('예약신청 헤더에 같은 이름의 칸이 없다', () => {
     const h = sheetHeader(applyForm)
     expect(new Set(h).size).toBe(h.length)
-    expect(h).toContain('1순위 시간대')
-    expect(h).toContain('2순위 시간대')
+    // 서비스별 묶음의 비슷한 문항이 묶음 이름 없이도 가려진다.
+    expect(h).toContain('희망 예약 날짜')
+    expect(h).toContain('희망 이용 날짜')
+    expect(h).toContain('교육미용 희망 날짜')
+    expect(h).toContain('희망 시간대')
+    expect(h).toContain('교육미용 희망 시간대')
   })
 
   it('검사지 행도 100칸이다', () => {

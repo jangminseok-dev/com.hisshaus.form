@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { flushSync } from 'react-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StepForm, type StepFormProps } from '../components/StepForm'
-import { applyForm } from '../forms/apply'
+import { applyForm, GROOMING_SERVICE, HOTEL_SERVICE, TRAINING_SERVICE } from '../forms/apply'
 import { allQuestions, visibleAnswers } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import type { Answers, FormDef } from '../forms/types'
@@ -23,6 +23,12 @@ const GUARDIAN: Answers = { guardian_name: '김하나', guardian_phone: '010-123
 const draft = (groupIndex = 0, answers: Answers = {}): Draft => ({ answers, groupIndex, submissionId: ID, key: KEY })
 const groupIndexOf = (form: FormDef, id: string) => form.groups.findIndex((g) => g.id === id)
 const question = (form: FormDef, id: string) => allQuestions(form).find((q) => q.id === id)!
+/** 신청서의 마지막 묶음(예약금 안내). validAnswers 는 미용만 고르므로 보이는 묶음은 보호자·반려견·이용 안내·미용·예약금 안내 다섯이다. */
+const LAST = groupIndexOf(applyForm, 'deposit')
+const GROOMING = groupIndexOf(applyForm, 'grooming')
+const HOTEL = groupIndexOf(applyForm, 'hotel')
+const REQUEST_LABEL = question(applyForm, 'request').label
+const SERVICES_LABEL = question(applyForm, 'services').label
 
 function setup(over: Partial<Omit<StepFormProps, 'onDraft' | 'onSubmit'>> = {}) {
   const onDraft = vi.fn<StepFormProps['onDraft']>()
@@ -98,7 +104,8 @@ describe('화면 틀', () => {
     expect(screen.getByRole('button', { name: '이전' })).toBe(action('back'))
     const title = screen.getByRole('heading', { level: 2 })
     expect(title).toHaveTextContent('보호자')
-    expect(screen.getByText('1 / 3')).toBeInTheDocument()
+    // 서비스를 고르기 전에는 서비스별 묶음이 하나도 끼지 않는다(보호자·반려견·이용 안내·예약금 안내).
+    expect(screen.getByText('1 / 4')).toBeInTheDocument()
     expect(groupId()).toBe('guardian')
     // 진행 막대는 위 막대 바로 아래에 있다. 읽히지 않고 글이 없는 장식이다.
     const progress = title.parentElement!.nextElementSibling
@@ -108,14 +115,14 @@ describe('화면 틀', () => {
 
   it('묶음에 note 가 있으면 제목 아래에 보인다', () => {
     setup({ initial: draft(2) })
-    const note = screen.getByText(/원하는 날짜와 시간대를 알려 주시면/)
+    const note = screen.getByText(/고른 서비스마다 희망 일시를 묻는 묶음이 이어져요/)
     const title = screen.getByRole('heading', { level: 2 })
     expect(title.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('note 가 없는 묶음에는 note 자리가 없다', () => {
     setup()
-    expect(screen.queryByText(/원하는 날짜와 시간대를 알려 주시면/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/고른 서비스마다 희망 일시를 묻는 묶음이 이어져요/)).not.toBeInTheDocument()
   })
 
   it('검사지는 묶음 번호로만 진행을 보여 주고 전체 문항 수나 시간은 적지 않는다', () => {
@@ -184,7 +191,7 @@ describe('다음·검증', () => {
 
     expect(groupId()).toBe('pet')
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('반려견')
-    expect(screen.getByText('2 / 3')).toBeInTheDocument()
+    expect(screen.getByText('2 / 4')).toBeInTheDocument()
     expect(onDraft).toHaveBeenCalledTimes(4)
     expect(onDraft).toHaveBeenLastCalledWith({ answers: GUARDIAN, groupIndex: 1, submissionId: ID, key: KEY })
   })
@@ -215,16 +222,155 @@ describe('다음·검증', () => {
   })
 
   it('희망 날짜가 오늘 이전이면 화면이 막는다', () => {
-    const answers = { ...validAnswers(applyForm), wish1_date: '2026-10-22' }
-    setup({ initial: draft(2, answers) })
-    expect(isBlocked(action('submit'))).toBe(true)
-    fireEvent.click(action('submit'))
-    expect(within(box('wish1_date')).getByRole('alert')).toHaveTextContent('오늘 이후 날짜를 골라 주세요')
+    const answers = { ...validAnswers(applyForm), groom_date: '2026-10-22' }
+    setup({ initial: draft(GROOMING, answers) })
+    expect(groupId()).toBe('grooming')
+    expect(isBlocked(action('next'))).toBe(true)
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('grooming')
+    expect(within(box('groom_date')).getByRole('alert')).toHaveTextContent('오늘 이후 날짜를 골라 주세요')
   })
 
   it('오늘 날짜는 min 으로 날짜 입력에 전해진다', () => {
-    setup({ initial: draft(2) })
-    expect(screen.getByLabelText('희망 날짜 1순위')).toHaveAttribute('min', TODAY)
+    setup({ initial: draft(GROOMING, { services: [GROOMING_SERVICE] }) })
+    expect(screen.getByLabelText('희망 예약 날짜')).toHaveAttribute('min', TODAY)
+  })
+})
+
+describe('서비스별 묶음', () => {
+  /** 이용 안내 묶음에서 시작한다. 보호자·반려견은 채워져 있고 서비스는 아직 고르지 않았다. */
+  const atVisit = () => {
+    const answers = validAnswers(applyForm)
+    delete answers.services
+    return setup({ initial: draft(groupIndexOf(applyForm, 'visit'), answers) })
+  }
+
+  it('서비스를 둘 고르면 그 두 묶음만 정의 순서로 이어지고 진행 표시는 보이는 묶음만 센다', () => {
+    atVisit()
+    expect(screen.getByText('3 / 4')).toBeInTheDocument()
+
+    chooseMany(SERVICES_LABEL, HOTEL_SERVICE)
+    expect(screen.getByText('3 / 5')).toBeInTheDocument()
+    chooseMany(SERVICES_LABEL, GROOMING_SERVICE)
+    expect(screen.getByText('3 / 6')).toBeInTheDocument()
+    expect(action('next')).not.toBeNull()
+
+    // 고른 순서(호텔→미용)가 아니라 정의 순서(미용→호텔)다.
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('grooming')
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Grooming 미용')
+    expect(screen.getByText('4 / 6')).toBeInTheDocument()
+    write('희망 예약 날짜', '2099-01-01')
+
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('hotel')
+    expect(screen.getByText('5 / 6')).toBeInTheDocument()
+    write('체크인 날짜 / 시간', '11/3 15:00')
+    write('체크아웃 날짜 / 시간', '11/5 11:00')
+
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('deposit')
+    expect(screen.getByText('6 / 6')).toBeInTheDocument()
+    expect(action('submit')).toHaveTextContent('신청하기')
+    expect(action('next')).toBeNull()
+  })
+
+  it('고르지 않은 서비스의 묶음은 건너뛴다', () => {
+    atVisit()
+    chooseMany(SERVICES_LABEL, TRAINING_SERVICE)
+    expect(screen.getByText('3 / 5')).toBeInTheDocument()
+
+    // 미용·데이케어·호텔을 건너 교육미용으로, 그 뒤는 바로 예약금 안내다.
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('training')
+    expect(screen.getByText('4 / 5')).toBeInTheDocument()
+    write('교육미용 희망 날짜', '2099-01-01')
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('deposit')
+    expect(screen.getByText('5 / 5')).toBeInTheDocument()
+  })
+
+  it('복원된 묶음 번호가 숨은 묶음을 가리키면 그 앞의 가장 가까운 보이는 묶음으로 맞춘다 — 안 본 필수 묶음을 건너뛰지 않는다', () => {
+    // 데이케어 묶음에서 저장된 초안인데 지금 답은 미용만 골랐다(옛 버전이 남긴 초안이거나 손으로 고친 값).
+    const first = setup({ initial: draft(groupIndexOf(applyForm, 'daycare'), validAnswers(applyForm)) })
+    expect(groupId()).toBe('grooming')
+    expect(screen.getByText('4 / 5')).toBeInTheDocument()
+    expect(history.state).toMatchObject(entry(GROOMING, 0))
+    // 맞추기만 했을 뿐 사용자가 한 일이 아니니 초안을 내보내지 않는다.
+    expect(first.onDraft).not.toHaveBeenCalled()
+    first.unmount()
+
+    // 호텔만 골랐으면 미용 묶음 번호는 그 앞의 이용 안내로. 다음을 누르면 호텔 묶음이 정상 순서로 나온다.
+    setup({ initial: draft(GROOMING, { ...validAnswers(applyForm), services: [HOTEL_SERVICE] }) })
+    expect(groupId()).toBe('visit')
+    expect(history.state).toMatchObject(entry(groupIndexOf(applyForm, 'visit'), 0))
+  })
+
+  it('앞으로 가기로 숨은 묶음의 칸에 닿으면 지금 묶음 다음의 보이는 묶음으로 간다 — 안 본 필수 묶음을 건너뛰지 않는다', () => {
+    // 호텔만 골라 호텔 묶음까지 갔다가 뒤로 와서 호텔을 빼고 미용을 골랐다. 앞 칸은 여전히 호텔 묶음을 가리킨다.
+    const answers = { ...validAnswers(applyForm), services: [GROOMING_SERVICE] }
+    const { onDraft } = setup({ initial: draft(groupIndexOf(applyForm, 'visit'), answers) })
+    const replace = vi.spyOn(history, 'replaceState')
+
+    popstate(entry(HOTEL, 1))
+
+    // 호텔 뒤의 예약금 안내가 아니라 지금 묶음 다음의 미용 묶음이다.
+    expect(groupId()).toBe('grooming')
+    expect(screen.getByText('4 / 5')).toBeInTheDocument()
+    expect(onDraft).toHaveBeenLastCalledWith({ answers, groupIndex: GROOMING, submissionId: ID, key: KEY })
+    // 그 칸이 보이는 묶음을 가리키게 고쳐 둔다.
+    expect(replace).toHaveBeenCalledWith(expect.objectContaining(entry(GROOMING, 1)), '')
+  })
+
+  it('뒤로 가기로 숨은 묶음의 칸에 닿으면 지금 묶음 앞의 보이는 묶음으로 간다 — 같은 묶음을 두 번 보이지 않는다', () => {
+    // 미용·호텔을 골라 예약금 안내(위치 2)까지 갔다가 호텔을 뺀 상태. 뒤 칸(위치 1)은 호텔 묶음을 가리킨다.
+    history.replaceState(entry(LAST, 2), '')
+    const answers = { ...validAnswers(applyForm), services: [GROOMING_SERVICE] }
+    setup({ initial: draft(LAST, answers) })
+
+    popstate(entry(HOTEL, 1))
+
+    expect(groupId()).toBe('grooming')
+  })
+
+  it('가운데서 복원된 뒤 이전은 숨은 묶음을 건너 앞의 보이는 묶음으로 간다', () => {
+    // 미용만 골랐고 예약금 안내에서 복원됐다. 앞에 쌓은 칸이 없으니 지금 칸을 고쳐 쓰는데, 교육미용·호텔·데이케어는 숨어 있다.
+    const back = vi.spyOn(history, 'back')
+    setup({ initial: draft(LAST, validAnswers(applyForm)) })
+    fireEvent.click(action('back'))
+    expect(groupId()).toBe('grooming')
+    expect(back).not.toHaveBeenCalled()
+    expect(history.state).toMatchObject(entry(GROOMING, 0))
+  })
+
+  it('서비스를 뺐으면 그 묶음에 적어 둔 답은 onSubmit 에 실리지 않는다', () => {
+    // 미용·호텔을 골라 호텔 묶음까지 적었다가 이용 안내로 돌아와 호텔을 뺀 초안이다.
+    const answers: Answers = {
+      ...validAnswers(applyForm),
+      services: [GROOMING_SERVICE, HOTEL_SERVICE],
+      hotel_checkin: '11/3 15:00',
+      hotel_checkout: '11/5 11:00',
+      hotel_stayed: 'O',
+    }
+    const { onSubmit } = setup({ initial: draft(groupIndexOf(applyForm, 'visit'), answers) })
+    expect(screen.getByText('3 / 6')).toBeInTheDocument()
+
+    chooseMany(SERVICES_LABEL, HOTEL_SERVICE) // 해제
+    expect(screen.getByText('3 / 5')).toBeInTheDocument()
+
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('grooming')
+    fireEvent.click(action('next'))
+    expect(groupId()).toBe('deposit')
+    fireEvent.click(action('submit'))
+
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    const sent = onSubmit.mock.calls[0][0]
+    expect(sent.services).toEqual([GROOMING_SERVICE])
+    expect(sent).not.toHaveProperty('hotel_checkin')
+    expect(sent).not.toHaveProperty('hotel_checkout')
+    expect(sent).not.toHaveProperty('hotel_stayed')
+    expect(sent).toEqual(visibleAnswers(applyForm, { ...answers, services: [GROOMING_SERVICE] }))
   })
 })
 
@@ -494,7 +640,7 @@ describe('이전·방문 기록', () => {
   it('popstate 가 가리키는 묶음 번호가 범위를 넘으면 맞춰 따른다', () => {
     setup({ initial: draft(0, GUARDIAN) })
     popstate(entry(99, 1))
-    expect(groupId()).toBe('visit')
+    expect(groupId()).toBe('deposit')
   })
 
   it('다음은 방문 기록에 한 칸을 쌓고 Next 가 넣어 둔 값은 그대로 둔다', () => {
@@ -534,12 +680,12 @@ describe('이전·방문 기록', () => {
 
   it('복원된 묶음 번호가 범위를 넘으면 마지막 묶음으로 맞춘다', () => {
     const { onDraft } = setup({ initial: draft(99, validAnswers(applyForm)) })
-    expect(groupId()).toBe('visit')
+    expect(groupId()).toBe('deposit')
     expect(action('submit')).toHaveTextContent('신청하기')
-    expect(screen.getByText('3 / 3')).toBeInTheDocument()
+    expect(screen.getByText('5 / 5')).toBeInTheDocument()
     // 맞추기만 했을 뿐 사용자가 한 일이 아니니 초안을 내보내지 않는다.
     expect(onDraft).not.toHaveBeenCalled()
-    expect(history.state).toMatchObject(entry(2, 0))
+    expect(history.state).toMatchObject(entry(LAST, 0))
   })
 
   it('복원된 묶음 번호가 음수면 첫 묶음으로 맞춘다', () => {
@@ -562,7 +708,7 @@ describe('이전·방문 기록', () => {
 describe('제출', () => {
   it('마지막 묶음 버튼은 submitLabel 이고 누르면 onSubmit 이 답 전체를 받는다', () => {
     const answers = validAnswers(applyForm)
-    const { onSubmit } = setup({ initial: draft(2, answers), submitLabel: '신청하기' })
+    const { onSubmit } = setup({ initial: draft(LAST, answers), submitLabel: '신청하기' })
     const submit = screen.getByRole('button', { name: '신청하기' })
     expect(submit).toBe(action('submit'))
     expect(action('next')).toBeNull()
@@ -580,20 +726,20 @@ describe('제출', () => {
   })
 
   it('마지막 묶음에서도 오류가 있으면 보내지 않고 오류를 보여 준다', () => {
-    const answers = validAnswers(applyForm)
-    delete answers.services
-    const { onSubmit } = setup({ initial: draft(2, answers) })
+    // 예약금 안내의 요청 사항은 선택이지만 3,000자를 넘으면 오류다.
+    const answers = { ...validAnswers(applyForm), request: '가'.repeat(3001) }
+    const { onSubmit } = setup({ initial: draft(LAST, answers) })
     expect(isBlocked(action('submit'))).toBe(true)
 
     fireEvent.click(action('submit'))
 
     expect(onSubmit).not.toHaveBeenCalled()
-    expect(within(box('services')).getByRole('alert')).toHaveTextContent('하나 이상 골라 주세요')
-    expect(scrolledTo()[0]).toBe(box('services'))
+    expect(within(box('request')).getByRole('alert')).toHaveTextContent('3,000자까지 적을 수 있어요')
+    expect(scrolledTo()[0]).toBe(box('request'))
   })
 
   it('보내는 중에 두 번 누르면 onSubmit 은 한 번만 불린다', () => {
-    const { onSubmit } = setup({ initial: draft(2, validAnswers(applyForm)) })
+    const { onSubmit } = setup({ initial: draft(LAST, validAnswers(applyForm)) })
     onSubmit.mockReturnValue(new Promise(() => {})) // 끝나지 않는 Promise
     const submit = action('submit')
 
@@ -612,7 +758,7 @@ describe('제출', () => {
   })
 
   it('ok 가 와도 부모가 화면을 바꿀 때까지 버튼을 막아 둔다', async () => {
-    const { onSubmit } = setup({ initial: draft(2, validAnswers(applyForm)) })
+    const { onSubmit } = setup({ initial: draft(LAST, validAnswers(applyForm)) })
     fireEvent.click(action('submit'))
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
     await act(async () => {})
@@ -622,8 +768,8 @@ describe('제출', () => {
   })
 
   it('failed 면 안내가 보이고 입력이 남는다', async () => {
-    const answers = validAnswers(applyForm)
-    const { onSubmit } = setup({ initial: draft(2, answers) })
+    const answers = { ...validAnswers(applyForm), request: '문 앞에서 기다릴게요' }
+    const { onSubmit } = setup({ initial: draft(LAST, answers) })
     onSubmit.mockResolvedValue('failed')
 
     fireEvent.click(action('submit'))
@@ -636,8 +782,7 @@ describe('제출', () => {
     expect(action('submit')).toBeEnabled()
     expect(action('submit')).toHaveTextContent('신청하기')
     expect(isBlocked(action('submit'))).toBe(false)
-    expect(screen.getByLabelText('희망 날짜 1순위')).toHaveValue(answers.wish1_date)
-    expect(within(screen.getByRole('radiogroup', { name: '히스하우스 방문 여부' })).getByRole('radio', { name: '첫 방문' })).toBeChecked()
+    expect(screen.getByLabelText(REQUEST_LABEL)).toHaveValue('문 앞에서 기다릴게요')
 
     onSubmit.mockResolvedValue('ok')
     fireEvent.click(action('submit'))
@@ -647,18 +792,18 @@ describe('제출', () => {
   })
 
   it('failed 안내는 다음 입력에서 사라진다', async () => {
-    const { onSubmit } = setup({ initial: draft(2, validAnswers(applyForm)) })
+    const { onSubmit } = setup({ initial: draft(LAST, validAnswers(applyForm)) })
     onSubmit.mockResolvedValue('failed')
     fireEvent.click(action('submit'))
     await screen.findByText(FAILED)
 
-    chooseOne('히스하우스 방문 여부', '재방문')
+    write(REQUEST_LABEL, '요청')
 
     expect(screen.queryByText(FAILED)).not.toBeInTheDocument()
   })
 
   it('onSubmit 이 거부돼도 failed 로 보고 다시 누를 수 있다', async () => {
-    const { onSubmit } = setup({ initial: draft(2, validAnswers(applyForm)) })
+    const { onSubmit } = setup({ initial: draft(LAST, validAnswers(applyForm)) })
     onSubmit.mockRejectedValue(new Error('네트워크'))
 
     fireEvent.click(action('submit'))
@@ -699,7 +844,7 @@ describe('제출', () => {
     const answers = validAnswers(applyForm)
     delete answers.guardian_name
     const push = vi.spyOn(history, 'pushState')
-    const { onSubmit, onDraft } = setup({ initial: draft(2, answers) })
+    const { onSubmit, onDraft } = setup({ initial: draft(LAST, answers) })
     onSubmit.mockResolvedValue('invalid')
 
     fireEvent.click(action('submit'))
@@ -720,7 +865,7 @@ describe('제출', () => {
   })
 
   it('보내는 중에는 이전이 꺼져 있다', async () => {
-    const { onSubmit } = setup({ initial: draft(2, validAnswers(applyForm)) })
+    const { onSubmit } = setup({ initial: draft(LAST, validAnswers(applyForm)) })
     const sending = deferred<'ok' | 'invalid' | 'failed'>()
     onSubmit.mockReturnValue(sending.promise)
     expect(action('back')).toBeEnabled()
@@ -738,34 +883,35 @@ describe('제출', () => {
     // 보내는 동안 브라우저 뒤로 가기로 묶음이 바뀌었다. 서버는 자정을 넘긴 희망 날짜 때문에 거절한다.
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-10-24T01:00:00+09:00'))
-    const answers = { ...validAnswers(applyForm), wish1_date: '2026-10-23' }
+    const answers = { ...validAnswers(applyForm), groom_date: '2026-10-23' }
     const { onSubmit, onDraft } = setup({ initial: draft(0, answers), today: '2026-10-23' })
     const sending = deferred<'ok' | 'invalid' | 'failed'>()
     onSubmit.mockReturnValue(sending.promise)
-    fireEvent.click(action('next'))
-    fireEvent.click(action('next'))
-    expect(groupId()).toBe('visit')
+    // 보호자→반려견→이용 안내→미용→예약금 안내.
+    for (let i = 0; i < 4; i++) fireEvent.click(action('next'))
+    expect(groupId()).toBe('deposit')
     fireEvent.click(action('submit'))
     expect(onSubmit).toHaveBeenCalledTimes(1)
 
-    act(() => history.back())
-    await waitFor(() => expect(groupId()).toBe('pet'))
-    expect(history.state).toMatchObject(entry(1, 1))
+    // 두 칸 뒤로 가 이용 안내로 돌아왔다.
+    act(() => history.go(-2))
+    await waitFor(() => expect(groupId()).toBe('visit'))
+    expect(history.state).toMatchObject(entry(2, 2))
 
     await act(async () => sending.resolve('invalid'))
 
-    // 오류가 있는 묶음(희망 날짜)으로 옮기고, 칸과 초안도 그 묶음을 적는다. 위치는 그대로다.
-    await waitFor(() => expect(groupId()).toBe('visit'))
-    expect(within(box('wish1_date')).getByRole('alert')).toHaveTextContent('오늘 이후 날짜를 골라 주세요')
-    expect(history.state).toMatchObject(entry(2, 1))
-    expect(onDraft).toHaveBeenLastCalledWith({ answers, groupIndex: 2, submissionId: ID, key: KEY })
+    // 오류가 있는 묶음(미용의 희망 날짜)으로 옮기고, 칸과 초안도 그 묶음을 적는다. 위치는 그대로다.
+    await waitFor(() => expect(groupId()).toBe('grooming'))
+    expect(within(box('groom_date')).getByRole('alert')).toHaveTextContent('오늘 이후 날짜를 골라 주세요')
+    expect(history.state).toMatchObject(entry(GROOMING, 2))
+    expect(onDraft).toHaveBeenLastCalledWith({ answers, groupIndex: GROOMING, submissionId: ID, key: KEY })
   })
 
   it('보내는 중에 언마운트되면 결과가 와도 이력·초안을 건드리지 않는다', async () => {
     // 앞 묶음이 비어 있어 서버가 거절하면 그 묶음으로 옮겨야 하는 초안이다.
     const answers = validAnswers(applyForm)
     delete answers.guardian_name
-    const { onSubmit, onDraft, unmount } = setup({ initial: draft(2, answers) })
+    const { onSubmit, onDraft, unmount } = setup({ initial: draft(LAST, answers) })
     const sending = deferred<'ok' | 'invalid' | 'failed'>()
     onSubmit.mockReturnValue(sending.promise)
     fireEvent.click(action('submit'))
@@ -788,23 +934,23 @@ describe('제출', () => {
     // 화면의 오늘(prop)은 어제인 채로 열려 있었다. 서버는 새 날짜로 판정했다.
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-10-24T01:00:00+09:00'))
-    const answers = { ...validAnswers(applyForm), wish1_date: '2026-10-23' }
-    const { onSubmit } = setup({ initial: draft(2, answers), today: '2026-10-23' })
+    const answers = { ...validAnswers(applyForm), groom_date: '2026-10-23' }
+    const { onSubmit } = setup({ initial: draft(LAST, answers), today: '2026-10-23' })
     expect(isBlocked(action('submit'))).toBe(false)
     onSubmit.mockResolvedValue('invalid')
 
     fireEvent.click(action('submit'))
 
-    const alert = await within(box('wish1_date')).findByRole('alert')
-    expect(alert).toHaveTextContent('오늘 이후 날짜를 골라 주세요')
-    expect(groupId()).toBe('visit')
-    expect(isBlocked(action('submit'))).toBe(true)
-    expect(screen.getByLabelText('희망 날짜 1순위')).toHaveAttribute('min', '2026-10-24')
-    await waitFor(() => expect(scrolledTo().at(-1)).toBe(box('wish1_date')))
+    // 과거가 된 날짜는 미용 묶음에 있으니 그 묶음으로 옮긴다.
+    await waitFor(() => expect(groupId()).toBe('grooming'))
+    expect(within(box('groom_date')).getByRole('alert')).toHaveTextContent('오늘 이후 날짜를 골라 주세요')
+    expect(isBlocked(action('next'))).toBe(true)
+    expect(screen.getByLabelText('희망 예약 날짜')).toHaveAttribute('min', '2026-10-24')
+    await waitFor(() => expect(scrolledTo().at(-1)).toBe(box('groom_date')))
   })
 
   it('서버가 invalid 를 주는데 화면에서 오류를 못 찾으면 다시 확인해 달라고 안내하고 다음 입력에서 지운다', async () => {
-    const { onSubmit } = setup({ initial: draft(2, validAnswers(applyForm)) })
+    const { onSubmit } = setup({ initial: draft(LAST, validAnswers(applyForm)) })
     onSubmit.mockResolvedValue('invalid')
 
     fireEvent.click(action('submit'))
@@ -814,7 +960,7 @@ describe('제출', () => {
     expect(action('submit')).toBeEnabled()
     expect(isBlocked(action('submit'))).toBe(false)
 
-    chooseOne('히스하우스 방문 여부', '재방문')
+    write(REQUEST_LABEL, '요청')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
@@ -909,52 +1055,75 @@ describe('조건 문항', () => {
   })
 
   it('선택 문항에는 선택 표시가 있고 라벨 이름은 문항 그대로다', () => {
-    setup({ initial: draft(2) })
-    // wish2_date 는 필수가 아니다.
-    expect(within(box('wish2_date')).getByText('선택')).toBeInTheDocument()
-    expect(screen.getByLabelText('희망 날짜 2순위')).toHaveAccessibleName('희망 날짜 2순위')
+    setup({ initial: draft(GROOMING, { services: [GROOMING_SERVICE] }) })
+    // 희망 시간대는 필수가 아니다.
+    expect(within(box('groom_time')).getByText('선택')).toBeInTheDocument()
+    expect(screen.getByLabelText('희망 시간대')).toHaveAccessibleName('희망 시간대')
     // 필수 문항에는 없다.
-    expect(within(box('wish1_date')).queryByText('선택')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('희망 날짜 1순위')).toHaveAccessibleName('희망 날짜 1순위')
+    expect(within(box('groom_date')).queryByText('선택')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('희망 예약 날짜')).toHaveAccessibleName('희망 예약 날짜')
   })
 
-  it('선택 문항의 고른 칩은 다시 누르면 해제되고, 지금 필수인 문항은 해제되지 않는다', () => {
-    const { onDraft } = setup({ initial: draft(2, validAnswers(applyForm)) })
-    const afternoon = () => within(box('wish2_slot')).getByRole('radio', { name: '오후' })
-    // 2순위 날짜가 비어 있어 2순위 시간대는 선택이다.
-    fireEvent.click(afternoon())
-    fireEvent.click(afternoon())
-    expect(afternoon()).not.toBeChecked()
-    expect(onDraft.mock.lastCall![0].answers.wish2_slot).toBe('')
+  it('선택 문항의 고른 칩은 다시 누르면 해제되고, 필수 문항은 해제되지 않는다', () => {
+    // 호텔의 숙박 경험(O/X)은 선택이다.
+    const hotel = setup({ initial: draft(groupIndexOf(applyForm, 'hotel'), { services: [HOTEL_SERVICE] }) })
+    const stayed = () => within(box('hotel_stayed')).getByRole('radio', { name: 'O' })
+    fireEvent.click(stayed())
+    fireEvent.click(stayed())
+    expect(stayed()).not.toBeChecked()
+    expect(hotel.onDraft.mock.lastCall![0].answers.hotel_stayed).toBe('')
+    hotel.unmount()
 
-    // 2순위 날짜를 고르면 필수가 되어 다시 눌러도 그대로다.
-    write('희망 날짜 2순위', '2026-10-30')
+    // 반려견 성별은 필수라 다시 눌러도 그대로다.
+    const pet = setup({ initial: draft(1) })
+    const male = () => within(box('pet_sex')).getByRole('radio', { name: '남' })
+    fireEvent.click(male())
+    fireEvent.click(male())
+    expect(male()).toBeChecked()
+    expect(pet.onDraft.mock.lastCall![0].answers.pet_sex).toBe('남')
+  })
+
+  it('requiredIf 대상에 답이 생기면 선택 표시가 사라지고 필수가 된다', () => {
+    // 신청서는 이 규칙을 더 쓰지 않는다(옛 2순위 날짜·시간대). 합성 문항으로 본다.
+    const dependent: FormDef = {
+      id: 'survey',
+      title: '조건',
+      groups: [
+        {
+          id: 'g',
+          title: '묶음',
+          questions: [
+            { id: 'd', label: '선택 날짜', type: 'date', required: false },
+            { id: 's', label: '선택 시간대', type: 'single', required: false, options: ['오전', '오후'], requiredIf: { questionId: 'd' } },
+          ],
+        },
+      ],
+    }
+    setup({ form: dependent, submitLabel: '제출하기' })
+    // 처음에는 날짜도 시간대도 선택이다.
+    expect(within(box('s')).getByText('선택')).toBeInTheDocument()
+    expect(within(box('s')).getByRole('radiogroup')).not.toBeRequired()
+    expect(isBlocked(action('submit'))).toBe(false)
+
+    write('선택 날짜', '2026-10-30')
+
+    // 날짜를 고르면 시간대는 필수가 된다(보조 기기에도). 날짜 쪽은 여전히 선택이다.
+    expect(within(box('s')).queryByText('선택')).not.toBeInTheDocument()
+    expect(within(box('s')).getByRole('radiogroup')).toBeRequired()
+    expect(within(box('d')).getByText('선택')).toBeInTheDocument()
+    expect(isBlocked(action('submit'))).toBe(true)
+    fireEvent.click(action('submit'))
+    expect(within(box('s')).getByRole('alert')).toHaveTextContent('하나를 골라 주세요')
+
+    // 필수가 된 칩은 다시 눌러도 해제되지 않는다.
+    const afternoon = () => within(box('s')).getByRole('radio', { name: '오후' })
     fireEvent.click(afternoon())
     fireEvent.click(afternoon())
     expect(afternoon()).toBeChecked()
-    expect(onDraft.mock.lastCall![0].answers.wish2_slot).toBe('오후')
-  })
-
-  it('2순위 날짜를 고르면 시간대의 선택 표시가 사라진다', () => {
-    setup({ initial: draft(2, validAnswers(applyForm)) })
-    // 2순위는 날짜도 시간대도 선택이다.
-    expect(within(box('wish2_slot')).getByText('선택')).toBeInTheDocument()
-    expect(within(box('wish2_slot')).getByRole('radiogroup')).not.toBeRequired()
-    expect(isBlocked(action('submit'))).toBe(false)
-
-    write('희망 날짜 2순위', '2026-10-30')
-
-    // 날짜를 고르면 시간대는 필수가 된다(보조 기기에도). 날짜 쪽은 여전히 선택이다.
-    expect(within(box('wish2_slot')).queryByText('선택')).not.toBeInTheDocument()
-    expect(within(box('wish2_slot')).getByRole('radiogroup')).toBeRequired()
-    expect(within(box('wish2_date')).getByText('선택')).toBeInTheDocument()
-    expect(isBlocked(action('submit'))).toBe(true)
-    fireEvent.click(action('submit'))
-    expect(within(box('wish2_slot')).getByRole('alert')).toHaveTextContent('하나를 골라 주세요')
 
     // 날짜를 지우면 다시 선택이다.
-    write('희망 날짜 2순위', '')
-    expect(within(box('wish2_slot')).getByText('선택')).toBeInTheDocument()
+    write('선택 날짜', '')
+    expect(within(box('s')).getByText('선택')).toBeInTheDocument()
     expect(isBlocked(action('submit'))).toBe(false)
   })
 })

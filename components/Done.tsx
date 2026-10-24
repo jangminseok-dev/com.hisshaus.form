@@ -15,7 +15,7 @@ export function Done() {
     <div className={styles.screen}>
       <h1 className={styles.title}>신청이 접수되었어요</h1>
       <p className={`${styles.text} ${styles.summary}`}>
-        {session.petName} · {session.services.join(', ')} · {session.wish1} 희망
+        {session.petName} · {session.services.join(', ')} · {session.wish} 희망
       </p>
       <div className={styles.box}>
         <h2 className={styles.boxTitle}>다음 순서</h2>

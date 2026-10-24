@@ -39,7 +39,8 @@ export interface ApplySession {
   guardianPhone: string
   petName: string
   services: string[]
-  wish1: string
+  /** 고른 서비스의 희망 일시 한 줄(lib/wish.ts) */
+  wish: string
   training: boolean
   surveyDone: boolean
 }
@@ -106,7 +107,7 @@ function isApplySession(v: unknown): v is ApplySession {
     isText(v.guardianPhone) &&
     isText(v.petName) &&
     isTextList(v.services) &&
-    isText(v.wish1) &&
+    isText(v.wish) &&
     typeof v.training === 'boolean' &&
     typeof v.surveyDone === 'boolean'
   )
