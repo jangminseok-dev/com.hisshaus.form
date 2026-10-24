@@ -6,8 +6,10 @@ const qs = allQuestions(surveyForm)
 const q = (n: number) => qs.find((x) => x.id === `q${n}`)!
 
 describe('검사지 정의', () => {
-  it('검사지는 98문항이고 id 가 q1~q98 로 빠짐없다', () => {
-    expect(qs.map((x) => x.id)).toEqual(Array.from({ length: 98 }, (_, i) => `q${i + 1}`))
+  it('검사지는 원문 98문항(q1~q98)에 나눈 문항의 짝 셋(q66_detail·q76_detail·q77_detail)을 더한 101문항이다', () => {
+    const base = qs.filter((x) => !x.id.endsWith('_detail'))
+    expect(base.map((x) => x.id)).toEqual(Array.from({ length: 98 }, (_, i) => `q${i + 1}`))
+    expect(qs.filter((x) => x.id.endsWith('_detail')).map((x) => x.id)).toEqual(['q66_detail', 'q76_detail', 'q77_detail'])
   })
 
   it('묶음은 12개다', () => {
@@ -25,8 +27,7 @@ describe('검사지 정의', () => {
     expect(q(30).options).toContain('요구적인 행동 (관심을 끌려고 짖거나 앞발로 긁음 등)')
     expect(q(51).label).toBe('반려견은 밤에 어디에서 잡니까?')
     // 네/아니오 문항은 모두 같은 꼴이고, '없다면 없음' 안내도 같은 꼴이다.
-    for (const n of [43, 49, 59, 61, 80, 81, 85, 87, 98]) expect(q(n).options).toEqual(['네', '아니오'])
-    expect(q(76).hint).toBe(q(77).hint)
+    for (const n of [43, 49, 59, 61, 66, 76, 77, 80, 81, 85, 87, 98]) expect(q(n).options).toEqual(['네', '아니오'])
     // 나이 선택지는 세 문항이 같다.
     expect(q(31).options).toEqual(q(19).options)
     expect(q(20).options).toEqual(q(19).options)
@@ -36,7 +37,7 @@ describe('검사지 정의', () => {
 
   it('필수 표시는 원문과 같고, 최근 사건 중 첫 것만 필수다(q24~q26 은 사건이 없을 수 있어 선택)', () => {
     const optional = [24, 25, 26, 31, 32, 44, 46, 47, 48, 50, 60, 62, 63, 70, 76, 78, 81, 82, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]
-    expect(qs.filter((x) => !x.required).map((x) => Number(x.id.slice(1)))).toEqual(optional)
+    expect(qs.filter((x) => !x.required && !x.id.endsWith('_detail')).map((x) => Number(x.id.slice(1)))).toEqual(optional)
   })
 
   it('도입 안내에 없는 표시를 가리키는 "*표시는 필수 질문임" 줄이 없다', () => {
@@ -67,6 +68,16 @@ describe('검사지 정의', () => {
       expect(isVisible(q(n), { [prev]: yes })).toBe(true)
       expect(isVisible(q(n), { [prev]: no })).toBe(false)
       expect(isVisible(q(n), {})).toBe(false)
+    }
+  })
+
+  it('q66·q76·q77 의 짝 글 문항은 네일 때만 보이고 그때 필수다', () => {
+    for (const n of [66, 76, 77]) {
+      const detail = qs.find((x) => x.id === `q${n}_detail`)!
+      expect(isVisible(detail, { [`q${n}`]: '네' })).toBe(true)
+      expect(isRequired(detail, { [`q${n}`]: '네' })).toBe(true)
+      expect(isVisible(detail, { [`q${n}`]: '아니오' })).toBe(false)
+      expect(isVisible(detail, {})).toBe(false)
     }
   })
 

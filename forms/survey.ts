@@ -15,7 +15,6 @@ const SCHOOLED = { questionId: 'q71', equals: ['훈련소를 다니다가 도중
 const AGES = ['생후 6개월령 미만', '6개월 ~ 1세령', '1~2세령', '2세령 이상']
 const YES_NO = ['네', '아니오']
 const RECENT_HINT = '언제, 어디에서 일어났는지, 공격행동의 경우 어떤 대상을 향해 공격성을 보였으며 어떻게 대처해주셨는지 자세히 적어주세요.'
-const NONE_HINT = '없다면 없음 이라고 적어주세요!'
 
 export const surveyForm: FormDef = {
   id: 'survey',
@@ -368,12 +367,16 @@ export const surveyForm: FormDef = {
           hint: '예) 아버지 : 68세 8시~6시까지 부재, 누나 : 26세 9시~7시까지 부재',
         },
         { id: 'q65', label: '반려견과 가족관계를 적어주세요', type: 'long', required: true, hint: '예) 아버지와는 그냥 그런 사이입니다. 큰누나를 가장 좋아합니다. 등...' },
+        // q66·q76·q77 은 원문이 "있습니까? 있다면 적어주세요" 한 칸인데 네/아니오 칩 + '네' 일 때만 글 칸으로 나눴다(2026-10-24).
+        // 짝 글 문항 id 는 q66_detail 처럼 원문 번호 뒤에 _detail 을 붙인다. 시트 열은 원문 문항 바로 뒤에 선다.
+        { id: 'q66', label: '타동물이 있습니까?', type: 'single', required: true, options: YES_NO },
         {
-          id: 'q66',
-          label: '타동물이 있습니까? 있다면 어떤 관계인지 자세히 적어주세요',
+          id: 'q66_detail',
+          label: '있다면 어떤 관계인지 자세히 적어주세요',
           type: 'long',
           required: true,
-          hint: '예) 동거묘가 있다. 3살 수컷 서로 모르는 척 한다. 등 없다면 없다고 적어주세요.',
+          hint: '예) 동거묘가 있다. 3살 수컷 서로 모르는 척 한다. 등',
+          showIf: { questionId: 'q66', equals: '네' },
         },
         { id: 'q67', label: '의뢰인이 거주하는 장소는 어느 곳에 가깝습니까?', type: 'single', required: true, options: ['도심', '도심외곽', '시골'] },
         {
@@ -460,12 +463,26 @@ export const surveyForm: FormDef = {
         },
         {
           id: 'q76',
-          label: '반려견이 당신의 요청을 따르지 않는 순간이 있습니까? 있다면 어떤 상황인지 구체적으로 적어주세요.',
-          type: 'long',
+          label: '반려견이 당신의 요청을 따르지 않는 순간이 있습니까?',
+          type: 'single',
           required: false,
-          hint: NONE_HINT,
+          options: YES_NO,
         },
-        { id: 'q77', label: '반려견이 당신에게 짖는 순간이 있습니까? 있다면 어떤 때인지 적어주세요', type: 'long', required: true, hint: NONE_HINT },
+        {
+          id: 'q76_detail',
+          label: '있다면 어떤 상황인지 구체적으로 적어주세요.',
+          type: 'long',
+          required: true,
+          showIf: { questionId: 'q76', equals: '네' },
+        },
+        { id: 'q77', label: '반려견이 당신에게 짖는 순간이 있습니까?', type: 'single', required: true, options: YES_NO },
+        {
+          id: 'q77_detail',
+          label: '있다면 어떤 때인지 적어주세요',
+          type: 'long',
+          required: true,
+          showIf: { questionId: 'q77', equals: '네' },
+        },
         {
           id: 'q78',
           label: '반려견이 장난을 치거나 바람직하지 못한 행동을 한 경우 어떤 방식으로 반려견을 꾸짖습니까?',

@@ -119,6 +119,16 @@ function fixedOptions(id: string, options: string[]): string[] {
 /** 구글폼에서만 필요했던 선택 안내. 화면의 칩이 하나/여러 개를 알아서 제한하므로 뺐다. 원문 안내문이 이 꼴이면 화면에는 없다. */
 const INSTRUCTION_HINT = /^(한 개(의 항목)?만 선택해주세요\.?|해당 ?사항에 모두 (표시|선택)(해주세요|하세요)\.?)$/
 
+/**
+ * "있습니까? 있다면 적어주세요" 한 칸을 네/아니오 칩 + 짝 글 문항(id 뒤 _detail)으로 나눈 것(2026-10-24). 원문 문항은 질문의 앞부분만
+ * 남고 single 이 되며 안내문이 없어진다. 짝 문항의 질문은 원문 뒷부분이고, 원문 안내문의 '없다면 …' 꼬리는 뺀다.
+ */
+const SPLIT: Record<string, { label: string; detail: { label: string; hint?: string } }> = {
+  q66: { label: '타동물이 있습니까?', detail: { label: '있다면 어떤 관계인지 자세히 적어주세요', hint: '예) 동거묘가 있다. 3살 수컷 서로 모르는 척 한다. 등' } },
+  q76: { label: '반려견이 당신의 요청을 따르지 않는 순간이 있습니까?', detail: { label: '있다면 어떤 상황인지 구체적으로 적어주세요.' } },
+  q77: { label: '반려견이 당신에게 짖는 순간이 있습니까?', detail: { label: '있다면 어떤 때인지 적어주세요' } },
+}
+
 /** 단답(유형 0)을 화면에서 이메일·전화 입력으로 받는 문항. 글자와 필수 여부는 원문 그대로다. */
 const SHORT_KIND: Record<string, QuestionType> = { q1: 'email', q4: 'phone' }
 
@@ -175,7 +185,8 @@ function parse(dump: string): Original[] {
 }
 
 const originals = parse(readFileSync(join(import.meta.dirname, 'survey-original.txt'), 'utf8'))
-const questions = allQuestions(surveyForm)
+const questions = allQuestions(surveyForm).filter((q) => !q.id.endsWith('_detail'))
+const details = allQuestions(surveyForm).filter((q) => q.id.endsWith('_detail'))
 
 /** 비교할 칸만. 기타가 없거나 선택지가 없는 것은 원문 쪽 모양(false·[])에 맞춘다. */
 function shape(q: Pick<Question, 'label' | 'hint' | 'required' | 'type' | 'options' | 'other'>) {
@@ -201,6 +212,7 @@ describe('검사지 원문 대조', () => {
         other: original.other,
         ...RULINGS[id],
         ...FIXES[id],
+        ...(SPLIT[id] ? { label: SPLIT[id].label, hint: undefined, type: 'single' as const, options: ['네', '아니오'] } : {}),
       })
       expect(shape(q)).toEqual(expected)
     },
@@ -230,9 +242,23 @@ describe('검사지 원문 대조', () => {
     }
   })
 
+  it('나눈 문항의 짝 글 문항은 원문 질문의 뒷부분이고, 원문 문항이 네일 때만 보이며, 원문 바로 뒤에 선다', () => {
+    expect(details.map((d) => d.id)).toEqual(Object.keys(SPLIT).map((id) => `${id}_detail`))
+    for (const [id, split] of Object.entries(SPLIT)) {
+      const original = originals.find((o) => `q${o.number}` === id)!
+      // 원문 질문 = 앞부분 + ' ' + 뒷부분.
+      expect(original.label).toBe(`${split.label} ${split.detail.label}`)
+      const detail = details.find((d) => d.id === `${id}_detail`)!
+      expect(detail).toMatchObject({ label: split.detail.label, type: 'long', required: true, showIf: { questionId: id, equals: '네' } })
+      expect(detail.hint).toBe(split.detail.hint)
+      const all = allQuestions(surveyForm)
+      expect(all.indexOf(detail)).toBe(all.indexOf(all.find((q) => q.id === id)!) + 1)
+    }
+  })
+
   it('선택 안내 삭제는 원문 안내문이 그 한 줄뿐인 문항에만 적용된다(다른 안내가 섞인 문항은 그대로다)', () => {
     for (const o of originals) {
-      if (o.hint === undefined || FIXES[`q${o.number}`]?.hint !== undefined) continue
+      if (o.hint === undefined || FIXES[`q${o.number}`]?.hint !== undefined || SPLIT[`q${o.number}`]) continue
       const q = questions.find((x) => x.id === `q${o.number}`)!
       expect(q.hint === undefined).toBe(INSTRUCTION_HINT.test(o.hint))
     }

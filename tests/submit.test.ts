@@ -330,7 +330,7 @@ describe('검사지 제출', () => {
     expect(events).toEqual(['시트 시작', '시트 끝', '슬랙'])
     expect(appendRow).toHaveBeenCalledTimes(1)
     expect(appendRow).toHaveBeenCalledWith('검사지', sheetRow(surveyForm, answers, meta))
-    expect(appendRow.mock.calls[0][1]).toHaveLength(100)
+    expect(appendRow.mock.calls[0][1]).toHaveLength(103)
     expect(sendSlack).toHaveBeenCalledWith(surveyMessages(answers, meta))
   })
 
