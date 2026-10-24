@@ -45,8 +45,8 @@ function prevVisible(form: FormDef, from: number, a: Answers): number {
  */
 function pace(position: number, total: number): string | undefined {
   if (total < 3) return undefined
-  if (position === total) return '마지막 화면이에요'
-  if (position === total - 1) return '거의 다 왔어요'
+  if (position === total) return '🎉 마지막 화면이에요'
+  if (position === total - 1) return '✨ 거의 다 왔어요, 한 화면만 더!'
   if (position / total > 0.5) return '절반 넘게 왔어요'
   return undefined
 }
@@ -322,7 +322,11 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
           {group.title}
         </h2>
       </div>
-      {paceText && <p className={styles.pace}>{paceText}</p>}
+      {paceText && (
+        <p className={styles.pace} aria-live="polite">
+          {paceText}
+        </p>
+      )}
       {notice && (
         <p ref={noticeRef} role="alert" className={styles.notice}>
           {notice}

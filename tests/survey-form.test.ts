@@ -24,6 +24,9 @@ describe('검사지 정의', () => {
     expect(q(21).hint).toBe('a에서 1개, b에서 1개 골라주세요 (a : 빈도, b : 정도)')
     expect(q(30).options).toContain('요구적인 행동 (관심을 끌려고 짖거나 앞발로 긁음 등)')
     expect(q(51).label).toBe('반려견은 밤에 어디에서 잡니까?')
+    // 네/아니오 문항은 모두 같은 꼴이고, '없다면 없음' 안내도 같은 꼴이다.
+    for (const n of [43, 49, 59, 61, 80, 81, 85, 87, 98]) expect(q(n).options).toEqual(['네', '아니오'])
+    expect(q(76).hint).toBe(q(77).hint)
     // 나이 선택지는 세 문항이 같다.
     expect(q(31).options).toEqual(q(19).options)
     expect(q(20).options).toEqual(q(19).options)
@@ -53,10 +56,10 @@ describe('검사지 정의', () => {
 
   it('q50·q60·q62·q44·q88·q89 는 앞 문항이 예/네/그렇다일 때만 보인다', () => {
     const cases: [number, string, string, string][] = [
-      [50, 'q49', '예', '아니오'],
+      [50, 'q49', '네', '아니오'],
       [60, 'q59', '네', '아니오'],
       [62, 'q61', '네', '아니오'],
-      [44, 'q43', '그렇다.', '아니다'],
+      [44, 'q43', '네', '아니오'],
       [88, 'q87', '네', '아니오'],
       [89, 'q87', '네', '아니오'],
     ]

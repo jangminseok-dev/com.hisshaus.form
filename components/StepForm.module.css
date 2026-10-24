@@ -61,10 +61,17 @@
   outline: none;
 }
 
+/* 남은 정도 한 줄. 제목 아래 작은 배지로, 흰 종이색 바탕에 검정 글자라 눈에 띈다. */
 .pace {
-  margin: -16px 0 20px;
-  color: var(--mute);
+  display: inline-block;
+  margin: -12px 0 20px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
   font-size: 14px;
+  font-weight: 600;
 }
 
 .notice {

@@ -121,8 +121,8 @@ describe('화면 틀', () => {
     expectPace(5, null)
     expectPace(6, '절반 넘게 왔어요')
     expectPace(9, '절반 넘게 왔어요')
-    expectPace(10, '거의 다 왔어요')
-    expectPace(11, '마지막 화면이에요')
+    expectPace(10, '✨ 거의 다 왔어요, 한 화면만 더!')
+    expectPace(11, '🎉 마지막 화면이에요')
     // 숫자 진행 표시는 여전히 없다.
     setup({ form: surveyForm, initial: draft(11, validAnswers(surveyForm)), submitLabel: '제출하기' })
     expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument()
@@ -840,8 +840,8 @@ describe('제출', () => {
       submitLabel: '제출하기',
     })
 
-    // q49 '예' 로 q50 이 열리면 답하고, 다시 '아니오' 로 바꾼다.
-    chooseOne(q49.label, '예')
+    // q49 '네' 로 q50 이 열리면 답하고, 다시 '아니오' 로 바꾼다.
+    chooseOne(q49.label, '네')
     chooseMany(q50.label, '울타리')
     chooseOne(q49.label, '아니오')
     expect(screen.queryByRole('group', { name: q50.label })).not.toBeInTheDocument()
@@ -995,7 +995,7 @@ describe('조건 문항', () => {
     expect(screen.queryByRole('group', { name: q50.label })).not.toBeInTheDocument()
     expect(box('q50')).toBeNull()
 
-    chooseOne(q49.label, '예')
+    chooseOne(q49.label, '네')
     expect(screen.getByRole('group', { name: q50.label })).toBeInTheDocument()
 
     chooseOne(q49.label, '아니오')
