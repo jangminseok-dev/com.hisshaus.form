@@ -5,11 +5,10 @@ import Link from 'next/link'
 import { depositOf } from '../lib/deposit'
 import { BankAccount } from './BankAccount'
 import { CheckMark } from './CheckMark'
-import { maskPhone } from '../lib/format'
 import { useApplySession } from '../lib/use-session'
 import styles from './Screen.module.css'
 
-/** 신청이 접수된 뒤의 완료 화면. 신청 세션이 있어야 열린다. 연락처는 가운데를 가려 보여 준다. */
+/** 신청이 접수된 뒤의 완료 화면. 신청 세션이 있어야 열린다. 연락처는 방금 적은 본인이 확인하는 자리라 가리지 않는다(사용자 결정 2026-10-24). */
 export function Done() {
   const session = useApplySession()
   if (!session) return null
@@ -32,7 +31,7 @@ export function Done() {
         </ol>
         <BankAccount />
       </div>
-      <p className={styles.text}>곧 {maskPhone(session.guardianPhone)} 로 연락드릴게요.</p>
+      <p className={styles.text}>곧 {session.guardianPhone} 로 연락드릴게요.</p>
       {/* 교육미용이면 검사지가 주 버튼이고 확인은 보조 버튼. 아니면 확인 하나가 주 버튼이다. 확인은 첫 화면으로 간다. */}
       <div className={styles.actions}>
         {session.training && !session.surveyDone ? (

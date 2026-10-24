@@ -42,7 +42,7 @@ test('신청서를 끝까지 쓰면 완료 화면이 뜨고 시트 한 줄·슬�
   await expect(done(page)).toBeVisible()
   // 이름은 글자 그대로 보이고(HTML 로 읽히지 않는다), 연락처는 가운데가 가려진다.
   await expect(page.getByText(`Grooming 미용 · `)).toBeVisible()
-  await expect(page.getByText('곧 010-****-5678 로 연락드릴게요.')).toBeVisible()
+  await expect(page.getByText('곧 010-1234-5678 로 연락드릴게요.')).toBeVisible()
 
   const { sheets, slack } = await fakeState(request)
   expect(sheets).toHaveLength(1)

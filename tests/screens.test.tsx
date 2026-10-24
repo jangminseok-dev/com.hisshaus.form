@@ -313,7 +313,8 @@ describe('완료 화면', () => {
     expect(screen.getByText('3. 확정된 뒤 예약금 50,000원을 아래 계좌로 입금해 주세요')).toBeInTheDocument()
     expect(screen.getByText('4. 입금이 확인되면 예약이 완료돼요')).toBeInTheDocument()
 
-    expect(screen.getByText('곧 010-****-5678 로 연락드릴게요.')).toBeInTheDocument()
+    // 방금 적은 본인이 확인하는 자리라 번호를 가리지 않는다.
+    expect(screen.getByText('곧 010-1234-5678 로 연락드릴게요.')).toBeInTheDocument()
     // 가운데 네 자리는 화면에 나오지 않는다.
     expect(container.textContent).not.toContain('1234')
     expect(container.textContent).not.toContain('입니다')
