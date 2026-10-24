@@ -28,27 +28,61 @@ describe('신청서 정의', () => {
     expect(question('services').required).toBe(true)
   })
 
-  it('필수 문항은 보호자·반려견·이용 안내 전부와 서비스별 날짜(호텔은 체크인·체크아웃)뿐이다', () => {
+  it('필수 문항은 보호자·반려견·이용 안내 전부와 서비스별 날짜(호텔은 체크인·체크아웃 날짜와 시간)뿐이다', () => {
     const required = allQuestions(applyForm)
       .filter((q) => q.required)
       .map((q) => q.id)
     const always = ['guardian', 'pet', 'visit'].flatMap((id) => group(id).questions.map((q) => q.id))
-    expect(required).toEqual([...always, 'groom_date', 'daycare_date', 'hotel_checkin', 'hotel_checkout', 'training_date'])
+    expect(required).toEqual([
+      ...always,
+      'groom_date',
+      'daycare_date',
+      'hotel_checkin_date',
+      'hotel_checkin_time',
+      'hotel_checkout_date',
+      'hotel_checkout_time',
+      'training_date',
+    ])
     // 예약금 안내의 요청 사항은 선택이다.
     expect(group('deposit').questions.map((q) => [q.id, q.required])).toEqual([['request', false]])
   })
 
-  it('서비스별 날짜 문항은 date 유형이고 호텔 체크인·체크아웃은 날짜와 시간을 함께 적는 글이다', () => {
-    for (const id of ['groom_date', 'daycare_date', 'training_date']) expect(question(id).type).toBe('date')
-    expect(question('hotel_checkin').type).toBe('short')
-    expect(question('hotel_checkout').type).toBe('short')
+  it('서비스별 날짜 문항은 date 유형이고 시간 문항은 짝 날짜를 가리키는 time 유형이다', () => {
+    for (const id of ['groom_date', 'daycare_date', 'hotel_checkin_date', 'hotel_checkout_date', 'training_date']) {
+      expect(question(id).type).toBe('date')
+    }
+    const pairs: [string, string][] = [
+      ['groom_time', 'groom_date'],
+      ['daycare_time', 'daycare_date'],
+      ['hotel_checkin_time', 'hotel_checkin_date'],
+      ['hotel_checkout_time', 'hotel_checkout_date'],
+      ['training_time', 'training_date'],
+    ]
+    for (const [time, date] of pairs) {
+      expect(question(time).type).toBe('time')
+      expect(question(time).dateId).toBe(date)
+      // 짝 날짜는 같은 묶음의 앞 문항이다(화면이 날짜 답을 시간 칩에 넘긴다).
+      const g = applyForm.groups.find((x) => x.questions.some((q) => q.id === time))!
+      const ids = g.questions.map((q) => q.id)
+      expect(ids.indexOf(date)).toBeGreaterThanOrEqual(0)
+      expect(ids.indexOf(date)).toBeLessThan(ids.indexOf(time))
+    }
+    // 시간 문항에 선택지는 없다(영업시간이 정한다).
+    for (const q of allQuestions(applyForm).filter((x) => x.type === 'time')) expect(q.options).toBeUndefined()
   })
 
   it('라벨이 겹치지 않는다 — 시트 열 이름이라 묶음이 달라도 가려져야 한다', () => {
     const labels = allQuestions(applyForm).map((x) => x.label)
     expect(new Set(labels).size).toBe(labels.length)
-    // 미용의 '희망 시간대' 와 겹치지 않게 교육미용 쪽은 앞에 교육미용을 붙였다.
-    expect(question('training_time').label).toBe('교육미용 희망 시간대')
+    // 미용의 '희망 시간' 과 겹치지 않게 교육미용 쪽은 앞에 교육미용을 붙였다.
+    expect(question('training_time').label).toBe('교육미용 희망 시간')
+    // 호텔은 날짜와 시간을 나눠 받는다.
+    expect(['hotel_checkin_date', 'hotel_checkin_time', 'hotel_checkout_date', 'hotel_checkout_time'].map((id) => question(id).label)).toEqual([
+      '체크인 날짜',
+      '체크인 시간',
+      '체크아웃 날짜',
+      '체크아웃 시간',
+    ])
   })
 
   it('신청서에는 requiredIf·문항 showIf·blockIf 를 쓰지 않는다 — 조건은 묶음 showIf 하나다', () => {

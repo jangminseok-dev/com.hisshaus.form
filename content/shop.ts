@@ -12,6 +12,11 @@ export const shop = {
   mapUrl: `https://map.naver.com/p/search/${encodeURIComponent('경기 수원시 팔달구 인계로 21')}`,
   // 영업시간. 첫 화면 정보 줄의 '영업시간' 에 나온다. 줄마다 한 줄로 보인다.
   hours: '월~수 10:00~16:00\n목~일 10:00~20:00',
+  // 같은 영업시간을 요일별로. 희망 시간 칩(lib/slots.ts)이 고른 날짜의 요일에 맞춰 30분 단위로 만든다. days: 0 = 일요일.
+  openHours: [
+    { days: [1, 2, 3], open: '10:00', close: '16:00' },
+    { days: [4, 5, 6, 0], open: '10:00', close: '20:00' },
+  ],
   // 금액(10,000원)은 완료 화면 안내(components/Done.tsx)에도 적혀 있다. 바꾸면 둘 다 고친다.
   deposit: '10,000원 입금 시 확정',
   // 첫 화면 큰 사진(매장 내부). 바꿀 때는 public/hero.jpg 를 같은 이름으로 덮어쓴다.

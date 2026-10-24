@@ -1,4 +1,5 @@
 import type { Answers, Question } from '../forms/types'
+import { timeKo } from './slots'
 
 const WEEKDAYS = '일월화수목금토'
 
@@ -48,11 +49,12 @@ export function maskPhone(p: string): string {
   return `${head}-${mid}-${tail}`
 }
 
-/** 답을 한 줄 글로. 없으면 ''. date 는 기본 한국어 표기, `dateStyle: 'raw'` 면 원문. */
+/** 답을 한 줄 글로. 없으면 ''. date·time 은 기본 한국어 표기, `dateStyle: 'raw'` 면 원문('YYYY-MM-DD'·'HH:MM'). */
 export function answerText(q: Question, a: Answers, opts: { dateStyle?: 'ko' | 'raw' } = {}): string {
   const v = a[q.id]
   if (v === undefined) return ''
   if (Array.isArray(v)) return v.join(', ')
   if (q.type === 'date' && v && opts.dateStyle !== 'raw') return dateKo(v)
+  if (q.type === 'time' && v && opts.dateStyle !== 'raw') return timeKo(v)
   return v
 }

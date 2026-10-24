@@ -1,4 +1,4 @@
-export type QuestionType = 'short' | 'long' | 'email' | 'phone' | 'single' | 'multi' | 'date' | 'consent'
+export type QuestionType = 'short' | 'long' | 'email' | 'phone' | 'single' | 'multi' | 'date' | 'time' | 'consent'
 
 export interface Question {
   id: string
@@ -19,6 +19,8 @@ export interface Question {
   requiredIf?: { questionId: string }
   /** 이 값이면 진행을 막는다(해요체 안내) */
   blockIf?: { value: string; message: string }
+  /** time 유형: 이 날짜 문항의 요일에 맞는 영업시간 안의 시간만 고를 수 있다 */
+  dateId?: string
   /** consent 유형의 본문 */
   consentText?: string
 }

@@ -45,8 +45,10 @@ describe('시트 행', () => {
     expect(h).toContain('희망 예약 날짜')
     expect(h).toContain('희망 이용 날짜')
     expect(h).toContain('교육미용 희망 날짜')
-    expect(h).toContain('희망 시간대')
-    expect(h).toContain('교육미용 희망 시간대')
+    expect(h).toContain('희망 시간')
+    expect(h).toContain('교육미용 희망 시간')
+    expect(h).toContain('체크인 날짜')
+    expect(h).toContain('체크인 시간')
   })
 
   it('검사지 행도 100칸이다', () => {

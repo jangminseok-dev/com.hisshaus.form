@@ -37,6 +37,7 @@ const multiOtherQ: Question = {
   other: true,
 }
 const dateQ: Question = { id: 'wish', label: '희망 날짜', type: 'date', required: true }
+const timeQ: Question = { id: 'time', label: '희망 시간', type: 'time', required: true }
 const consentQ: Question = {
   id: 'agree',
   label: '개인정보 수집·이용 동의',
@@ -45,16 +46,18 @@ const consentQ: Question = {
   consentText: '성함과 연락처를 받아요.\n예약 안내에만 써요.',
 }
 
-/** 부모처럼 값을 쥐고 있는 껍데기. 값이 바뀌면 다시 그려진다. */
+/** 부모처럼 값을 쥐고 있는 껍데기. 값이 바뀌면 다시 그려진다. date 는 time 문항의 짝 날짜 답이다. */
 function Harness({
   q,
   initial,
   error,
+  date,
   onChange,
 }: {
   q: Question
   initial?: Answer
   error?: string
+  date?: string
   onChange(v: Answer): void
 }) {
   const [value, setValue] = useState<Answer | undefined>(initial)
@@ -64,6 +67,7 @@ function Harness({
       value={value}
       error={error}
       today={TODAY}
+      date={date}
       onChange={(v) => {
         onChange(v)
         setValue(v)
@@ -72,7 +76,7 @@ function Harness({
   )
 }
 
-function renderField(q: Question, opts: { initial?: Answer; error?: string } = {}) {
+function renderField(q: Question, opts: { initial?: Answer; error?: string; date?: string } = {}) {
   const onChange = vi.fn<(v: Answer) => void>()
   const view = render(<Harness q={q} onChange={onChange} {...opts} />)
   const last = () => onChange.mock.lastCall?.[0]
@@ -401,6 +405,79 @@ describe('날짜', () => {
   })
 })
 
+describe('시간', () => {
+  const chips = () => screen.getAllByRole('radio')
+  const chip = (name: string) => screen.getByRole('radio', { name })
+  // 2026-11-03 은 화요일(10:00~16:00), 2026-11-05 는 목요일(10:00~20:00)이다.
+  const TUE = '2026-11-03'
+
+  it('칩은 오전·오후 글자로 보이고 누르면 HH:MM 값을 돌려준다. 날짜가 없으면 모든 요일을 합친 범위다', () => {
+    const { last } = renderField(timeQ)
+    expect(chips()).toHaveLength(20)
+    expect(chips()[0]).toHaveAccessibleName('오전 10:00')
+    expect(chips().at(-1)).toHaveAccessibleName('오후 7:30')
+    expect(chip('오후 12:00')).toBeInTheDocument()
+
+    fireEvent.click(chip('오후 1:30'))
+    expect(chip('오후 1:30')).toBeChecked()
+    expect(last()).toBe('13:30')
+    fireEvent.click(chip('오전 10:00'))
+    expect(chip('오후 1:30')).not.toBeChecked()
+    expect(last()).toBe('10:00')
+  })
+
+  it('짝 날짜가 화요일이면 그 요일의 영업시간(15:30 까지)만 보인다', () => {
+    renderField(timeQ, { date: TUE })
+    expect(chips()).toHaveLength(12)
+    expect(chips().at(-1)).toHaveAccessibleName('오후 3:30')
+    expect(screen.queryByRole('radio', { name: '오후 4:00' })).not.toBeInTheDocument()
+  })
+
+  it('고른 값이 그 요일의 범위 밖이면 그 칩이 켜진 채 함께 보인다', () => {
+    renderField(timeQ, { initial: '18:00', date: TUE })
+    expect(chips()).toHaveLength(13)
+    expect(chip('오후 6:00')).toBeChecked()
+    // 시간 순서대로 맨 뒤에 붙는다.
+    expect(chips().at(-1)).toBe(chip('오후 6:00'))
+  })
+
+  it('칩 묶음은 라디오 그룹이고 이름이 문항 그대로며 필수면 aria-required 다', () => {
+    renderField(timeQ)
+    expect(screen.getByRole('radiogroup')).toHaveAccessibleName('희망 시간')
+    expect(screen.getByLabelText('희망 시간')).toBe(screen.getByRole('radiogroup'))
+    expect(screen.getByRole('radiogroup')).toBeRequired()
+    expect(chip('오전 10:00').tagName).toBe('BUTTON')
+    expect(chip('오전 10:00')).toHaveAttribute('type', 'button')
+  })
+
+  it('필수 문항은 켜진 칩을 다시 눌러도 꺼지지 않는다', () => {
+    const { last } = renderField(timeQ)
+    fireEvent.click(chip('오전 10:00'))
+    fireEvent.click(chip('오전 10:00'))
+    expect(chip('오전 10:00')).toBeChecked()
+    expect(last()).toBe('10:00')
+  })
+
+  it('선택 문항은 켜진 칩을 다시 누르면 해제되고 다시 고를 수 있다', () => {
+    const { last } = renderField({ ...timeQ, required: false })
+    fireEvent.click(chip('오전 10:00'))
+    fireEvent.click(chip('오전 10:00'))
+    expect(chip('오전 10:00')).not.toBeChecked()
+    expect(last()).toBe('')
+
+    fireEvent.click(chip('오전 10:30'))
+    expect(chip('오전 10:30')).toBeChecked()
+    expect(last()).toBe('10:30')
+  })
+
+  it('오류는 alert 로 보이고 라디오 그룹에 이어진다', () => {
+    renderField(timeQ, { error: '시간을 골라 주세요' })
+    expect(screen.getByRole('alert')).toHaveTextContent('시간을 골라 주세요')
+    expect(screen.getByRole('radiogroup')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('radiogroup')).toHaveAccessibleDescription('시간을 골라 주세요')
+  })
+})
+
 describe('동의', () => {
   it('동의 문항은 본문과 체크 하나를 보여 주고 켜면 동의, 끄면 빈 값이다', () => {
     const { last } = renderField(consentQ)
@@ -494,6 +571,7 @@ describe('오류·안내·표시', () => {
     ['이메일', emailQ],
     ['긴 답', longQ],
     ['날짜', dateQ],
+    ['시간', timeQ],
     ['단일 선택', singleQ],
     ['복수 선택', multiQ],
   ])('선택 문항에는 선택 표시가 있고 라벨 이름은 문항 그대로다 — %s', (_, base) => {
@@ -503,7 +581,7 @@ describe('오류·안내·표시', () => {
     expect(within(box).getByText('선택')).toBeInTheDocument()
 
     const control =
-      q.type === 'single'
+      q.type === 'single' || q.type === 'time'
         ? screen.getByRole('radiogroup')
         : q.type === 'multi'
           ? screen.getByRole('group')
@@ -528,13 +606,16 @@ describe('필수 여부를 보조 기기에 알린다', () => {
     ['이메일', emailQ],
     ['긴 답', longQ],
     ['날짜', dateQ],
+    ['시간', timeQ],
     ['동의', consentQ],
   ])('%s 입력은 필수면 aria-required 이고 선택이면 아니다', (_, base) => {
+    // 시간 칩 묶음은 입력이 아니라 라디오 그룹이다.
+    const control = () => (base.type === 'time' ? screen.getByRole('radiogroup') : screen.getByLabelText(base.label))
     const { unmount } = renderField(base)
-    expect(screen.getByLabelText(base.label)).toHaveAttribute('aria-required', 'true')
+    expect(control()).toHaveAttribute('aria-required', 'true')
     unmount()
     renderField({ ...base, required: false })
-    expect(screen.getByLabelText(base.label)).not.toHaveAttribute('aria-required')
+    expect(control()).not.toHaveAttribute('aria-required')
   })
 
   it('단일 선택의 라디오 그룹은 필수면 aria-required 이고 선택이면 아니다', () => {

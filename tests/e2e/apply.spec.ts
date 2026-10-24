@@ -60,11 +60,11 @@ test('신청서를 끝까지 쓰면 완료 화면이 뜨고 시트 한 줄·슬�
   expect(cell('개인정보 수집·이용 동의')).toBe('동의')
   expect(cell('반려견 이름')).toBe(pet)
   expect(cell('히스하우스 이용 서비스')).toBe('Grooming 미용')
-  // 미용 묶음의 필수 날짜는 채우고 선택 시간대는 비워 둔다. 고르지 않은 서비스 묶음의 칸은 빈 채로 남는다.
+  // 미용 묶음의 필수 날짜는 채우고 선택 시간은 비워 둔다. 고르지 않은 서비스 묶음의 칸은 빈 채로 남는다.
   expect(cell('희망 예약 날짜')).toBe(WISH_DATE)
-  expect(cell('희망 시간대')).toBe('')
+  expect(cell('희망 시간')).toBe('')
   expect(cell('희망 이용 날짜')).toBe('')
-  expect(cell('체크인 날짜 / 시간')).toBe('')
+  expect(cell('체크인 날짜')).toBe('')
   expect(cell('교육미용 희망 날짜')).toBe('')
 
   const [message] = slack

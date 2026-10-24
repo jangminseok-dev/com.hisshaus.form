@@ -8,8 +8,6 @@ export const DAYCARE_SERVICE = 'Daycare 데이케어'
 export const HOTEL_SERVICE = 'Hotel 호텔'
 
 const OX = ['O', 'X']
-// 희망 시간대 칩. '기타' 를 고르면 원하는 시간을 직접 적는다(예: 오후 2시).
-const SLOTS = ['오전', '오후', '상관없어요']
 
 export const applyForm: FormDef = {
   id: 'apply',
@@ -79,7 +77,7 @@ export const applyForm: FormDef = {
       showIf: { questionId: 'services', includes: GROOMING_SERVICE },
       questions: [
         { id: 'groom_date', label: '희망 예약 날짜', type: 'date', required: true },
-        { id: 'groom_time', label: '희망 시간대', type: 'single', required: false, options: SLOTS, other: true },
+        { id: 'groom_time', label: '희망 시간', type: 'time', required: false, dateId: 'groom_date' },
         { id: 'groom_kind', label: '원하시는 미용 종류', type: 'short', required: false },
         { id: 'groom_sensitive', label: '만지는 것을 특히 싫어하는 부위가 있으면 알려주세요.', type: 'short', required: false },
         { id: 'groom_request', label: '미용 중 요청사항이 있으면 편하게 알려주세요.', type: 'long', required: false },
@@ -91,7 +89,7 @@ export const applyForm: FormDef = {
       showIf: { questionId: 'services', includes: DAYCARE_SERVICE },
       questions: [
         { id: 'daycare_date', label: '희망 이용 날짜', type: 'date', required: true },
-        { id: 'daycare_time', label: '이용 예정 시간', type: 'short', required: false },
+        { id: 'daycare_time', label: '이용 예정 시간', type: 'time', required: false, dateId: 'daycare_date' },
         { id: 'daycare_social', label: '다른 강아지와 사회성', type: 'short', required: false },
         { id: 'daycare_separation', label: '분리불안 여부', type: 'short', required: false },
         { id: 'daycare_feeding', label: '사료 및 복용약 급여 여부', type: 'short', required: false },
@@ -103,8 +101,11 @@ export const applyForm: FormDef = {
       title: 'Hotel 호텔',
       showIf: { questionId: 'services', includes: HOTEL_SERVICE },
       questions: [
-        { id: 'hotel_checkin', label: '체크인 날짜 / 시간', type: 'short', required: true },
-        { id: 'hotel_checkout', label: '체크아웃 날짜 / 시간', type: 'short', required: true },
+        // 원문은 '체크인 날짜 / 시간' 한 칸이지만 달력·시간 칩으로 받으려고 날짜와 시간으로 나눴다.
+        { id: 'hotel_checkin_date', label: '체크인 날짜', type: 'date', required: true },
+        { id: 'hotel_checkin_time', label: '체크인 시간', type: 'time', required: true, dateId: 'hotel_checkin_date' },
+        { id: 'hotel_checkout_date', label: '체크아웃 날짜', type: 'date', required: true },
+        { id: 'hotel_checkout_time', label: '체크아웃 시간', type: 'time', required: true, dateId: 'hotel_checkout_date' },
         { id: 'hotel_meals', label: '식사 횟수 및 시간', type: 'short', required: false },
         { id: 'hotel_food', label: '사료 급여량', type: 'short', required: false },
         { id: 'hotel_meds', label: '복용약 여부와 방법', type: 'short', required: false },
@@ -126,9 +127,9 @@ export const applyForm: FormDef = {
       note: '교육에 대한 자세한 안내는 따로 연락드려요.',
       showIf: { questionId: 'services', includes: TRAINING_SERVICE },
       questions: [
-        // 라벨은 시트 열 이름이라 미용 묶음의 '희망 시간대' 와 겹치지 않게 앞에 교육미용을 붙였다.
+        // 라벨은 시트 열 이름이라 미용 묶음의 '희망 시간' 과 겹치지 않게 앞에 교육미용을 붙였다.
         { id: 'training_date', label: '교육미용 희망 날짜', type: 'date', required: true },
-        { id: 'training_time', label: '교육미용 희망 시간대', type: 'single', required: false, options: SLOTS, other: true },
+        { id: 'training_time', label: '교육미용 희망 시간', type: 'time', required: false, dateId: 'training_date' },
       ],
     },
     // 구글폼의 마지막 섹션 '예약금 안내'. 입금 계좌는 사장님이 정해 주면 note 에 넣는다.

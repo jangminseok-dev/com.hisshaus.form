@@ -1,4 +1,5 @@
 import { isEmpty, isRequired, isVisible, visibleGroups } from '../forms/rules'
+import { timeSlots } from './slots'
 import type { Answers, FormDef, Group, Question } from '../forms/types'
 
 export interface FieldError {
@@ -16,6 +17,7 @@ function emptyMessage(q: Question): string {
   if (q.type === 'multi') return '하나 이상 골라 주세요'
   if (q.type === 'single') return '하나를 골라 주세요'
   if (q.type === 'date') return '날짜를 골라 주세요'
+  if (q.type === 'time') return '시간을 골라 주세요'
   return '꼭 적어 주세요'
 }
 
@@ -36,7 +38,7 @@ function emptyOther(q: Question, v: string): boolean {
 }
 
 /** 값이 있을 때의 오류 한 건. 없으면 null. */
-function checkValue(q: Question, v: string | string[], today: string): string | null {
+function checkValue(q: Question, v: string | string[], today: string, a: Answers): string | null {
   const tooShort = `${SHORT_MAX}자까지 적을 수 있어요`
   switch (q.type) {
     case 'long':
@@ -70,6 +72,13 @@ function checkValue(q: Question, v: string | string[], today: string): string | 
     case 'date':
       if (typeof v !== 'string' || !isRealDate(v)) return '날짜를 골라 주세요'
       return v < today ? '오늘 이후 날짜를 골라 주세요' : null
+    case 'time': {
+      if (typeof v !== 'string' || !timeSlots().includes(v)) return '시간을 골라 주세요'
+      // 고른 날짜의 요일에 맞는 영업시간 안이어야 한다. 날짜가 아직 없거나 틀렸으면 날짜 쪽 오류가 안내한다.
+      const date = q.dateId ? a[q.dateId] : undefined
+      if (typeof date === 'string' && isRealDate(date) && !timeSlots(date).includes(v)) return '그날 영업시간 안의 시간을 골라 주세요'
+      return null
+    }
     case 'consent':
       return v === '동의' ? null : '동의해야 신청할 수 있어요'
   }
@@ -89,7 +98,7 @@ export function validateGroup(group: Group, a: Answers, today: string): FieldErr
       if (isRequired(q, a)) errors.push({ questionId: q.id, message: emptyMessage(q) })
       continue
     }
-    const message = checkValue(q, v!, today)
+    const message = checkValue(q, v!, today, a)
     if (message) errors.push({ questionId: q.id, message })
   }
   return errors

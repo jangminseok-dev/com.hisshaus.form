@@ -297,8 +297,11 @@ describe('서비스별 묶음', () => {
     fireEvent.click(action('next'))
     expect(groupId()).toBe('hotel')
     expect(screen.getByText('5 / 6')).toBeInTheDocument()
-    write('체크인 날짜 / 시간', '11/3 15:00')
-    write('체크아웃 날짜 / 시간', '11/5 11:00')
+    // 2026-11-03 은 화요일(10:00~15:30), 2026-11-05 는 목요일이다.
+    pickDate('체크인 날짜', '2026-11-03')
+    chooseOne('체크인 시간', '오후 3:00')
+    pickDate('체크아웃 날짜', '2026-11-05')
+    chooseOne('체크아웃 시간', '오전 11:00')
 
     fireEvent.click(action('next'))
     expect(groupId()).toBe('deposit')
@@ -380,8 +383,10 @@ describe('서비스별 묶음', () => {
     const answers: Answers = {
       ...validAnswers(applyForm),
       services: [GROOMING_SERVICE, HOTEL_SERVICE],
-      hotel_checkin: '11/3 15:00',
-      hotel_checkout: '11/5 11:00',
+      hotel_checkin_date: '2026-11-03',
+      hotel_checkin_time: '15:00',
+      hotel_checkout_date: '2026-11-05',
+      hotel_checkout_time: '11:00',
       hotel_stayed: 'O',
     }
     const { onSubmit } = setup({ initial: draft(groupIndexOf(applyForm, 'visit'), answers) })
@@ -399,9 +404,9 @@ describe('서비스별 묶음', () => {
     expect(onSubmit).toHaveBeenCalledTimes(1)
     const sent = onSubmit.mock.calls[0][0]
     expect(sent.services).toEqual([GROOMING_SERVICE])
-    expect(sent).not.toHaveProperty('hotel_checkin')
-    expect(sent).not.toHaveProperty('hotel_checkout')
-    expect(sent).not.toHaveProperty('hotel_stayed')
+    for (const id of ['hotel_checkin_date', 'hotel_checkin_time', 'hotel_checkout_date', 'hotel_checkout_time', 'hotel_stayed']) {
+      expect(sent).not.toHaveProperty(id)
+    }
     expect(sent).toEqual(visibleAnswers(applyForm, { ...answers, services: [GROOMING_SERVICE] }))
   })
 })
@@ -1091,12 +1096,44 @@ describe('조건 문항', () => {
 
   it('선택 문항에는 선택 표시가 있고 라벨 이름은 문항 그대로다', () => {
     setup({ initial: draft(GROOMING, { services: [GROOMING_SERVICE] }) })
-    // 희망 시간대는 필수가 아니다.
+    // 희망 시간은 필수가 아니다. 시간 칩 묶음은 라디오 그룹이고 이름이 라벨 그대로다.
     expect(within(box('groom_time')).getByText('선택')).toBeInTheDocument()
-    expect(screen.getByLabelText('희망 시간대')).toHaveAccessibleName('희망 시간대')
+    expect(screen.getByRole('radiogroup', { name: '희망 시간' })).toBe(screen.getByLabelText('희망 시간'))
     // 필수 문항에는 없다.
     expect(within(box('groom_date')).queryByText('선택')).not.toBeInTheDocument()
     expect(screen.getByLabelText('희망 예약 날짜')).toHaveAccessibleName('희망 예약 날짜')
+  })
+
+  it('시간 칩은 짝 날짜의 요일에 맞는 영업시간만 보인다 — 날짜를 바꾸면 칩이 바뀐다', () => {
+    setup({ initial: draft(GROOMING, { services: [GROOMING_SERVICE] }) })
+    const chips = () => within(box('groom_time')).getAllByRole('radio')
+    // 날짜를 고르기 전에는 모든 요일을 합친 범위(10:00~19:30, 20개)다.
+    expect(chips()).toHaveLength(20)
+
+    // 2026-11-03 은 화요일(10:00~16:00) — 15:30 까지 12개.
+    pickDate('희망 예약 날짜', '2026-11-03')
+    expect(chips()).toHaveLength(12)
+    expect(within(box('groom_time')).queryByRole('radio', { name: '오후 4:00' })).not.toBeInTheDocument()
+
+    // 2026-11-05 는 목요일(10:00~20:00) — 19:30 까지 20개.
+    pickDate('희망 예약 날짜', '2026-11-05')
+    expect(chips()).toHaveLength(20)
+    expect(within(box('groom_time')).getByRole('radio', { name: '오후 7:30' })).toBeInTheDocument()
+
+    // 목요일에 18:00 을 고른 채 화요일로 되돌리면 그 칩은 켜진 채 남고, 다음으로 넘어가지 못한다(그날 영업시간 안의 시간을 골라 달라 한다).
+    chooseOne('희망 시간', '오후 6:00')
+    pickDate('희망 예약 날짜', '2026-11-03')
+    expect(chips()).toHaveLength(13)
+    expect(within(box('groom_time')).getByRole('radio', { name: '오후 6:00' })).toBeChecked()
+    expect(isBlocked(action('next'))).toBe(true)
+    fireEvent.click(action('next'))
+    expect(within(box('groom_time')).getByRole('alert')).toHaveTextContent('그날 영업시간 안의 시간을 골라 주세요')
+    expect(groupId()).toBe('grooming')
+
+    // 범위 안 칩을 고르면 풀린다.
+    chooseOne('희망 시간', '오후 3:00')
+    expect(chips()).toHaveLength(12)
+    expect(isBlocked(action('next'))).toBe(false)
   })
 
   it('선택 문항의 고른 칩은 다시 누르면 해제되고, 필수 문항은 해제되지 않는다', () => {

@@ -15,7 +15,9 @@ import {
 } from '../lib/slack-blocks'
 
 const meta = { submissionId: 'abcDEF1234', receivedAt: '2026-10-23 10:00:00' }
-const base = { guardian_name: '홍길동', pet_name: '초코', services: [GROOMING_SERVICE], groom_date: '2026-10-28', groom_time: '오전' }
+// 2026-10-28 은 수요일(10:00~15:30), 2026-11-03 은 화요일, 2026-11-05 는 목요일이다.
+const base = { guardian_name: '홍길동', pet_name: '초코', services: [GROOMING_SERVICE], groom_date: '2026-10-28', groom_time: '10:00' }
+const hotel = { hotel_checkin_date: '2026-11-03', hotel_checkin_time: '15:00', hotel_checkout_date: '2026-11-05', hotel_checkout_time: '11:00' }
 
 const sections = (ms: SlackMessage[]) =>
   ms.flatMap((m) => m.blocks).flatMap((b: Block) => (b.type === 'section' ? [b.text.text] : []))
@@ -28,7 +30,7 @@ describe('슬랙 메시지', () => {
     const ms = applyMessages(base, meta)
     expect(ms).toHaveLength(1)
     expect(ms[0].blocks[0]).toEqual({ type: 'header', text: { type: 'plain_text', text: '🐾 새 예약 신청 — 초코 (홍길동)' } })
-    expect(ms[0].text).toBe('새 예약 신청: 초코 (홍길동) · Grooming 미용 · 10월 28일 (수) 오전')
+    expect(ms[0].text).toBe('새 예약 신청: 초코 (홍길동) · Grooming 미용 · 10월 28일 (수) 오전 10:00')
   })
 
   it('보이는 묶음의 모든 문항 라벨이 본문에 있다', () => {
@@ -45,13 +47,17 @@ describe('슬랙 메시지', () => {
     expect(one).toContain(title('grooming'))
     expect(one).toContain(title('deposit'))
     for (const id of ['daycare', 'hotel', 'training']) expect(one).not.toContain(title(id))
-    expect(one).not.toContain(label('hotel_checkin'))
+    expect(one).not.toContain(label('hotel_checkin_date'))
+    // 시간은 본문에 한국어 꼴로 실린다.
+    expect(one).toContain(`${label('groom_time')}\n오전 10:00`)
 
-    const two = { ...base, services: [GROOMING_SERVICE, HOTEL_SERVICE], hotel_checkin: '11/3 15:00', hotel_checkout: '11/5 11:00' }
+    const two = { ...base, services: [GROOMING_SERVICE, HOTEL_SERVICE], ...hotel }
     const t = allText(applyMessages(two, meta))
     expect(t).toContain(title('grooming'))
     expect(t).toContain(title('hotel'))
-    expect(t).toContain(`${label('hotel_checkin')}\n11/3 15:00`)
+    expect(t).toContain(`${label('hotel_checkin_date')}\n11월 3일 (화)`)
+    expect(t).toContain(`${label('hotel_checkin_time')}\n오후 3:00`)
+    expect(t).toContain(`${label('hotel_checkout_time')}\n오전 11:00`)
     for (const id of ['daycare', 'training']) expect(t).not.toContain(title(id))
     expect(t).not.toContain(label('daycare_date'))
     // 묶음 순서는 정의 순서다.
@@ -60,9 +66,9 @@ describe('슬랙 메시지', () => {
   })
 
   it('알림 미리보기에 고른 서비스의 희망 일시(wishText)가 들어간다', () => {
-    const two = { ...base, services: [GROOMING_SERVICE, HOTEL_SERVICE], hotel_checkin: '11/3 15:00', hotel_checkout: '11/5 11:00' }
+    const two = { ...base, services: [GROOMING_SERVICE, HOTEL_SERVICE], ...hotel }
     expect(applyMessages(two, meta)[0].text).toBe(
-      '새 예약 신청: 초코 (홍길동) · Grooming 미용, Hotel 호텔 · 미용 10월 28일 (수) 오전, 호텔 11/3 15:00 체크인',
+      '새 예약 신청: 초코 (홍길동) · Grooming 미용, Hotel 호텔 · 미용 10월 28일 (수) 오전 10:00, 호텔 11월 3일 (화) 오후 3:00 체크인',
     )
     const training = { ...base, services: [DAYCARE_SERVICE, TRAINING_SERVICE], daycare_date: '2026-10-29', training_date: '2026-10-30' }
     expect(applyMessages(training, meta)[0].text).toBe(

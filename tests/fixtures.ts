@@ -16,6 +16,8 @@ function validValue(q: Question): Answer {
       return [q.options![0]]
     case 'date':
       return '2099-01-01'
+    case 'time':
+      return '10:00'
     case 'consent':
       return '동의'
   }

@@ -52,7 +52,9 @@ describe('테스트 픽스처', () => {
     const apply = validAnswers(applyForm)
     expect(apply.services).toEqual([GROOMING_SERVICE])
     expect(apply).toHaveProperty('groom_date')
-    for (const id of ['daycare_date', 'hotel_checkin', 'hotel_checkout', 'training_date']) expect(apply).not.toHaveProperty(id)
+    for (const id of ['daycare_date', 'hotel_checkin_date', 'hotel_checkin_time', 'hotel_checkout_date', 'hotel_checkout_time', 'training_date']) {
+      expect(apply).not.toHaveProperty(id)
+    }
   })
 })
 
@@ -234,12 +236,20 @@ describe('공백뿐인 선택 답', () => {
 
   it('신청서의 선택 짧은 글·선택 단일 선택이 공백뿐이면 ok 이고, 시트 칸은 비고 슬랙은 답이 없을 때와 같다', async () => {
     const { appendRow, sendSlack, deps } = fakes()
-    // 미용의 희망 시간대(짧은 글)와 호텔의 숙박 경험(단일 선택)은 선택 문항이다. 호텔 묶음이 보이게 호텔도 고른다.
+    // 미용의 미용 종류(짧은 글)와 호텔의 숙박 경험(단일 선택)은 선택 문항이다. 호텔 묶음이 보이게 호텔도 고른다.
     expect([question(applyForm, 'groom_kind'), question(applyForm, 'hotel_stayed')].map((q) => [q.type, q.required])).toEqual([
       ['short', false],
       ['single', false],
     ])
-    const base = { ...validAnswers(applyForm), services: [GROOMING_SERVICE, HOTEL_SERVICE], hotel_checkin: '11/3 15:00', hotel_checkout: '11/5 11:00' }
+    // 2026-11-03 은 화요일(10:00~15:30), 2026-11-05 는 목요일이다.
+    const base = {
+      ...validAnswers(applyForm),
+      services: [GROOMING_SERVICE, HOTEL_SERVICE],
+      hotel_checkin_date: '2026-11-03',
+      hotel_checkin_time: '15:00',
+      hotel_checkout_date: '2026-11-05',
+      hotel_checkout_time: '11:00',
+    }
     const answers = { ...base, groom_kind: '   ', hotel_stayed: ' \t' }
     expect(await submitApply({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
 
@@ -252,8 +262,8 @@ describe('공백뿐인 선택 답', () => {
     expect(JSON.stringify(sent)).not.toMatch(/undefined|NaN/)
     expect(JSON.stringify(sent)).toContain(`*${question(applyForm, 'groom_kind').label}*\\n—`)
     expect(sent).toEqual(applyMessages(base, meta))
-    // 공백뿐인 시간대는 알림 미리보기의 희망 일시에도 붙지 않는다.
-    expect(sent[0].text).toContain('· 미용 1월 1일 (목), 호텔 11/3 15:00 체크인')
+    // 고르지 않은 미용 시간은 알림 미리보기의 희망 일시에 붙지 않고, 호텔은 체크인 날짜·시간이 한국어로 붙는다.
+    expect(sent[0].text).toContain('· 미용 1월 1일 (목), 호텔 11월 3일 (화) 오후 3:00 체크인')
   })
 
   it('고르지 않은 서비스 묶음의 답은 검증하지 않고 시트·슬랙에서 빠진다', async () => {

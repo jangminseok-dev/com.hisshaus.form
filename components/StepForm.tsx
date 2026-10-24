@@ -346,6 +346,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
             value={answers[q.id]}
             error={errorOf(q)}
             today={todayNow}
+            date={q.dateId ? (typeof answers[q.dateId] === 'string' ? (answers[q.dateId] as string) : undefined) : undefined}
             onChange={(value) => change(q, value)}
           />
         ))}

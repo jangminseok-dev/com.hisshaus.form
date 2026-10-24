@@ -93,13 +93,60 @@ describe('답변 검증', () => {
     expect(msg(errs, 'groom_date')).toBeUndefined()
   })
 
-  it('서비스별 묶음은 날짜(호텔은 체크인·체크아웃)만 필수고 나머지는 비워도 된다', () => {
+  it('서비스별 묶음은 날짜(호텔은 체크인·체크아웃 날짜와 시간)만 필수고 나머지는 비워도 된다', () => {
     expect(validateGroup(grooming, { groom_date: TODAY }, TODAY)).toEqual([])
     expect(validateGroup(groupOf('daycare'), { daycare_date: TODAY }, TODAY)).toEqual([])
     expect(validateGroup(groupOf('training'), { training_date: TODAY }, TODAY)).toEqual([])
-    expect(validateGroup(groupOf('hotel'), { hotel_checkin: '11/3 15시', hotel_checkout: '11/5 11시' }, TODAY)).toEqual([])
-    expect(validateGroup(groupOf('hotel'), { hotel_checkin: '11/3 15시' }, TODAY).map((e) => e.questionId)).toEqual(['hotel_checkout'])
+    // 2026-11-03 은 화요일(10:00~15:30), 2026-11-05 는 목요일이다.
+    const hotel = { hotel_checkin_date: '2026-11-03', hotel_checkin_time: '15:00', hotel_checkout_date: '2026-11-05', hotel_checkout_time: '11:00' }
+    expect(validateGroup(groupOf('hotel'), hotel, TODAY)).toEqual([])
+    expect(validateGroup(groupOf('hotel'), { hotel_checkin_date: '2026-11-03', hotel_checkin_time: '15:00' }, TODAY).map((e) => e.questionId)).toEqual([
+      'hotel_checkout_date',
+      'hotel_checkout_time',
+    ])
     expect(validateGroup(groupOf('deposit'), {}, TODAY)).toEqual([])
+  })
+
+  describe('시간', () => {
+    const timeQ = allQuestions(applyForm).find((q) => q.id === 'hotel_checkin_time')!
+    const optional = allQuestions(applyForm).find((q) => q.id === 'groom_time')!
+    // 2026-11-03 은 화요일(10:00~15:30), 2026-11-05 는 목요일(10:00~19:30)이다.
+    const TUE = '2026-11-03'
+    const THU = '2026-11-05'
+
+    it('필수 시간을 비우면 시간을 골라 달라 하고, 선택 시간은 비워도 된다', () => {
+      expect(msg(validateGroup(groupOf('hotel'), { hotel_checkin_date: TUE }, TODAY), timeQ.id)).toBe('시간을 골라 주세요')
+      expect(msg(validateGroup(grooming, { groom_date: TUE }, TODAY), optional.id)).toBeUndefined()
+    })
+
+    it('HH:MM 꼴이 아니거나 영업시간 밖이면 거부한다', () => {
+      for (const v of ['25:00', '오후', '10:15', '09:30', '20:00', '15시']) {
+        expect(msg(validateGroup(grooming, { groom_date: THU, groom_time: v }, TODAY), 'groom_time')).toBe('시간을 골라 주세요')
+      }
+      expect(msg(validateGroup(grooming, { groom_date: THU, groom_time: ['10:00'] }, TODAY), 'groom_time')).toBe('시간을 골라 주세요')
+    })
+
+    it('짝 날짜의 요일에는 닫는 시간이면 그날 영업시간 안의 시간을 골라 달라 한다', () => {
+      // 화요일은 15:30 까지라 18:00 은 안 된다. 목요일은 된다.
+      expect(msg(validateGroup(grooming, { groom_date: TUE, groom_time: '18:00' }, TODAY), 'groom_time')).toBe('그날 영업시간 안의 시간을 골라 주세요')
+      expect(validateGroup(grooming, { groom_date: THU, groom_time: '18:00' }, TODAY)).toEqual([])
+      expect(validateGroup(grooming, { groom_date: TUE, groom_time: '15:30' }, TODAY)).toEqual([])
+      expect(msg(validateGroup(grooming, { groom_date: TUE, groom_time: '16:00' }, TODAY), 'groom_time')).toBe('그날 영업시간 안의 시간을 골라 주세요')
+    })
+
+    it('짝 날짜가 없거나 틀렸으면 합집합 안이면 통과한다 — 날짜 쪽 오류가 안내한다', () => {
+      expect(validateGroup(grooming, { groom_time: '18:00' }, TODAY).map((e) => e.questionId)).toEqual(['groom_date'])
+      expect(msg(validateGroup(grooming, { groom_date: '11/3', groom_time: '18:00' }, TODAY), 'groom_time')).toBeUndefined()
+      expect(msg(validateGroup(grooming, { groom_date: '11/3', groom_time: '18:00' }, TODAY), 'groom_date')).toBe('날짜를 골라 주세요')
+    })
+
+    it('호텔 체크인·체크아웃 시간은 각자의 날짜를 본다', () => {
+      // 체크인(화)은 15:00 까지 되고 체크아웃(목)은 18:00 도 된다. 서로 바꾸면 체크인만 틀린다.
+      const ok = { hotel_checkin_date: TUE, hotel_checkin_time: '15:00', hotel_checkout_date: THU, hotel_checkout_time: '18:00' }
+      expect(validateGroup(groupOf('hotel'), ok, TODAY)).toEqual([])
+      const errs = validateGroup(groupOf('hotel'), { ...ok, hotel_checkin_time: '18:00' }, TODAY)
+      expect(errs).toEqual([{ questionId: 'hotel_checkin_time', message: '그날 영업시간 안의 시간을 골라 주세요' }])
+    })
   })
 
   it('복수 선택이 빈 배열이면 거부한다', () => {
@@ -148,32 +195,37 @@ describe('서비스별 묶음 — 고른 서비스의 묶음만 보인다', () =
     const a: Answers = {
       services: [GROOMING_SERVICE],
       groom_date: '2026-11-01',
-      groom_time: '오후',
-      hotel_checkin: '옛 답',
+      groom_time: '13:00',
+      hotel_checkin_date: '옛 답',
       hotel_stayed: 'O',
       training_date: '2026-11-02',
       request: '요청',
     }
-    expect(visibleAnswers(applyForm, a)).toEqual({ services: [GROOMING_SERVICE], groom_date: '2026-11-01', groom_time: '오후', request: '요청' })
+    expect(visibleAnswers(applyForm, a)).toEqual({ services: [GROOMING_SERVICE], groom_date: '2026-11-01', groom_time: '13:00', request: '요청' })
     expect(visibleAnswers(applyForm, { ...a, services: [GROOMING_SERVICE, HOTEL_SERVICE] })).toEqual({
       services: [GROOMING_SERVICE, HOTEL_SERVICE],
       groom_date: '2026-11-01',
-      groom_time: '오후',
-      hotel_checkin: '옛 답',
+      groom_time: '13:00',
+      hotel_checkin_date: '옛 답',
       hotel_stayed: 'O',
       request: '요청',
     })
     // 서비스를 하나도 안 골랐으면 서비스별 묶음의 답은 전부 빠진다.
-    expect(visibleAnswers(applyForm, { groom_date: '2026-11-01', hotel_checkin: '옛 답' })).toEqual({})
+    expect(visibleAnswers(applyForm, { groom_date: '2026-11-01', hotel_checkin_date: '옛 답' })).toEqual({})
   })
 
   it('validateForm: 숨은 묶음의 필수가 비어도 오류가 아니고, 보이면 오류다', () => {
     const base = validAnswers(applyForm) // services 는 Grooming 하나
     expect(validateForm(applyForm, base, TODAY)).toEqual([])
     // 호텔을 고르지 않았으니 체크인·체크아웃이 비어도 된다.
-    expect(validateForm(applyForm, { ...base, hotel_checkin: '' }, TODAY)).toEqual([])
-    // 호텔을 고르면 둘 다 필수다.
-    expect(validateForm(applyForm, { ...base, services }, TODAY).map((e) => e.questionId)).toEqual(['hotel_checkin', 'hotel_checkout'])
+    expect(validateForm(applyForm, { ...base, hotel_checkin_date: '' }, TODAY)).toEqual([])
+    // 호텔을 고르면 체크인·체크아웃의 날짜와 시간 넷이 다 필수다.
+    expect(validateForm(applyForm, { ...base, services }, TODAY).map((e) => e.questionId)).toEqual([
+      'hotel_checkin_date',
+      'hotel_checkin_time',
+      'hotel_checkout_date',
+      'hotel_checkout_time',
+    ])
     // 숨은 묶음의 틀린 값(옛 날짜)도 검증하지 않는다.
     expect(validateForm(applyForm, { ...base, daycare_date: '2000-01-01' }, TODAY)).toEqual([])
   })
