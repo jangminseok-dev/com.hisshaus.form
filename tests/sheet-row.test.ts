@@ -51,8 +51,8 @@ describe('시트 행', () => {
     expect(h).toContain('체크인 시간')
   })
 
-  it('검사지 행도 103칸이다(원문 98 + 나눈 짝 3 + 접수 시각·신청 ID)', () => {
-    expect(sheetHeader(surveyForm)).toHaveLength(103)
-    expect(sheetRow(surveyForm, {}, meta)).toHaveLength(103)
+  it('검사지 행도 104칸이다(원문 98 + 나눈 짝 3 + 공격성 질문 1 + 접수 시각·신청 ID)', () => {
+    expect(sheetHeader(surveyForm)).toHaveLength(104)
+    expect(sheetRow(surveyForm, {}, meta)).toHaveLength(104)
   })
 })

@@ -48,20 +48,25 @@ test('검사지를 몇 묶음 쓰고 닫았다 열면 쓰던 묶음으로 돌아
   await expect(again.locator('[data-question="q13"] textarea')).toHaveValue('가나다')
 })
 
-test('q83 에서 없음만 고르고 나머지를 비워도 다음 묶음으로 넘어간다', async ({ page }) => {
+test('공격성이 아니오면 공격행동 문항이 하나도 안 보이고 바로 다음 묶음으로 넘어간다. 네면 48개 목록이 열린다', async ({ page }) => {
   await page.goto('/hisshaus/survey')
   await fillUntil(page, 'k')
 
-  await choose(page, 'q83', '없음')
-  // q84·q85 는 원래 선택 문항이다. 비워 둔다.
-  for (const id of ['q84', 'q85']) {
-    const q = page.locator(`[data-question="${id}"]`)
-    await expect(q).not.toHaveAttribute('data-required', 'true')
-    await expect(q.getByText('*', { exact: true })).toHaveCount(0)
-    await expect(q.locator('[aria-checked="true"]')).toHaveCount(0)
-  }
+  await choose(page, 'q83_has', '아니오')
+  await expect(page.locator('[data-question="q83"]')).toHaveCount(0)
+  await expect(page.locator('[data-question="q84"]')).toHaveCount(0)
   await goNext(page)
   await expectGroup(page, 'l')
+
+  await page.locator('[data-action="back"]').click()
+  await expectGroup(page, 'k')
+  await choose(page, 'q83_has', '네')
+  await expect(page.locator('[data-question="q83"]')).toBeVisible()
+  await expect(page.locator('[data-question="q83"]')).toHaveAttribute('data-required', 'true')
+  // q84·q85 는 원래 선택 문항이다.
+  for (const id of ['q84', 'q85']) {
+    await expect(page.locator(`[data-question="${id}"]`)).not.toHaveAttribute('data-required', 'true')
+  }
 })
 
 test('q2 에서 동의하지 않음을 고르면 버튼이 막힌다', async ({ page }) => {

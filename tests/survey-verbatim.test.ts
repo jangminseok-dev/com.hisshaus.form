@@ -106,12 +106,24 @@ const OPTION_FIXES: Record<string, [string, string][]> = {
   ],
 }
 
-/** 원문 선택지에 고침을 적용한다. 고칠 선택지가 원문에 없으면 멈춘다(엉뚱한 곳을 고치지 않게). */
+/**
+ * 뺀 선택지(2026-10-24 사장님 결정). q83 '없음' 은 앞의 공격성 질문(q83_has)이 대신한다. 나머지는 같은 뜻이 둘이던 것 중 덜 쉬운 쪽.
+ */
+const OPTION_REMOVALS: Record<string, string[]> = {
+  q69: ['이 닦이기'], // '양치질' 과 같다
+  q83: ['소파나 침대에 올라가 있는 반려견을 내리려고 한다', '없음'], // 앞 것은 '반려견을 소파나 침대에서 내리려고 한다' 와 같다
+}
+
+/** 원문 선택지에 고침·삭제를 적용한다. 고칠·뺄 선택지가 원문에 없으면 멈춘다(엉뚱한 곳을 고치지 않게). */
 function fixedOptions(id: string, options: string[]): string[] {
   let out = options
   for (const [from, to] of OPTION_FIXES[id] ?? []) {
     if (!out.includes(from)) throw new Error(`${id} 원문에 없는 선택지를 고치려 한다: ${from}`)
     out = out.map((o) => (o === from ? to : o))
+  }
+  for (const gone of OPTION_REMOVALS[id] ?? []) {
+    if (!out.includes(gone)) throw new Error(`${id} 원문에 없는 선택지를 빼려 한다: ${gone}`)
+    out = out.filter((o) => o !== gone)
   }
   return out
 }
@@ -185,7 +197,8 @@ function parse(dump: string): Original[] {
 }
 
 const originals = parse(readFileSync(join(import.meta.dirname, 'survey-original.txt'), 'utf8'))
-const questions = allQuestions(surveyForm).filter((q) => !q.id.endsWith('_detail'))
+/** 원문 번호가 있는 문항만 대조한다. 짝 글 문항(_detail)과 새로 넣은 질문(q83_has)은 원문에 없다. */
+const questions = allQuestions(surveyForm).filter((q) => /^q\d+$/.test(q.id))
 const details = allQuestions(surveyForm).filter((q) => q.id.endsWith('_detail'))
 
 /** 비교할 칸만. 기타가 없거나 선택지가 없는 것은 원문 쪽 모양(false·[])에 맞춘다. */
@@ -240,6 +253,17 @@ describe('검사지 원문 대조', () => {
         expect(from).not.toBe(to)
       }
     }
+  })
+
+  it('공격성 질문(q83_has)은 공격행동 묶음 맨 앞에 있고, 그 묶음의 원문 문항은 전부 네일 때만 보인다', () => {
+    const k = surveyForm.groups.find((g) => g.id === 'k')!
+    expect(k.questions[0]).toMatchObject({ id: 'q83_has', type: 'single', required: true, options: ['네', '아니오'] })
+    for (const q of k.questions.slice(1)) {
+      const conds = Array.isArray(q.showIf) ? q.showIf : [q.showIf]
+      // q88·q89 는 q87(출혈) 조건이고, q87 자체가 공격성 조건이라 결국 같다.
+      expect(conds.some((c) => c && (c.questionId === 'q83_has' || c.questionId === 'q87'))).toBe(true)
+    }
+    expect(k.note).toBeUndefined()
   })
 
   it('나눈 문항의 짝 글 문항은 원문 질문의 뒷부분이고, 원문 문항이 네일 때만 보이며, 원문 바로 뒤에 선다', () => {

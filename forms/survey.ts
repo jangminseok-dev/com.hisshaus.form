@@ -12,6 +12,8 @@ const TRAINED = {
 }
 /** q71 에서 훈련소 경험이 있는 답. */
 const SCHOOLED = { questionId: 'q71', equals: ['훈련소를 다니다가 도중에 그만두었다.', '훈련소를 다녀봤고 수료했다.', '훈련소에 맡겨봤고 훈련 받은 경험이 있다.'] }
+/** 공격성 질문(q83_has)이 네. 공격행동 묶음의 모든 문항이 이 조건으로 보인다. */
+const AGGRESSIVE = { questionId: 'q83_has', equals: '네' }
 const AGES = ['생후 6개월령 미만', '6개월 ~ 1세령', '1~2세령', '2세령 이상']
 const YES_NO = ['네', '아니오']
 const RECENT_HINT = '언제, 어디에서 일어났는지, 공격행동의 경우 어떤 대상을 향해 공격성을 보였으며 어떻게 대처해주셨는지 자세히 적어주세요.'
@@ -420,7 +422,6 @@ export const surveyForm: FormDef = {
             '목욕',
             '털 말리기',
             '위생미용(발,항문,눈앞 등)',
-            '이 닦이기',
           ],
           other: true,
           layout: 'list',
@@ -529,8 +530,16 @@ export const surveyForm: FormDef = {
     {
       id: 'k',
       title: '공격행동 검사 설문',
-      note: '공격행동을 보이지 않는다면 건너뛰셔도 됩니다. 1번 문항에 없음 체크하시고 아래 문항 건너뛰셔도 됩니다.',
       questions: [
+        // 사장님 요청(2026-10-24): 공격성이 있는지 먼저 묻고, 네일 때만 아래 공격행동 문항(q83~q95)이 보인다.
+        // 아니오면 이 묶음은 이 질문 하나로 끝나 바로 다음 묶음으로 간다. 원문에는 없는 문항이라 id 에 번호를 붙이지 않는다.
+        {
+          id: 'q83_has',
+          label: '반려견이 사람이나 다른 동물에게 공격행동(무는 시늉, 무는 행동, 으르렁거림, 짖음, 달려들기 등)을 보인 적이 있습니까?',
+          type: 'single',
+          required: true,
+          options: YES_NO,
+        },
         {
           id: 'q83',
           label: '다음 중 반려견이 무는 시늉, 또는 무는 행동, 으르렁거림, 짖음,달려들기 등의 행동을 보이는 문항을 체크해주세요',
@@ -540,7 +549,6 @@ export const surveyForm: FormDef = {
             '반려견을 쓰다듬는다',
             '반려견을 껴안는다',
             '반려견을 소파나 침대에서 내리려고 한다',
-            '소파나 침대에 올라가 있는 반려견을 내리려고 한다',
             '자고 있는 개에게 다가간다',
             '자고 있는 개를 만진다',
             '반려견의 케이지 옆을 걷는다',
@@ -584,10 +592,9 @@ export const surveyForm: FormDef = {
             '산책 중 다가오는 낯선 아이들에게',
             '산책 중 다른 개에게',
             '산책 중 다른 고양이나 동물에게',
-            '없음',
           ],
           other: true,
-          exclusive: '없음',
+          showIf: AGGRESSIVE,
           // 48개를 뜻 단위로 묶어 훑기 쉽게. 소제목은 원문에 없는 화면 장치다(선택지 글은 그대로).
           layout: 'list',
           headings: {
@@ -599,7 +606,6 @@ export const surveyForm: FormDef = {
             '반려견의 발을 닦인다': '몸 손질',
             '미용실에서': '밖에서·낯선 사람',
             '산책 중 다가오는 낯선 어른들에게': '산책 중',
-            '없음': '해당 없음',
           },
         },
         {
@@ -607,6 +613,7 @@ export const surveyForm: FormDef = {
           label: '공격 행동의 대상은? 해당하는 모든 사람을 체크해주세요.',
           type: 'multi',
           required: false,
+          showIf: AGGRESSIVE,
           options: ['반려인', '반려인과 가족', '가족 외의 다른 사람', '다른 강아지', '다른 동물'],
         },
         {
@@ -614,6 +621,7 @@ export const surveyForm: FormDef = {
           label: '의뢰인은 반려견이 공격적으로 변할 것 같은 때를 예상할 수 있습니까?',
           type: 'single',
           required: false,
+          showIf: AGGRESSIVE,
           options: YES_NO,
         },
         {
@@ -621,6 +629,7 @@ export const surveyForm: FormDef = {
           label: '반려견이 공격행동의 특징이 있다면 골라주세요.',
           type: 'multi',
           required: false,
+          showIf: AGGRESSIVE,
           options: [
             '갑작스런 공격 행동이 일어나기 때문에 이중인격이라고 느낀다',
             '도발당하지도 않으면서 공격행동이 일어난다',
@@ -633,23 +642,24 @@ export const surveyForm: FormDef = {
           ],
           other: true,
         },
-        { id: 'q87', label: '반려견이 피가 날 정도로 누군가를 물어 본 경험이 있습니까?', type: 'single', required: false, options: YES_NO },
+        { id: 'q87', label: '반려견이 피가 날 정도로 누군가를 물어 본 경험이 있습니까?', type: 'single', required: false, options: YES_NO, showIf: AGGRESSIVE },
         // q88·q89 는 피가 날 정도로 문 적이 있을 때만.
         { id: 'q88', label: '처음으로 출혈이 날 것 같은 공격을 한 것은 생후 몇 살 쯤 이었습니까?', type: 'short', required: false, showIf: { questionId: 'q87', equals: '네' } },
         { id: 'q89', label: '피가 날 정도로 무는 행동을 한 것은 몇 번 정도 입니까?', type: 'short', required: false, showIf: { questionId: 'q87', equals: '네' } },
-        { id: 'q90', label: '피가 나지 않아도 문 적이 있다면 몇 번 정도 입니까?', type: 'short', required: false },
-        { id: 'q91', label: '공격 행동(으르렁거린다, 무는 시늉을 한다, 실제로 문다 등)은 전부 몇 번 있었습니까?', type: 'short', required: false },
+        { id: 'q90', label: '피가 나지 않아도 문 적이 있다면 몇 번 정도 입니까?', type: 'short', required: false, showIf: AGGRESSIVE },
+        { id: 'q91', label: '공격 행동(으르렁거린다, 무는 시늉을 한다, 실제로 문다 등)은 전부 몇 번 있었습니까?', type: 'short', required: false, showIf: AGGRESSIVE },
         {
           id: 'q92',
           label: '반려견은 어떤 곳을 물었습니까?',
           type: 'multi',
           required: false,
+          showIf: AGGRESSIVE,
           options: ['발', '손 또는 발', '얼굴', '엉덩이나 등'],
           other: true,
         },
-        { id: 'q93', label: '공격행동이 주로 발생하는 상황을 자세히 적어주세요.', type: 'long', required: false },
-        { id: 'q94', label: '반려견이 처음으로 사람에게 으르렁거리거나 무는 시늉 또는 무는 행동을 했던 것은 생후 몇 살 때 입니까?', type: 'short', required: false },
-        { id: 'q95', label: '반려견이 처음으로 사람에게 공격성을 보였던 상황은 어떤 상황이었는지 자세히 적어주세요', type: 'long', required: false },
+        { id: 'q93', label: '공격행동이 주로 발생하는 상황을 자세히 적어주세요.', type: 'long', required: false, showIf: AGGRESSIVE },
+        { id: 'q94', label: '반려견이 처음으로 사람에게 으르렁거리거나 무는 시늉 또는 무는 행동을 했던 것은 생후 몇 살 때 입니까?', type: 'short', required: false, showIf: AGGRESSIVE },
+        { id: 'q95', label: '반려견이 처음으로 사람에게 공격성을 보였던 상황은 어떤 상황이었는지 자세히 적어주세요', type: 'long', required: false, showIf: AGGRESSIVE },
       ],
     },
     {

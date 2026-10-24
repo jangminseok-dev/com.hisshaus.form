@@ -7,9 +7,9 @@ const q = (n: number) => qs.find((x) => x.id === `q${n}`)!
 
 describe('검사지 정의', () => {
   it('검사지는 원문 98문항(q1~q98)에 나눈 문항의 짝 셋(q66_detail·q76_detail·q77_detail)을 더한 101문항이다', () => {
-    const base = qs.filter((x) => !x.id.endsWith('_detail'))
+    const base = qs.filter((x) => /^q\d+$/.test(x.id))
     expect(base.map((x) => x.id)).toEqual(Array.from({ length: 98 }, (_, i) => `q${i + 1}`))
-    expect(qs.filter((x) => x.id.endsWith('_detail')).map((x) => x.id)).toEqual(['q66_detail', 'q76_detail', 'q77_detail'])
+    expect(qs.filter((x) => !/^q\d+$/.test(x.id)).map((x) => x.id)).toEqual(['q66_detail', 'q76_detail', 'q77_detail', 'q83_has'])
   })
 
   it('묶음은 12개다', () => {
@@ -37,7 +37,7 @@ describe('검사지 정의', () => {
 
   it('필수 표시는 원문과 같고, 최근 사건 중 첫 것만 필수다(q24~q26 은 사건이 없을 수 있어 선택)', () => {
     const optional = [24, 25, 26, 31, 32, 44, 46, 47, 48, 50, 60, 62, 63, 70, 76, 78, 81, 82, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]
-    expect(qs.filter((x) => !x.required && !x.id.endsWith('_detail')).map((x) => Number(x.id.slice(1)))).toEqual(optional)
+    expect(qs.filter((x) => !x.required && /^q\d+$/.test(x.id)).map((x) => Number(x.id.slice(1)))).toEqual(optional)
   })
 
   it('도입 안내에 없는 표시를 가리키는 "*표시는 필수 질문임" 줄이 없다', () => {
@@ -45,8 +45,8 @@ describe('검사지 정의', () => {
   })
 
   it('q84·q85 는 원문대로 선택이다', () => {
-    expect(isRequired(q(84), { q83: ['미용실에서'] })).toBe(false)
-    expect(isRequired(q(85), { q83: ['미용실에서'] })).toBe(false)
+    expect(isRequired(q(84), { q83_has: '네', q83: ['미용실에서'] })).toBe(false)
+    expect(isRequired(q(85), { q83_has: '네', q83: ['미용실에서'] })).toBe(false)
   })
 
   it('q2 에서 동의하지 않음을 고르면 진행이 막힌다', () => {
@@ -81,6 +81,19 @@ describe('검사지 정의', () => {
     }
   })
 
+  it('공격성(q83_has)이 아니오면 q83~q95 가 전부 숨고 묶음 k 는 그 질문 하나로 끝난다', () => {
+    const k = surveyForm.groups.find((g) => g.id === 'k')!
+    const rest = k.questions.filter((x) => x.id !== 'q83_has')
+    expect(rest.map((x) => x.id)).toEqual(Array.from({ length: 13 }, (_, i) => `q${83 + i}`))
+    for (const x of rest) expect(isVisible(x, { q83_has: '아니오' })).toBe(false)
+    for (const x of rest) expect(isVisible(x, {})).toBe(false)
+    expect(isVisible(q(83), { q83_has: '네' })).toBe(true)
+    expect(isRequired(q(83), { q83_has: '네' })).toBe(true)
+    // 출혈 문항은 공격성 네 + 출혈 네 둘 다여야.
+    expect(isVisible(q(88), { q83_has: '네', q87: '네' })).toBe(true)
+    expect(isVisible(q(88), { q83_has: '네', q87: '아니오' })).toBe(false)
+  })
+
   it('q82(치료 내용)는 현재 치료(q80)나 과거 치료(q81) 중 하나라도 네면 보인다', () => {
     expect(isVisible(q(82), { q80: '네', q81: '아니오' })).toBe(true)
     expect(isVisible(q(82), { q80: '아니오', q81: '네' })).toBe(true)
@@ -102,8 +115,10 @@ describe('검사지 정의', () => {
     expect(isRequired(q(75), { q71: school })).toBe(true)
   })
 
-  it("'없음' 은 q30·q79·q83 에서 다른 선택지와 같이 고를 수 없고, q21 은 a·b 에서 하나씩이다", () => {
-    for (const n of [30, 79, 83]) expect(q(n).exclusive).toBe('없음')
+  it("'없음' 은 q30·q79 에서 다른 선택지와 같이 고를 수 없고(q83 은 앞의 공격성 질문이 대신한다), q21 은 a·b 에서 하나씩이다", () => {
+    for (const n of [30, 79]) expect(q(n).exclusive).toBe('없음')
+    expect(q(83).options).not.toContain('없음')
+    expect(q(83).exclusive).toBeUndefined()
     expect(q(21).onePer).toEqual(['a.', 'b.'])
   })
 
@@ -116,12 +131,12 @@ describe('검사지 정의', () => {
     }
   })
 
-  it('q69 는 선택지 22개, q83 은 48개다. 둘 다 한 줄에 하나씩이고 q83 의 소제목은 실제 선택지 앞에 붙는다', () => {
-    expect(q(69).options).toHaveLength(22)
-    expect(q(83).options).toHaveLength(48)
+  it('q69 는 선택지 21개, q83 은 46개다(중복 하나씩과 없음을 뺐다). 둘 다 한 줄에 하나씩이고 q83 의 소제목은 실제 선택지 앞에 붙는다', () => {
+    expect(q(69).options).toHaveLength(21)
+    expect(q(83).options).toHaveLength(46)
     expect(q(69).layout).toBe('list')
     expect(q(83).layout).toBe('list')
     for (const option of Object.keys(q(83).headings!)) expect(q(83).options).toContain(option)
-    expect(Object.keys(q(83).headings!)).toHaveLength(9)
+    expect(Object.keys(q(83).headings!)).toHaveLength(8)
   })
 })
