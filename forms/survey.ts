@@ -339,7 +339,7 @@ export const surveyForm: FormDef = {
         { id: 'q59', label: '반려견은 다른 개와 놀 수 있습니까?', type: 'single', required: true, options: ['네', '아니오'] },
         {
           id: 'q60',
-          label: '위 질문에 네, 라고 대답하셨다면 하루에 어느 정도 시간 만큼 다른 개와 어울립니까?',
+          label: '하루에 어느 정도 시간 만큼 다른 개와 어울립니까?',
           type: 'long',
           required: false,
           showIf: { questionId: 'q59', equals: '네' },
@@ -347,7 +347,7 @@ export const surveyForm: FormDef = {
         { id: 'q61', label: '반려견은 집 안에서 배변을 합니까?', type: 'single', required: true, options: ['네', '아니오'] },
         {
           id: 'q62',
-          label: '위 질문에 네, 라고 대답 하셨다면 소,대변 어떤 것을 집 안에서 할 수 있습니까?',
+          label: '소,대변 어떤 것을 집 안에서 할 수 있습니까?',
           type: 'single',
           required: false,
           options: ['소변', '대변', '둘 다'],
@@ -517,7 +517,7 @@ export const surveyForm: FormDef = {
         { id: 'q81', label: '과거에 치료 받은 경험이 있습니까?', type: 'single', required: false, options: YES_NO },
         {
           id: 'q82',
-          label: '위 질문에 네, 라고 대답했다면 어떤 치료였나요? 과거, 현재 모두 적어주세요.',
+          label: '어떤 치료였나요? 과거, 현재 모두 적어주세요.',
           type: 'long',
           required: false,
           showIf: [
