@@ -28,11 +28,11 @@
   margin: 0;
 }
 
-.optional {
-  margin-left: 8px;
-  color: var(--mute);
-  font-size: 13px;
-  white-space: nowrap;
+.required {
+  margin-left: 4px;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1;
 }
 
 .hint {

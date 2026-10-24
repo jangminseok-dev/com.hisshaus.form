@@ -23,16 +23,19 @@ describe('신청서 정의', () => {
     expect(applyForm.groups.indexOf(group('visit'))).toBeLessThan(applyForm.groups.indexOf(group('grooming')))
   })
 
-  it('서비스 선택지는 미용·데이케어·호텔·교육미용 넷이다', () => {
+  it('서비스 선택지는 미용·데이케어·호텔·교육미용 넷에 기타 직접 입력이고, 알게 된 경로는 선택이다', () => {
     expect(question('services').options).toEqual([GROOMING_SERVICE, DAYCARE_SERVICE, HOTEL_SERVICE, TRAINING_SERVICE])
     expect(question('services').required).toBe(true)
+    expect(question('services').other).toBe(true)
+    expect(question('visit_source')).toMatchObject({ type: 'single', required: false, other: true, options: ['인스타그램', '블로그', '지인 소개', '간판'] })
   })
 
   it('필수 문항은 보호자·반려견·이용 안내 전부와 서비스별 날짜(호텔은 체크인·체크아웃 날짜와 시간)뿐이다', () => {
     const required = allQuestions(applyForm)
       .filter((q) => q.required)
       .map((q) => q.id)
-    const always = ['guardian', 'pet', 'visit'].flatMap((id) => group(id).questions.map((q) => q.id))
+    // 이용 서비스 묶음에서 알게 된 경로만 선택이다.
+    const always = ['guardian', 'pet', 'visit'].flatMap((id) => group(id).questions.filter((q) => q.id !== 'visit_source').map((q) => q.id))
     expect(required).toEqual([
       ...always,
       'groom_date',

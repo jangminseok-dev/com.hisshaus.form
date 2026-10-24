@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { sendSlack } from '../lib/slack'
-import type { SlackMessage } from '../lib/slack-blocks'
+import { mentionText, sendSlack, withMention } from '../lib/slack'
+import type { Block, SlackMessage } from '../lib/slack-blocks'
 
 const HOOK = 'https://hooks.slack.test/services/T000/B000/SECRETTOKEN'
 const msg = (text: string): SlackMessage => ({ text, blocks: [{ type: 'section', text: { type: 'mrkdwn', text } }] })
@@ -92,5 +92,58 @@ describe('슬랙 전송', () => {
     const { events, deps } = setup([new Response('no', { status: 500 })])
     await thrown(sendSlack([msg('하나'), msg('둘'), msg('셋')], deps))
     expect(events).toEqual(['POST 1'])
+  })
+})
+
+describe('멘션', () => {
+  it('SLACK_MENTION 값을 멘션 글로 바꾼다 — channel·here·멤버 ID, 쉼표로 여러 개, 모르는 값은 버린다', () => {
+    expect(mentionText(undefined)).toBeUndefined()
+    expect(mentionText('')).toBeUndefined()
+    expect(mentionText('channel')).toBe('<!channel>')
+    expect(mentionText('here')).toBe('<!here>')
+    expect(mentionText('U0CBYB15WKE')).toBe('<@U0CBYB15WKE>')
+    expect(mentionText(' U0CBYB15WKE , W012345678 ,channel')).toBe('<@U0CBYB15WKE> <@W012345678> <!channel>')
+    // 멘션 꼴이 아닌 값(이름·@·주소)은 글자로 찍히면 보기 흉하니 버린다.
+    expect(mentionText('@사장님')).toBeUndefined()
+    expect(mentionText('u0cbyb15wke')).toBeUndefined()
+    expect(mentionText('<@U0CBYB15WKE>')).toBeUndefined()
+  })
+
+  it('첫 통에만 머리글 다음 블록과 미리보기 앞에 멘션을 붙인다', () => {
+    const header: Block = { type: 'header', text: { type: 'plain_text', text: '🐾 새 예약 신청' } }
+    const body: Block = { type: 'section', text: { type: 'mrkdwn', text: '*보호자*' } }
+    const out = withMention(
+      [
+        { text: '새 예약 신청: 초코', blocks: [header, body] },
+        { text: '새 예약 신청: 초코 (2/2)', blocks: [header, body] },
+      ],
+      '<@U0CBYB15WKE>',
+    )
+    expect(out[0].text).toBe('<@U0CBYB15WKE> 새 예약 신청: 초코')
+    expect(out[0].blocks).toEqual([header, { type: 'section', text: { type: 'mrkdwn', text: '<@U0CBYB15WKE>' } }, body])
+    expect(out[1]).toEqual({ text: '새 예약 신청: 초코 (2/2)', blocks: [header, body] })
+  })
+
+  it('멘션이 없으면 그대로고, 첫 통의 블록이 이미 50개면 미리보기에만 붙인다', () => {
+    const m: SlackMessage = { text: 't', blocks: [{ type: 'section', text: { type: 'mrkdwn', text: 'x' } }] }
+    expect(withMention([m], undefined)).toEqual([m])
+    const full: SlackMessage = { text: 't', blocks: Array.from({ length: 50 }, () => ({ type: 'divider' })) }
+    const out = withMention([full], '<!here>')
+    expect(out[0].text).toBe('<!here> t')
+    expect(out[0].blocks).toHaveLength(50)
+  })
+
+  it('보낼 때 SLACK_MENTION 을 읽어 첫 통에 붙인다. 없으면 안 붙인다', async () => {
+    vi.stubEnv('SLACK_MENTION', 'U0CBYB15WKE')
+    const { calls, deps } = setup()
+    await sendSlack([msg('a'), msg('b')], deps)
+    const sent = calls.map((c) => JSON.parse(String(c.init.body)) as SlackMessage)
+    expect(sent[0].text).toBe('<@U0CBYB15WKE> a')
+    expect(sent[0].blocks[1]).toEqual({ type: 'section', text: { type: 'mrkdwn', text: '<@U0CBYB15WKE>' } })
+    expect(sent[1].text).toBe('b')
+    vi.stubEnv('SLACK_MENTION', '')
+    const again = setup()
+    await sendSlack([msg('a')], again.deps)
+    expect(JSON.parse(String(again.calls[0].init.body)).text).toBe('a')
   })
 })

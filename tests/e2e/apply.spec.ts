@@ -74,6 +74,9 @@ test('신청서를 끝까지 쓰면 완료 화면이 뜨고 시트 한 줄·슬�
     text: { type: 'plain_text', text: `🐾 새 예약 신청 — ${pet} (${GUARDIAN})` },
   })
   expect(message.text).toContain(`보리&lt;3 &amp; 4&gt; (${GUARDIAN})`)
+  // 멘션(SLACK_MENTION)은 머리글 다음 블록과 미리보기 앞에 붙는다.
+  expect(message.text.startsWith('<@U0E2ETESTID> ')).toBe(true)
+  expect(message.blocks[1]).toEqual({ type: 'section', text: { type: 'mrkdwn', text: '<@U0E2ETESTID>' } })
   expect(mrkdwn(message)).toContain('*반려견 이름*\n보리&lt;3 &amp; 4&gt;')
   expect(mrkdwn(message)).not.toContain('<3')
   // 본문은 고른 서비스(미용)의 묶음만 싣는다.
@@ -228,7 +231,7 @@ test('화면 어디에도 입니다 체가 없다', async ({ page }) => {
 
   await page.goto('/hisshaus')
   await expect(page.getByRole('heading', { name: '예약 신청' })).toBeVisible()
-  await expectHaeyo('예약이 확정돼요')
+  await expectHaeyo('예약이 완료돼요')
 
   await page.getByRole('link', { name: '예약 신청서' }).click()
   // 도우미가 고르는 미용에 교육미용을 더해, 서비스별 묶음 둘과 예약금 안내까지 본다. 교육미용은 검사지 안내로 이어진다.
@@ -238,7 +241,7 @@ test('화면 어디에도 입니다 체가 없다', async ({ page }) => {
     ['visit', '이용 서비스'],
     ['grooming', 'Grooming 미용'],
     ['training', '교육 미용 / 미용 트레이닝 상담'],
-    ['deposit', '예약금 안내'],
+    ['deposit', '요청 사항'],
   ]) {
     await expectGroup(page, group)
     await expectHaeyo(title)
@@ -255,7 +258,7 @@ test('화면 어디에도 입니다 체가 없다', async ({ page }) => {
   await page.goto('/hisshaus/apply/done')
   await expect(done(page)).toBeVisible()
   await expect(page.getByRole('link', { name: '검사지 이어서 쓰기' })).toBeVisible()
-  await expectHaeyo('입금이 확인되면 예약이 확정돼요')
+  await expectHaeyo('입금이 확인되면 예약이 완료돼요')
 
   await page.goto('/hisshaus/apply/training')
   await page.getByRole('button', { name: '교육미용은 아니에요' }).click()

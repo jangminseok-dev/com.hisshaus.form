@@ -21,6 +21,7 @@ export function BankAccount() {
     <p className={styles.account}>
       <span>
         {shop.bankAccount.bank} <span className={styles.accountNumber}>{shop.bankAccount.number}</span>
+        {shop.bankAccount.holder && ` (예금주 ${shop.bankAccount.holder})`}
       </span>
       <button type="button" className={styles.copy} onClick={copy} aria-live="polite">
         {copied ? '복사했어요' : '계좌번호 복사'}

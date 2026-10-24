@@ -78,7 +78,7 @@ describe('첫 화면', () => {
     const paragraphs = Array.from(section('intro').querySelectorAll('p')).map((p) => p.textContent)
     expect(paragraphs).toEqual([
       '신청서를 보내 주시면 확인한 뒤 연락드려요.',
-      '날짜와 시간을 맞추고 예약금 입금이 확인되면 예약이 확정돼요.',
+      '연락하면서 예약 날짜와 시간을 확정한 뒤, 예약금을 입금해 주시면 예약이 완료돼요.',
       '아이가 편안하게 케어받을 수 있도록 충분히 상담한 뒤 예약을 진행해요.',
     ])
 
@@ -303,14 +303,16 @@ describe('완료 화면', () => {
     expect(screen.getByText('1. 히스하우스가 신청서를 확인하고 연락드려요')).toBeInTheDocument()
     // 입금 계좌와 복사 버튼. 복사는 하이픈을 뺀 숫자다.
     expect(screen.getByText('553-910109-67607')).toBeInTheDocument()
+    expect(screen.getByText(/예금주 김재성\(히어\)/)).toBeInTheDocument()
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
     fireEvent.click(screen.getByRole('button', { name: '계좌번호 복사' }))
     expect(writeText).toHaveBeenCalledWith('55391010967607')
     expect(await screen.findByRole('button', { name: '복사했어요' })).toBeInTheDocument()
     // 교육미용이 든 신청이라 50,000원.
-    expect(screen.getByText('2. 날짜·시간을 맞춘 뒤 예약금 50,000원을 입금해 주세요')).toBeInTheDocument()
-    expect(screen.getByText('3. 입금이 확인되면 예약이 확정돼요')).toBeInTheDocument()
+    expect(screen.getByText('2. 연락하면서 예약 날짜와 시간을 확정해요')).toBeInTheDocument()
+    expect(screen.getByText('3. 확정된 뒤 예약금 50,000원을 아래 계좌로 입금해 주세요')).toBeInTheDocument()
+    expect(screen.getByText('4. 입금이 확인되면 예약이 완료돼요')).toBeInTheDocument()
 
     expect(screen.getByText('010-****-5678 로 연락드려요.')).toBeInTheDocument()
     // 가운데 네 자리는 화면에 나오지 않는다.
@@ -350,7 +352,7 @@ describe('검사지 완료 화면', () => {
     const { container } = render(<SurveyDone />)
     expect(screen.getByRole('heading', { level: 1, name: '검사지가 접수되었어요' })).toBeInTheDocument()
     expect(await screen.findByText('보리의 예약 신청과 함께 히스하우스에 전달됐어요.')).toBeInTheDocument()
-    expect(screen.getByText('3. 예약금 50,000원 입금이 확인되면 예약이 확정돼요')).toBeInTheDocument()
+    expect(screen.getByText('3. 확정된 뒤 예약금 50,000원을 아래 계좌로 입금해 주세요')).toBeInTheDocument()
     expect(screen.getByText('553-910109-67607')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: '다음 순서' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '처음으로' })).toHaveAttribute('href', '/')

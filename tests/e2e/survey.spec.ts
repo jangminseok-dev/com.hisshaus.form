@@ -56,7 +56,8 @@ test('q83 에서 없음만 고르고 나머지를 비워도 다음 묶음으로 
   // q84·q85 는 원래 선택 문항이다. 비워 둔다.
   for (const id of ['q84', 'q85']) {
     const q = page.locator(`[data-question="${id}"]`)
-    await expect(q.getByText('선택', { exact: true })).toBeVisible()
+    await expect(q).not.toHaveAttribute('data-required', 'true')
+    await expect(q.getByText('*', { exact: true })).toHaveCount(0)
     await expect(q.locator('[aria-checked="true"]')).toHaveCount(0)
   }
   await goNext(page)

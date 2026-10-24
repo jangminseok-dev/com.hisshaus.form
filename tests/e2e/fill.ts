@@ -62,13 +62,13 @@ export async function pickDate(q: Locator, date: string): Promise<void> {
 }
 
 /**
- * 지금 묶음에서 아직 비어 있는 필수 문항. 필수 여부는 라벨 옆 `선택` 표시가 없는 것이고, 유형은 DOM 모양으로 알아낸다.
+ * 지금 묶음에서 아직 비어 있는 필수 문항. 필수 여부는 문항 뿌리의 data-required 이고, 유형은 DOM 모양으로 알아낸다.
  * 이미 값이 있는 문항(미리 채운 값, 복원된 값, 테스트가 먼저 쓴 값)은 건드리지 않으려고 뺀다.
  */
 async function emptyRequired(page: Page): Promise<{ id: string; kind: Kind }[]> {
   return page.locator('[data-question]').evaluateAll((roots) =>
     roots.flatMap((root): { id: string; kind: Kind }[] => {
-      if (Array.from(root.querySelectorAll('span')).some((s) => s.textContent === '선택')) return []
+      if (root.getAttribute('data-required') !== 'true') return []
       const id = root.getAttribute('data-question') ?? ''
       const input = (type: string) => root.querySelector<HTMLInputElement>(`input[type="${type}"]`)
       const area = root.querySelector<HTMLTextAreaElement>('textarea')

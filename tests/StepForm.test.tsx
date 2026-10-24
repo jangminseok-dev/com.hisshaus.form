@@ -118,15 +118,15 @@ describe('화면 틀', () => {
   })
 
   it('묶음에 note 가 있으면 제목 아래에 보인다', () => {
-    setup({ initial: draft(2) })
-    const note = screen.getByText(/서비스별 희망 날짜와 요청 사항을 여쭤봐요/)
+    setup({ initial: draft(groupIndexOf(applyForm, 'training'), { services: [TRAINING_SERVICE] }) })
+    const note = screen.getByText(/교육에 대한 자세한 안내는 따로 연락드려요/)
     const title = screen.getByRole('heading', { level: 2 })
     expect(title.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('note 가 없는 묶음에는 note 자리가 없다', () => {
     setup()
-    expect(screen.queryByText(/서비스별 희망 날짜와 요청 사항을 여쭤봐요/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/따로 연락드려요/)).not.toBeInTheDocument()
   })
 
   it('검사지 화면에 전체 문항 수나 시간을 적지 않는다', () => {
@@ -1052,13 +1052,13 @@ describe('조건 문항', () => {
     expect(isBlocked(action('next'))).toBe(false)
   })
 
-  it('선택 문항에는 선택 표시가 있고 라벨 이름은 문항 그대로다', () => {
+  it('필수 문항에는 * 표시가 있고 라벨 이름은 문항 그대로다', () => {
     setup({ initial: draft(GROOMING, { services: [GROOMING_SERVICE] }) })
-    // 희망 시간은 필수가 아니다. 시간 칩 묶음은 라디오 그룹이고 이름이 라벨 그대로다.
-    expect(within(box('groom_time')).getByText('선택')).toBeInTheDocument()
+    // 희망 시간은 필수가 아니라 * 가 없다. 시간 칩 묶음은 라디오 그룹이고 이름이 라벨 그대로다.
+    expect(within(box('groom_time')).queryByText('*')).not.toBeInTheDocument()
     expect(screen.getByRole('radiogroup', { name: '희망 시간' })).toBe(screen.getByLabelText('희망 시간'))
-    // 필수 문항에는 없다.
-    expect(within(box('groom_date')).queryByText('선택')).not.toBeInTheDocument()
+    // 필수 문항에는 * 가 있고, 라벨 이름에는 들어가지 않는다.
+    expect(within(box('groom_date')).getByText('*')).toBeInTheDocument()
     expect(screen.getByLabelText('희망 예약 날짜')).toHaveAccessibleName('희망 예약 날짜')
   })
 
@@ -1130,17 +1130,17 @@ describe('조건 문항', () => {
       ],
     }
     setup({ form: dependent, submitLabel: '제출하기' })
-    // 처음에는 날짜도 시간대도 선택이다.
-    expect(within(box('s')).getByText('선택')).toBeInTheDocument()
+    // 처음에는 날짜도 시간대도 선택이다(* 없음).
+    expect(within(box('s')).queryByText('*')).not.toBeInTheDocument()
     expect(within(box('s')).getByRole('radiogroup')).not.toBeRequired()
     expect(isBlocked(action('submit'))).toBe(false)
 
     pickDate('선택 날짜', '2026-10-30')
 
-    // 날짜를 고르면 시간대는 필수가 된다(보조 기기에도). 날짜 쪽은 여전히 선택이다.
-    expect(within(box('s')).queryByText('선택')).not.toBeInTheDocument()
+    // 날짜를 고르면 시간대는 필수가 된다(* 가 붙고 보조 기기에도). 날짜 쪽은 여전히 선택이다.
+    expect(within(box('s')).getByText('*')).toBeInTheDocument()
     expect(within(box('s')).getByRole('radiogroup')).toBeRequired()
-    expect(within(box('d')).getByText('선택')).toBeInTheDocument()
+    expect(within(box('d')).queryByText('*')).not.toBeInTheDocument()
     expect(isBlocked(action('submit'))).toBe(true)
     fireEvent.click(action('submit'))
     expect(within(box('s')).getByRole('alert')).toHaveTextContent('하나를 골라 주세요')
@@ -1153,7 +1153,7 @@ describe('조건 문항', () => {
 
     // 날짜를 지우면 다시 선택이다.
     pickDate('선택 날짜', '')
-    expect(within(box('s')).getByText('선택')).toBeInTheDocument()
+    expect(within(box('s')).queryByText('*')).not.toBeInTheDocument()
     expect(isBlocked(action('submit'))).toBe(false)
   })
 })

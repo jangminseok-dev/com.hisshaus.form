@@ -20,7 +20,8 @@ export const shop = {
   // 예약금 안내 글. 금액은 lib/deposit.ts(완료 화면·검사지 완료 화면이 씀)와 forms/apply.ts 의 예약금 안내문에도 적혀 있다. 바꾸면 셋 다 고친다.
   deposit: '미용·데이케어·호텔 10,000원\n교육미용 상담 50,000원\n입금 시 확정',
   // 예약금 입금 계좌(사장님이 알려 준 값, 2026-10-24). 완료 화면·검사지 완료 화면·예약금 안내문에 보인다. 복사 버튼은 하이픈을 뺀 숫자를 복사한다.
-  bankAccount: { bank: '하나은행', number: '553-910109-67607' },
+  // holder 는 예금주명(사장님 제공 2026-10-24). 비어 있으면 화면에 안 보인다.
+  bankAccount: { bank: '하나은행', number: '553-910109-67607', holder: '김재성(히어)' },
   // 첫 화면 큰 사진(매장 내부). 바꿀 때는 public/hero.jpg 를 같은 이름으로 덮어쓴다.
   // (카카오톡 링크 미리보기 그림은 public/og-shop.jpg 이고 app/layout.tsx 와 app/survey/page.tsx 가 가리킨다.)
   // <img> 주소에는 basePath 가 붙지 않아서 직접 붙인다.

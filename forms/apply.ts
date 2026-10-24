@@ -57,7 +57,6 @@ export const applyForm: FormDef = {
     {
       id: 'visit',
       title: '이용 서비스',
-      note: '서비스를 고르면 다음 화면에서 서비스별 희망 날짜와 요청 사항을 여쭤봐요.',
       questions: [
         {
           id: 'services',
@@ -65,8 +64,19 @@ export const applyForm: FormDef = {
           type: 'multi',
           required: true,
           options: [GROOMING_SERVICE, DAYCARE_SERVICE, HOTEL_SERVICE, TRAINING_SERVICE],
+          // 사장님 요청(2026-10-24): 기타 직접 입력. 기타만 고르면 서비스별 묶음 없이 요청 사항으로 간다.
+          other: true,
         },
         { id: 'visit_type', label: '히스하우스 방문 여부', type: 'single', required: true, options: ['첫 방문', '재방문'] },
+        // 사장님 요청(2026-10-24): 어떻게 알고 오셨는지.
+        {
+          id: 'visit_source',
+          label: '히스하우스를 알게 된 경로',
+          type: 'single',
+          required: false,
+          options: ['인스타그램', '블로그', '지인 소개', '간판'],
+          other: true,
+        },
       ],
     },
     // 아래 넷은 구글폼의 서비스별 섹션이다. 고른 서비스의 묶음만 보인다. 날짜·체크인·체크아웃만 필수로 올렸고(원문은 전부 선택)
@@ -132,20 +142,10 @@ export const applyForm: FormDef = {
         { id: 'training_time', label: '교육미용 희망 시간', type: 'time', required: false, dateId: 'training_date' },
       ],
     },
-    // 구글폼의 마지막 섹션 '예약금 안내'. 입금 계좌는 사장님이 정해 주면 note 에 넣는다.
+    // 구글폼의 마지막 섹션(원제 '예약금 안내'). 예약금·계좌 안내는 완료 화면에서만 한다(사장님 요청 2026-10-24).
     {
       id: 'deposit',
-      title: '예약금 안내',
-      // 금액은 lib/deposit.ts·content/shop.ts 와 맞춘다.
-      note: [
-        '신청서를 확인한 뒤 연락드릴게요. 날짜와 시간을 맞춘 뒤 예약금을 입금해 주시면 예약이 확정돼요.',
-        '',
-        '예약금은 한 번만 내요.',
-        '· 교육미용 상담이 없으면 10,000원',
-        '· 교육미용 상담이 있으면 50,000원',
-        '',
-        `입금 계좌: ${shop.bankAccount.bank} ${shop.bankAccount.number}`,
-      ].join('\n'),
+      title: '요청 사항',
       questions: [
         { id: 'request', label: '마지막으로 요청 사항이 있으면 편하게 말씀해주세요!', type: 'long', required: false, hint: '감사합니다 :)' } // 구글폼 원문 인사. 사용자 결정(2026-10-24)으로 해요체로 바꾸지 않는다.,
       ],

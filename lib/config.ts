@@ -31,6 +31,14 @@ export function serviceAccount(): { clientEmail: string; privateKey: string } {
   }
 }
 
+/**
+ * 알림 첫 줄에 붙일 멘션. 없으면 멘션 없이 보낸다. 값: `channel` · `here` · 슬랙 멤버 ID(U… / W…), 쉼표로 여러 개.
+ * 멘션이 있어야 휴대폰 슬랙이 기본 설정(다이렉트 메시지·멘션만 알림)에서도 울린다.
+ */
+export function slackMention(): string | undefined {
+  return process.env.SLACK_MENTION || undefined
+}
+
 // 아래 둘은 e2e 가 진짜 시트 대신 가짜 서비스를 부를 때만 쓰는 테스트용 선택 변수다. 없어도 던지지 않는다.
 // 운영(NODE_ENV=production)에서는 있어도 읽지 않는다: 운영 환경 변수에 잘못 남아도 보호자 정보가 다른 주소로 가지 않게 한다.
 function testOnly(name: string): string | undefined {

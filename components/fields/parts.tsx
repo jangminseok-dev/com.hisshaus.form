@@ -42,7 +42,7 @@ interface FrameProps {
 export function Frame({ q, error, heading, children }: FrameProps) {
   const ids = fieldIds(q)
   return (
-    <div className={styles.field} data-question={q.id} data-invalid={error ? 'true' : undefined}>
+    <div className={styles.field} data-question={q.id} data-required={q.required || undefined} data-invalid={error ? 'true' : undefined}>
       {heading !== 'none' && (
         <div className={styles.labelRow}>
           {heading === 'label' ? (
@@ -54,8 +54,12 @@ export function Frame({ q, error, heading, children }: FrameProps) {
               {q.label}
             </p>
           )}
-          {/* 라벨 밖 형제로 둔다. 안에 두면 라벨의 접근성 이름이 문항 글 그대로가 아니게 된다. */}
-          {!q.required && <span className={styles.optional}>선택</span>}
+          {/* 필수 표시 *. 라벨 밖 형제로 두고 낭독에서 뺀다(aria-required 가 알린다). 안에 두면 라벨의 접근성 이름이 문항 글 그대로가 아니게 된다. */}
+          {q.required && (
+            <span className={styles.required} aria-hidden="true">
+              *
+            </span>
+          )}
         </div>
       )}
       {q.hint && (

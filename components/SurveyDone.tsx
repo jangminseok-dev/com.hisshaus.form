@@ -30,10 +30,11 @@ export function SurveyDone() {
       <div className={styles.box}>
         <h2 className={styles.boxTitle}>다음 순서</h2>
         <ol className={styles.steps}>
-          <li>1. 히스하우스가 검사지를 확인해요</li>
-          <li>2. 교육미용 상담 날짜와 시간을 연락드려요</li>
+          <li>1. 히스하우스가 검사지를 확인하고 연락드려요</li>
+          <li>2. 연락하면서 교육미용 상담 날짜와 시간을 확정해요</li>
           {/* 검사지는 교육미용 상담 전용이라 예약금은 늘 교육미용 금액이다. */}
-          <li>3. 예약금 {depositOf([TRAINING_SERVICE])} 입금이 확인되면 예약이 확정돼요</li>
+          <li>3. 확정된 뒤 예약금 {depositOf([TRAINING_SERVICE])}을 아래 계좌로 입금해 주세요</li>
+          <li>4. 입금이 확인되면 예약이 완료돼요</li>
         </ol>
         <BankAccount />
       </div>

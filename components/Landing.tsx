@@ -21,7 +21,7 @@ export function Landing() {
       <section data-section="intro" className={styles.intro}>
         <h1 className={styles.title}>예약 신청</h1>
         <p>신청서를 보내 주시면 확인한 뒤 연락드려요.</p>
-        <p>날짜와 시간을 맞추고 예약금 입금이 확인되면 예약이 확정돼요.</p>
+        <p>연락하면서 예약 날짜와 시간을 확정한 뒤, 예약금을 입금해 주시면 예약이 완료돼요.</p>
         <p>아이가 편안하게 케어받을 수 있도록 충분히 상담한 뒤 예약을 진행해요.</p>
       </section>
 

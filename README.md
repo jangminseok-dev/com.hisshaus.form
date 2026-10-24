@@ -33,6 +33,7 @@ pnpm dev                     # http://localhost:3020/hisshaus
 | 변수 | 값 |
 |---|---|
 | `SLACK_WEBHOOK_URL` | 슬랙 수신 웹훅 주소(`https://hooks.slack.com/services/` 로 시작) |
+| `SLACK_MENTION` (선택) | 알림 첫 줄에 붙일 멘션. `channel`·`here`·슬랙 멤버 ID(`U…`, 프로필 → ⋯ → 멤버 ID 복사). 쉼표로 여러 개. 휴대폰 슬랙은 기본 설정에서 멘션이 있어야 울린다. 없으면 멘션 없이 보낸다. |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | 서비스 계정 키(JSON)를 base64 한 줄로 바꾼 값 |
 | `GOOGLE_SHEET_ID` | 신청을 쌓을 시트의 ID |
 
@@ -74,7 +75,7 @@ pnpm dev                     # http://localhost:3020/hisshaus
 ## 시트 만들기
 
 1. 새 구글 스프레드시트를 만들고 탭 둘의 이름을 정확히 `예약신청`, `검사지` 로 한다. 이름이 다르면 시트 저장이 실패해 보호자에게 "지금은 보낼 수 없어요" 가 나온다.
-2. 두 탭의 첫 줄에 헤더를 붙인다. `pnpm sheet:header` 는 탭 이름 줄과 탭으로 구분한 헤더 줄을 번갈아 네 줄 출력한다(지금은 예약신청 41칸, 검사지 100칸이다. 서비스별 묶음의 칸은 고르지 않은 서비스면 비어 있다). 탭 구분을 그대로 붙여야 칸이 나뉘므로 맥에서는 클립보드로 바로 보낸다. 이때는 pnpm 의 실행 안내 줄(`$ tsx scripts/sheet-header.mjs`)이 섞일 일이 없게 스크립트를 직접 실행한다. 출력은 네 줄뿐이다.
+2. 두 탭의 첫 줄에 헤더를 붙인다. `pnpm sheet:header` 는 탭 이름 줄과 탭으로 구분한 헤더 줄을 번갈아 네 줄 출력한다(지금은 예약신청 42칸, 검사지 100칸이다. 서비스별 묶음의 칸은 고르지 않은 서비스면 비어 있다). 탭 구분을 그대로 붙여야 칸이 나뉘므로 맥에서는 클립보드로 바로 보낸다. 이때는 pnpm 의 실행 안내 줄(`$ tsx scripts/sheet-header.mjs`)이 섞일 일이 없게 스크립트를 직접 실행한다. 출력은 네 줄뿐이다.
 
    ```bash
    pnpm exec tsx scripts/sheet-header.mjs | sed -n 2p | pbcopy   # 예약신청 헤더 → 예약신청 탭의 A1 에 붙여넣기
@@ -133,7 +134,7 @@ pnpm dev                     # http://localhost:3020/hisshaus
 
 | 정할 것 | 어디에 | 비고 |
 |---|---|---|
-| (없음) | | |
+| (없음 — 2026-10-24 기준 모두 정해졌다) | | |
 
 ## 테스트
 

@@ -40,6 +40,7 @@ export default defineConfig({
       timeout: 120_000,
       env: {
         SLACK_WEBHOOK_URL: `${FAKE_URL}/slack`,
+        SLACK_MENTION: 'U0E2ETESTID',
         SHEETS_BASE_URL: FAKE_URL,
         SHEETS_FAKE_TOKEN: 'e2e-token',
         GOOGLE_SHEET_ID: 'e2e-sheet',

@@ -574,11 +574,21 @@ describe('오류·안내·표시', () => {
     ['시간', timeQ],
     ['단일 선택', singleQ],
     ['복수 선택', multiQ],
-  ])('선택 문항에는 선택 표시가 있고 라벨 이름은 문항 그대로다 — %s', (_, base) => {
+  ])('필수 문항에는 * 표시가 있고 선택 문항에는 없으며 라벨 이름은 문항 그대로다 — %s', (_, base) => {
     const q: Question = { ...base, required: false }
-    const { container } = renderField(q)
+    const { container, unmount } = renderField(q)
     const box = container.querySelector<HTMLElement>(`[data-question="${q.id}"]`)!
-    expect(within(box).getByText('선택')).toBeInTheDocument()
+    expect(within(box).queryByText('*')).not.toBeInTheDocument()
+    expect(box).not.toHaveAttribute('data-required')
+    unmount()
+    const { container: c2 } = renderField({ ...base, required: true })
+    const box2 = c2.querySelector<HTMLElement>(`[data-question="${base.id}"]`)!
+    expect(within(box2).getByText('*')).toBeInTheDocument()
+    expect(box2).toHaveAttribute('data-required', 'true')
+    // * 는 낭독에서 빠진다(aria-required 가 알린다).
+    expect(within(box2).getByText('*')).toHaveAttribute('aria-hidden', 'true')
+    c2.remove()
+    renderField(q)
 
     const control =
       q.type === 'single' || q.type === 'time'
@@ -589,16 +599,16 @@ describe('오류·안내·표시', () => {
     expect(control).toHaveAccessibleName(q.label)
   })
 
-  it('필수 문항에는 선택 표시가 없다', () => {
-    renderField(shortQ)
-    expect(screen.queryByText('선택')).not.toBeInTheDocument()
-    renderField(singleQ)
-    expect(screen.queryByText('선택')).not.toBeInTheDocument()
+  it('선택 문항에는 * 표시가 없다', () => {
+    renderField({ ...shortQ, required: false })
+    expect(screen.queryByText('*')).not.toBeInTheDocument()
+    renderField({ ...singleQ, required: false })
+    expect(screen.queryByText('*')).not.toBeInTheDocument()
   })
 })
 
 describe('필수 여부를 보조 기기에 알린다', () => {
-  // 화면은 선택 문항에만 '선택' 을 붙이고 필수에는 표시가 없다. 보조 기기는 입력의 aria-required 로 필수를 듣는다.
+  // 화면은 필수 문항에 * 를 붙인다(낭독에서는 뺀다). 보조 기기는 입력의 aria-required 로 필수를 듣는다.
   // 값은 StepForm 이 넘긴 지금의 필수 여부(q.required)다.
   it.each([
     ['짧은 답', shortQ],
@@ -632,7 +642,7 @@ describe('필수 여부를 보조 기기에 알린다', () => {
   })
 
   it('흐린 글자 색(--mute)은 흰 바탕과 대비가 4.5:1 이상이다', () => {
-    // '선택' 표시(13px)·진행 'k / N'(14px)·입력 안내 글이 이 색이다. 작은 글자의 기준(WCAG AA)이 4.5:1 이다.
+    // 입력 안내 글·날짜 칸 밖 날짜(13~14px)가 이 색이다. 작은 글자의 기준(WCAG AA)이 4.5:1 이다.
     const css = readFileSync(join(import.meta.dirname, '..', 'app', 'globals.css'), 'utf8')
     const token = (name: string) => new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6});`).exec(css)![1]
     const luminance = (hex: string) => {
