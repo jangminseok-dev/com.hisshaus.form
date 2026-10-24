@@ -129,7 +129,7 @@ export async function fillUntil(page: Page, target: string, onGroup?: () => Prom
 
 /** 첫 화면에서 `예약 신청하기` 를 눌러 신청서의 첫 묶음을 연다. */
 export async function openApply(page: Page): Promise<void> {
-  await page.goto('/')
+  await page.goto('/hisshaus')
   await page.getByRole('link', { name: '예약 신청하기' }).click()
   await expectGroup(page, 'guardian')
 }

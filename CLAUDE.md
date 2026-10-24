@@ -17,6 +17,7 @@
 - 새 신청을 시작할 때 신청 세션을 지우지 않는다. 완료 화면에서 뒤로 가기만 해도 세션이 사라져, 앞으로 가기 때 완료 화면이 첫 화면으로 튕긴다. 세션은 다음 제출이 덮어쓴다.
 - 뒤로 가기·방문 기록 코드(`components/StepForm.tsx`)를 고치면 e2e 로 확인한다. jsdom 은 실제 Next 의 `popstate` 를 재현하지 못한다.
 - e2e 는 진짜 서비스를 부르지 않는다. 포트 3030·3031 의 전용 서버와 가짜 슬랙·시트만 쓰고 `reuseExistingServer: false` 를 유지한다. `pnpm e2e` 전에 개발 서버(3020)를 끈다.
+- 웹은 `chagocnote.com/hisshaus` 아래에서 열린다(`next.config.ts` 의 `basePath`, 값은 `lib/base-path.ts` 의 `BASE_PATH`). `Link`·`router` 주소에는 Next 가 붙여 주지만 `fetch` 주소(`lib/post.ts`), `<img>` 주소(`content/shop.ts`), 미리보기 그림 주소(`app/layout.tsx`·`app/survey/page.tsx`)에는 붙여 주지 않아서 `BASE_PATH` 를 직접 붙인다. 이런 주소를 새로 만들면 같이 붙인다. 도메인 첫 주소 `/` 는 `/hisshaus` 로 보낸다(임시 307, 나중에 차곡노트 플랫폼이 첫 주소를 맡으면 지운다).
 - 외부 서비스나 유료 기능을 더하기 전에 무료 한도와 유료로 바뀌는 지점을 사용자에게 먼저 밝히고 README 의 비용 표에 적는다.
 
 ## 폴더
@@ -25,7 +26,7 @@
 
 | 폴더 | 내용 |
 |---|---|
-| `app` | 화면(`/`, `/apply`, `/survey` 와 그 하위)과 API 경로(`app/api`) |
+| `app` | 화면(`/`, `/apply`, `/survey` 와 그 하위)과 API 경로(`app/api`). 실제 주소는 모두 `/hisshaus` 아래다 |
 | `components` | 화면 조각, `StepForm`, 필드(`components/fields`) |
 | `forms` | 문항 정의(`apply.ts`, `survey.ts`)·형(`types.ts`)·규칙(`rules.ts`) |
 | `content` | 매장 정보(`shop.ts`) |
@@ -38,7 +39,7 @@
 ## 명령
 
 ```bash
-pnpm dev                    # 개발 서버 http://localhost:3020 (127.0.0.1 로 열면 막힌다)
+pnpm dev                    # 개발 서버 http://localhost:3020/hisshaus (127.0.0.1 로 열면 막힌다)
 pnpm test                   # 단위·컴포넌트 (Vitest)
 pnpm exec tsc --noEmit      # 형 검사
 pnpm build                  # 빌드

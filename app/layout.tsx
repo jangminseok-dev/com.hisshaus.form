@@ -3,6 +3,7 @@ import localFont from 'next/font/local'
 import type { ReactNode } from 'react'
 
 import { shop } from '../content/shop'
+import { BASE_PATH } from '../lib/base-path'
 import './globals.css'
 
 // 쓰는 굵기 셋의 subset 만 직접 싣는다(외부 도메인 요청 없음).
@@ -16,13 +17,14 @@ const pretendard = localFont({
 })
 
 // 카카오톡 같은 곳에 링크를 붙였을 때 보이는 미리보기. 사진은 public/og.jpg 다.
+// 미리보기 그림 주소에는 Next 가 basePath 를 붙이지 않아서 직접 붙인다.
 export const metadata: Metadata = {
   title: shop.ogTitle,
   description: shop.ogDescription,
   openGraph: {
     title: shop.ogTitle,
     description: shop.ogDescription,
-    images: ['/og.jpg'],
+    images: [`${BASE_PATH}/og.jpg`],
   },
 }
 

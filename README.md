@@ -25,7 +25,7 @@ Node.js 24 LTS(24.15.0 이상)와 pnpm 11 을 권한다. 22.22.2 이상의 22.x 
 ```bash
 pnpm install
 cp .env.example .env.local   # 아래 세 값을 채운다
-pnpm dev                     # http://localhost:3020
+pnpm dev                     # http://localhost:3020/hisshaus
 ```
 
 `.env.local` 은 git 에 올라가지 않는다(`.gitignore` 의 `.env*`). 세 값을 만드는 방법은 이어지는 세 절에 있다.
@@ -37,7 +37,7 @@ pnpm dev                     # http://localhost:3020
 | `GOOGLE_SHEET_ID` | 신청을 쌓을 시트의 ID |
 
 - 세 값 중 하나라도 없으면 서버가 `환경 변수 SLACK_WEBHOOK_URL 이 없다.` 처럼 빠진 변수 이름만 담은 오류를 낸다. `pnpm dev` 는 이 오류를 찍고 바로 끝난다. `pnpm start` 는 떠 있지만 `public/` 의 사진 같은 정적 파일만 열리고, 페이지와 세 API 경로는 모두 500 이다(요청마다 같은 오류가 로그에 찍힌다). `GOOGLE_SERVICE_ACCOUNT_JSON` 이 base64 가 아니거나 `client_email`·`private_key` 가 없으면 `환경 변수 GOOGLE_SERVICE_ACCOUNT_JSON 을 읽을 수 없다.` 가 나온다. 어느 경우에도 값은 찍지 않는다. `pnpm build` 는 변수가 없어도 통과한다.
-- 개발 서버는 `http://localhost:3020` 으로 연다. `127.0.0.1` 로 열면 Next 개발 서버가 브라우저 코드를 막아(403) 화면이 동작하지 않는다.
+- 개발 서버는 `http://localhost:3020/hisshaus` 로 연다(`http://localhost:3020` 은 그리로 보낸다). `127.0.0.1` 로 열면 Next 개발 서버가 브라우저 코드를 막아(403) 화면이 동작하지 않는다.
 - `.env.local` 에 진짜 값을 넣고 개발 서버에서 신청을 내면 **진짜 슬랙·시트로 간다.** 시험은 시험용 채널·시트로 하거나, 시험 행을 시트에서 지운다. 자동 테스트(`pnpm e2e`)는 가짜 서비스로만 보낸다.
 - 운영 모드로 확인하려면 `pnpm build` 뒤 `pnpm start` 를 쓴다(같은 3020 포트).
 - `pnpm dev`·`pnpm build` 에 `metadataBase property in metadata export is not set …` 경고가 나온다. 정상이다(아래 도메인 연결 참고).
@@ -101,13 +101,15 @@ pnpm dev                     # http://localhost:3020
 - 세 API 경로(`app/api/**/route.ts`)는 일이 끝난 뒤 응답하므로 `maxDuration` 을 30초로 올려 두었다. 신청서·검사지는 시트 저장과 슬랙 전송, 교육미용 취소(`/api/apply/cancel-training`)는 슬랙 전송만 한다. Hobby 는 이 값을 허용한다.
 - 서버 로그는 프로젝트의 `Logs` 에서 본다. Hobby 는 1시간 분량만 남는다. 로그에는 `시트 저장 실패`, `슬랙 전송 실패` 와 신청 ID 두 꼴만 찍힌다.
 
-## 도메인 연결 (나중)
+## 도메인 연결
 
-운영 주소는 `hisshaus.chagocnote.com` 으로 정했고 연결 시점은 나중에 정한다. 그때까지는 Vercel 이 주는 `*.vercel.app` 주소를 쓴다.
+운영 주소는 `chagocnote.com/hisshaus` 다. 웹 전체가 `/hisshaus` 아래에서 열리고(`next.config.ts` 의 `basePath`), 도메인 첫 주소 `chagocnote.com/` 은 `/hisshaus` 로 보낸다(임시 307). 연결 전에는 Vercel 이 주는 `*.vercel.app/hisshaus` 주소를 쓴다.
 
-1. Vercel 프로젝트의 `Settings` → `Domains` → `Add Domain` 에 `hisshaus.chagocnote.com` 을 넣는다.
-2. Vercel 이 보여 주는 CNAME 값을 chagocnote.com 의 DNS 에 `hisshaus` 이름으로 단다(값은 프로젝트마다 다르다).
+1. Vercel 프로젝트의 `Settings` → `Domains` → `Add Domain` 에 `chagocnote.com` 을 넣는다. `www.chagocnote.com` 도 함께 붙일지 물으면 `www` 를 `chagocnote.com` 으로 보내는 쪽을 고른다.
+2. Vercel 이 보여 주는 값을 가비아 `DNS 관리` 에 넣는다. 루트 주소는 `A` 레코드(호스트 `@`), `www` 는 `CNAME` 레코드(호스트 `www`)다. 값은 Vercel 화면에 나온 그대로 쓴다. 네임서버는 가비아 것을 그대로 둔다.
 3. 연결이 확인되면 한 번 다시 배포한다.
+
+나중에 차곡노트 플랫폼이 `chagocnote.com` 을 맡게 되면, 도메인을 플랫폼 프로젝트로 옮기고 플랫폼 쪽에서 `/hisshaus` 로 들어온 요청을 이 프로젝트의 배포 주소로 넘긴다(rewrite). 보호자에게 나간 주소는 그대로 쓸 수 있다. 그때 `next.config.ts` 의 첫 주소 보내기(`redirects`)는 지운다.
 
 카카오톡 링크 미리보기 그림(`og:image`)의 주소는 코드에 적지 않았다(`metadataBase` 를 두지 않았다). Vercel 에서는 Next 가 `VERCEL_PROJECT_PRODUCTION_URL`(커스텀 도메인이 있으면 가장 짧은 것, 없으면 `vercel.app` 주소)로 절대 주소를 만든다. 이 값은 빌드 때 페이지에 박히므로, 도메인을 붙인 뒤 다시 배포해야 새 주소로 바뀐다. 미리보기 그림이 안 나오면 페이지 소스의 `og:image` 가 운영 주소인지 먼저 본다. `localhost` 로 나오면 프로젝트 설정 `Environment Variables` 의 `Enable access to System Environment Variables` 가 켜져 있는지 확인한다. 로컬 `pnpm dev`·`pnpm build` 의 `metadataBase …` 경고는 이 때문이고, 로컬에서는 `localhost` 주소로 채운다.
 
