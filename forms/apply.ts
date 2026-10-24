@@ -95,7 +95,15 @@ export const applyForm: FormDef = {
       questions: [
         { id: 'groom_date', label: '희망 예약 날짜', type: 'date', required: true },
         { id: 'groom_time', label: '희망 시간', type: 'time', required: false, dateId: 'groom_date' },
-        { id: 'groom_kind', label: '원하시는 미용 종류', type: 'short', required: false },
+        // 사장님이 준 메뉴(2026-10-25). 여러 개 같이 받는 경우가 있어 복수 선택, 기타 직접 입력.
+        {
+          id: 'groom_kind',
+          label: '원하시는 미용 종류',
+          type: 'multi',
+          required: false,
+          options: ['목욕 + 위생케어', '전체 클리핑', '기계 스포팅', '가위컷'],
+          other: true,
+        },
         { id: 'groom_sensitive', label: '만지는 것을 특히 싫어하는 부위가 있으면 알려주세요.', type: 'short', required: false },
         { id: 'groom_request', label: '미용 중 요청사항이 있으면 편하게 알려주세요.', type: 'long', required: false },
       ],

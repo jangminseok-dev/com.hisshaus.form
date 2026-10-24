@@ -236,8 +236,8 @@ describe('공백뿐인 선택 답', () => {
 
   it('신청서의 선택 짧은 글·선택 단일 선택이 공백뿐이면 ok 이고, 시트 칸은 비고 슬랙은 답이 없을 때와 같다', async () => {
     const { appendRow, sendSlack, deps } = fakes()
-    // 미용의 미용 종류(짧은 글)와 호텔의 숙박 경험(단일 선택)은 선택 문항이다. 호텔 묶음이 보이게 호텔도 고른다.
-    expect([question(applyForm, 'groom_kind'), question(applyForm, 'hotel_stayed')].map((q) => [q.type, q.required])).toEqual([
+    // 미용의 싫어하는 부위(짧은 글)와 호텔의 숙박 경험(단일 선택)은 선택 문항이다. 호텔 묶음이 보이게 호텔도 고른다.
+    expect([question(applyForm, 'groom_sensitive'), question(applyForm, 'hotel_stayed')].map((q) => [q.type, q.required])).toEqual([
       ['short', false],
       ['single', false],
     ])
@@ -250,17 +250,17 @@ describe('공백뿐인 선택 답', () => {
       hotel_checkout_date: '2026-11-05',
       hotel_checkout_time: '11:00',
     }
-    const answers = { ...base, groom_kind: '   ', hotel_stayed: ' \t' }
+    const answers = { ...base, groom_sensitive: '   ', hotel_stayed: ' \t' }
     expect(await submitApply({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
 
     const row = appendRow.mock.calls[0][1]
-    expect(row[columnOf(applyForm, 'groom_kind')]).toBe('')
+    expect(row[columnOf(applyForm, 'groom_sensitive')]).toBe('')
     expect(row[columnOf(applyForm, 'hotel_stayed')]).toBe('')
     expect(row).toEqual(sheetRow(applyForm, base, meta))
 
     const sent = sendSlack.mock.calls[0][0]
     expect(JSON.stringify(sent)).not.toMatch(/undefined|NaN/)
-    expect(JSON.stringify(sent)).toContain(`*${question(applyForm, 'groom_kind').label}*\\n—`)
+    expect(JSON.stringify(sent)).toContain(`*${question(applyForm, 'groom_sensitive').label}*\\n—`)
     expect(sent).toEqual(applyMessages(base, meta))
     // 고르지 않은 미용 시간은 알림 미리보기의 희망 일시에 붙지 않고, 호텔은 체크인 날짜·시간이 한국어로 붙는다.
     expect(sent[0].text).toContain('· 미용 1월 1일 (목), 호텔 11월 3일 (화) 오후 3:00 체크인')

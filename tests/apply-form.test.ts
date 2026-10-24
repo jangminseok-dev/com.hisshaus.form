@@ -28,6 +28,8 @@ describe('신청서 정의', () => {
     expect(question('services').required).toBe(true)
     expect(question('services').other).toBe(true)
     expect(question('visit_source')).toMatchObject({ type: 'single', required: false, other: true, options: ['인스타그램', '블로그', '지인 소개', '간판'] })
+    // 미용 종류는 사장님 메뉴 넷에 기타, 여러 개 고를 수 있다.
+    expect(question('groom_kind')).toMatchObject({ type: 'multi', required: false, other: true, options: ['목욕 + 위생케어', '전체 클리핑', '기계 스포팅', '가위컷'] })
   })
 
   it('필수 문항은 보호자·반려견·이용 안내 전부와 서비스별 날짜(호텔은 체크인·체크아웃 날짜와 시간)뿐이다', () => {
