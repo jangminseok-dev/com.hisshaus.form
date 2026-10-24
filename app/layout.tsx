@@ -16,7 +16,8 @@ const pretendard = localFont({
   display: 'swap',
 })
 
-// 카카오톡 같은 곳에 링크를 붙였을 때 보이는 미리보기. 사진은 public/og.jpg 다.
+// 카카오톡 같은 곳에 링크를 붙였을 때 보이는 미리보기. 사진은 public/og-shop.jpg 다.
+// 카카오톡은 그림을 주소별로 오래 저장해 둔다. 그림을 바꾸면 파일 이름도 새로 짓는다(같은 이름이면 옛 그림이 계속 보인다).
 // 미리보기 그림 주소에는 Next 가 basePath 를 붙이지 않아서 직접 붙인다.
 export const metadata: Metadata = {
   title: shop.ogTitle,
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: shop.ogTitle,
     description: shop.ogDescription,
-    images: [`${BASE_PATH}/og.jpg`],
+    images: [`${BASE_PATH}/og-shop.jpg`],
   },
 }
 

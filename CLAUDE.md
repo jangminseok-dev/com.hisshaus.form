@@ -35,7 +35,7 @@
 | `forms` | 문항 정의(`apply.ts`, `survey.ts`)·형(`types.ts`)·규칙(`rules.ts`) |
 | `content` | 매장 정보(`shop.ts`) |
 | `lib` | 설정·검증·시트·슬랙·초안 저장 |
-| `public` | 사진(`hero.jpg`, `og.jpg`) |
+| `public` | 사진(`hero.jpg`, 미리보기 `og-shop.jpg` — 그림을 바꾸면 파일 이름도 바꾼다, 카카오톡이 주소별로 저장) |
 | `tests` | Vitest, `tests/e2e` 는 Playwright 와 가짜 슬랙·시트 |
 | `scripts` | 시트 헤더 출력 |
 | `docs` | 설계·문항·계획 |

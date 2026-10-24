@@ -69,13 +69,11 @@
   overflow-wrap: anywhere;
 }
 
-/* 작성할 양식 둘. 매장 메뉴판처럼 검정 테두리 한 상자에 두 줄, 사이는 가는 선이다. */
+/* 작성할 양식 둘. 각각 검정 테두리 상자 하나씩이다. */
 .choices {
+  display: grid;
+  gap: 12px;
   margin: 24px 16px 0;
-  border: 1px solid var(--ink);
-  border-radius: var(--radius);
-  background: var(--paper);
-  overflow: hidden;
 }
 
 .choice {
@@ -83,17 +81,16 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
   color: inherit;
   text-decoration: none;
 }
 
-.choice + .choice {
-  border-top: 1px solid var(--line);
-}
-
 .choice:focus-visible {
   outline: 2px solid var(--ink);
-  outline-offset: -2px;
+  outline-offset: 2px;
 }
 
 .choiceText {

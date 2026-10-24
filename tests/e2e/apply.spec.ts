@@ -314,7 +314,7 @@ test('viewport 는 기기 화면 끝까지 채운다(viewport-fit=cover)', async
 test('첫 화면에 og:image 가 있다', async ({ page, request }) => {
   await page.goto('/hisshaus')
   const meta = page.locator('meta[property="og:image"]')
-  await expect(meta).toHaveAttribute('content', /\/hisshaus\/og\.jpg$/)
+  await expect(meta).toHaveAttribute('content', /\/hisshaus\/og-shop\.jpg$/)
   // 가리키는 그림이 실제로 열린다(주소의 호스트는 배포 주소에 따라 달라지므로 경로로 부른다).
   const res = await request.get(new URL((await meta.getAttribute('content'))!).pathname)
   expect(res.ok()).toBe(true)

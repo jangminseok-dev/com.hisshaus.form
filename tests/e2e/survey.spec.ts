@@ -155,5 +155,5 @@ test('검사지 주소의 링크 미리보기는 검사지 제목·설명과 그
   await page.goto('/hisshaus/survey')
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', '히스하우스 심층 행동 분석 검사지')
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', '교육미용 상담을 위해 반려견에 대해 알려 주세요.')
-  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/og\.jpg$/)
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/og-shop\.jpg$/)
 })

@@ -20,7 +20,7 @@ export const shop = {
   // 예약금 안내 글. 금액은 lib/deposit.ts(완료 화면·검사지 완료 화면이 씀)와 forms/apply.ts 의 예약금 안내문에도 적혀 있다. 바꾸면 셋 다 고친다.
   deposit: '미용·데이케어·호텔 10,000원\n교육미용 상담 50,000원\n입금 시 확정',
   // 첫 화면 큰 사진(매장 내부). 바꿀 때는 public/hero.jpg 를 같은 이름으로 덮어쓴다.
-  // (카카오톡 링크 미리보기 그림은 public/og.jpg 이고 app/layout.tsx 와 app/survey/page.tsx 가 가리킨다.)
+  // (카카오톡 링크 미리보기 그림은 public/og-shop.jpg 이고 app/layout.tsx 와 app/survey/page.tsx 가 가리킨다.)
   // <img> 주소에는 basePath 가 붙지 않아서 직접 붙인다.
   heroImage: `${BASE_PATH}/hero.jpg`,
   // 첫 화면 정보 줄의 인스타그램 링크. 공유 링크의 추적 값(?rpxt=…)은 뺐다. handle 은 화면에 @hisshaus 로 보인다.

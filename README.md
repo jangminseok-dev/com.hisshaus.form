@@ -118,9 +118,9 @@ pnpm dev                     # http://localhost:3020/hisshaus
 | 바꿀 것 | 파일 | 비고 |
 |---|---|---|
 | 첫 화면 큰 사진 | `public/hero.jpg` | 매장 내부 사진(1200×900). 화면에서는 4:3 으로 가운데를 잘라 보여 준다. |
-| 카카오톡 링크 미리보기 그림 | `public/og.jpg` | 같은 사진의 가운데를 자른 것(1200×630). 가로로 긴 JPG 나 PNG. |
+| 카카오톡 링크 미리보기 그림 | `public/og-shop.jpg` | 같은 사진의 가운데를 자른 것(1200×630). 가로로 긴 JPG 나 PNG. **바꿀 때는 파일 이름도 새로 짓고** `app/layout.tsx`·`app/survey/page.tsx` 의 경로를 같이 고친다. 카카오톡이 그림을 주소별로 저장해 두어 같은 이름이면 옛 그림이 계속 보인다. |
 | 이름·주소·영업시간·예약금 문구·미리보기 제목과 설명·개인정보 보유 기간 | `content/shop.ts` | 사장님이 채울 값마다 주석이 있다. |
-| 검사지 주소(`/survey`)의 미리보기 제목과 설명 | `app/survey/page.tsx` | 사장님이 링크만 보낼 때 카카오톡에 보이는 글. 그림은 `public/og.jpg` 를 같이 쓴다. |
+| 검사지 주소(`/survey`)의 미리보기 제목과 설명 | `app/survey/page.tsx` | 사장님이 링크만 보낼 때 카카오톡에 보이는 글. 그림은 `public/og-shop.jpg` 를 같이 쓴다. |
 
 - 사진은 같은 이름으로 덮어쓴다. 이름이나 확장자를 바꾸면 `content/shop.ts` 의 `heroImage` 와 `app/layout.tsx`·`app/survey/page.tsx` 의 `og:image` 경로도 고친다.
 - 사진은 최적화를 거치지 않고 원본 그대로 보호자 폰으로 간다(`next/image` 를 쓰지 않는다). 첫 화면 사진은 가로 1200px 안팎, 300KB 이하의 JPG 로 줄여서 넣는다.
