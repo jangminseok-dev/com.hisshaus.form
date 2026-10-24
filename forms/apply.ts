@@ -17,7 +17,7 @@ export const applyForm: FormDef = {
       id: 'guardian',
       title: '보호자 정보',
       questions: [
-        { id: 'guardian_name', label: '보호자 성함', type: 'short', required: true },
+        { id: 'guardian_name', label: '보호자 성함', type: 'short', required: true, autoComplete: 'name' },
         { id: 'guardian_phone', label: '보호자 연락처', type: 'phone', required: true },
         {
           id: 'privacy_consent',
@@ -40,6 +40,13 @@ export const applyForm: FormDef = {
         { id: 'pet_age', label: '반려견 나이', type: 'short', required: true },
         { id: 'pet_weight', label: '반려견 몸무게', type: 'short', required: true },
         { id: 'pet_sex', label: '반려견 성별', type: 'single', required: true, options: ['남', '여'] },
+      ],
+    },
+    // 반려견 열 문항을 기본 정보 다섯·건강 다섯으로 나눴다(한 화면에 7개 안팎, 2026-10-24).
+    {
+      id: 'health',
+      title: '반려견 건강',
+      questions: [
         { id: 'pet_neutered', label: '반려견 중성화 여부', type: 'single', required: true, options: OX },
         { id: 'pet_vaccinated', label: '예방접종 유무', type: 'single', required: true, options: OX },
         { id: 'pet_health', label: '질병, 질환 등 건강상태에 대해 알려주세요.', type: 'long', required: true },

@@ -102,8 +102,12 @@ describe('검사지 정의', () => {
     }
   })
 
-  it('q69 는 선택지 22개, q83 은 48개다', () => {
+  it('q69 는 선택지 22개, q83 은 48개다. 둘 다 한 줄에 하나씩이고 q83 의 소제목은 실제 선택지 앞에 붙는다', () => {
     expect(q(69).options).toHaveLength(22)
     expect(q(83).options).toHaveLength(48)
+    expect(q(69).layout).toBe('list')
+    expect(q(83).layout).toBe('list')
+    for (const option of Object.keys(q(83).headings!)) expect(q(83).options).toContain(option)
+    expect(Object.keys(q(83).headings!)).toHaveLength(9)
   })
 })

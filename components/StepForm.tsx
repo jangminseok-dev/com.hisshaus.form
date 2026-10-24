@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 
-import { blockedBy, isGroupVisible, isRequired, isVisible, visibleAnswers } from '../forms/rules'
+import { blockedBy, isGroupVisible, isRequired, isVisible, visibleAnswers, visibleGroups } from '../forms/rules'
 import type { Answer, Answers, FormDef, Question } from '../forms/types'
 import type { Draft } from '../lib/draft'
 import { todayKst } from '../lib/format'
@@ -38,6 +38,17 @@ function nextVisible(form: FormDef, from: number, a: Answers): number {
 function prevVisible(form: FormDef, from: number, a: Answers): number {
   for (let i = from - 1; i >= 0; i--) if (isGroupVisible(form.groups[i], a)) return i
   return -1
+}
+
+/**
+ * 얼마나 왔는지 느끼게 하는 한 줄. 숫자·막대 대신 말로(사용자 결정). 보이는 묶음 기준이고, 앞쪽에서는 아무 말도 하지 않는다.
+ */
+function pace(position: number, total: number): string | undefined {
+  if (total < 3) return undefined
+  if (position === total) return '마지막 화면이에요'
+  if (position === total - 1) return '거의 다 왔어요'
+  if (position / total > 0.5) return '절반 넘게 왔어요'
+  return undefined
 }
 
 /**
@@ -100,6 +111,8 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   const group = form.groups[index]
   // 묶음은 보이는 것 사이로만 옮긴다. 서비스별 묶음은 그 서비스를 골랐을 때만 낀다.
   const isLast = nextVisible(form, index, answers) === -1
+  const shown = visibleGroups(form, answers)
+  const paceText = pace(shown.indexOf(group) + 1, shown.length)
   const todayNow = freshToday > today ? freshToday : today
   const errors = validateGroup(group, answers, todayNow)
   const blocked = blockedBy(group, answers)
@@ -291,6 +304,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
 
   return (
     <div ref={rootRef} className={styles.root} data-group={group.id}>
+      <h1 className="srOnly">{form.title}</h1>
       <div className={styles.bar}>
         <button
           type="button"
@@ -308,6 +322,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
           {group.title}
         </h2>
       </div>
+      {paceText && <p className={styles.pace}>{paceText}</p>}
       {notice && (
         <p ref={noticeRef} role="alert" className={styles.notice}>
           {notice}
@@ -336,6 +351,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
           disabled={submitting}
           onClick={press}
         >
+          {submitting && <span className={styles.spinner} aria-hidden="true" />}
           {submitting ? '보내는 중…' : isLast ? submitLabel : '다음'}
         </button>
       </div>

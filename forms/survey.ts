@@ -55,10 +55,10 @@ export const surveyForm: FormDef = {
       id: 'b',
       title: '반려견, 반려인 전반적인 정보',
       questions: [
-        { id: 'q3', label: '의뢰인 성함', type: 'short', required: true },
+        { id: 'q3', label: '의뢰인 성함', type: 'short', required: true, autoComplete: 'name' },
         { id: 'q4', label: '의뢰인 연락처', type: 'phone', required: true },
         { id: 'q5', label: '의뢰인의 직업', type: 'short', required: true },
-        { id: 'q6', label: '의뢰인의 주소', type: 'short', required: true },
+        { id: 'q6', label: '의뢰인의 주소', type: 'short', required: true, autoComplete: 'street-address' },
         { id: 'q7', label: '반려견의 이름', type: 'short', required: true },
         { id: 'q8', label: '반려견 견종과 모색', type: 'short', required: true, hint: '예) 비숑프리제(흰색)' },
         { id: 'q9', label: '반려견의 생년월일', type: 'short', required: true, hint: '정확하지 않은 경우 년도까지만 작성해주셔도 됩니다.' },
@@ -420,6 +420,7 @@ export const surveyForm: FormDef = {
             '이 닦이기',
           ],
           other: true,
+          layout: 'list',
         },
         {
           id: 'q70',
@@ -570,6 +571,19 @@ export const surveyForm: FormDef = {
           ],
           other: true,
           exclusive: '없음',
+          // 48개를 뜻 단위로 묶어 훑기 쉽게. 소제목은 원문에 없는 화면 장치다(선택지 글은 그대로).
+          layout: 'list',
+          headings: {
+            '반려견을 쓰다듬는다': '만지거나 옮길 때',
+            '반려견이 뭔가를 먹고 있을 때 가까워진다': '먹을 때',
+            '반려견이 좋아하는 것이나 장난감을 가지고 있을 때 접근한다': '물건·장난감',
+            '반려견에게 요청한다(앉아, 엎드려 등...)': '요청하거나 혼낼 때',
+            '리드나 목걸이 등을 채울 때': '목줄·시선·공간',
+            '반려견의 발을 닦인다': '몸 손질',
+            '미용실에서': '밖에서·낯선 사람',
+            '산책 중 다가오는 낯선 어른들에게': '산책 중',
+            '없음': '해당 없음',
+          },
         },
         {
           id: 'q84',

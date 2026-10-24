@@ -4,7 +4,7 @@ import { shop } from '../content/shop'
 import styles from './Landing.module.css'
 
 /**
- * 첫 화면: 로고 줄, 큰 사진, 제목과 안내, 작성할 양식 둘(예약 신청서·검사지), 정보 줄(위치·영업시간·예약금·인스타그램).
+ * 첫 화면: 로고 줄, 제목과 양식 둘(예약 신청서·검사지) — 할 일이 먼저 보이게 사진보다 위에 둔다, 큰 사진, 안내 한 문단, 정보 줄.
  * 사진은 next/image 가 아니라 평범한 img 다. 이미지 최적화 사용량을 쓰지 않고, 사진은 크기가 정해진 한 장이다.
  */
 export function Landing() {
@@ -14,17 +14,10 @@ export function Landing() {
         <span className={styles.wordmark}>{shop.name}</span>
       </header>
 
-      <div data-section="hero" className={styles.hero}>
-        <img className={styles.photo} src={shop.heroImage} alt={`${shop.nameKo} 매장`} width={1200} height={900} />
-      </div>
-
-      <section data-section="intro" className={styles.intro}>
+      <section data-section="lead" className={styles.lead}>
         <h1 className={styles.title}>예약 신청</h1>
-        <p>신청서를 보내 주시면 확인한 뒤 연락드려요.</p>
-        <p>연락하면서 예약 날짜와 시간을 확정한 뒤, 예약금을 입금해 주시면 예약이 완료돼요.</p>
-        <p>아이가 편안하게 케어받을 수 있도록 충분히 상담한 뒤 예약을 진행해요.</p>
+        <p className={styles.leadText}>작성할 양식을 골라 주세요.</p>
       </section>
-
       {/* 링크 이름은 제목 줄(aria-labelledby), 설명 줄은 설명(aria-describedby)이다. 이름에 다 넣으면 낭독이 길어진다. */}
       <nav data-section="choices" aria-label="작성할 양식" className={styles.choices}>
         <Link className={styles.choice} href="/apply" aria-labelledby="choice-apply" aria-describedby="choice-apply-desc">
@@ -50,6 +43,12 @@ export function Landing() {
           <Chevron />
         </Link>
       </nav>
+      <div data-section="hero" className={styles.hero}>
+        <img className={styles.photo} src={shop.heroImage} alt={`${shop.nameKo} 매장`} width={1200} height={900} />
+      </div>
+      <section data-section="intro" className={styles.intro}>
+        <p>신청서를 보내 주시면 확인하고 연락드려요. 날짜와 시간을 정하고 예약금을 입금하면 예약이 완료돼요.</p>
+      </section>
 
       <dl data-section="info" className={styles.info}>
         <div className={styles.row}>

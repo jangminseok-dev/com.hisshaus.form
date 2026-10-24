@@ -7,7 +7,7 @@ const question = (id: string) => allQuestions(applyForm).find((q) => q.id === id
 
 describe('신청서 정의', () => {
   it('묶음은 보호자·반려견·이용 안내, 서비스별 넷, 예약금 안내 순서고 문항 id 가 겹치지 않는다', () => {
-    expect(applyForm.groups.map((g) => g.id)).toEqual(['guardian', 'pet', 'visit', 'grooming', 'daycare', 'hotel', 'training', 'deposit'])
+    expect(applyForm.groups.map((g) => g.id)).toEqual(['guardian', 'pet', 'health', 'visit', 'grooming', 'daycare', 'hotel', 'training', 'deposit'])
     const ids = allQuestions(applyForm).map((q) => q.id)
     expect(new Set(ids).size).toBe(ids.length)
   })
@@ -17,7 +17,7 @@ describe('신청서 정의', () => {
     expect(group('daycare').showIf).toEqual({ questionId: 'services', includes: DAYCARE_SERVICE })
     expect(group('hotel').showIf).toEqual({ questionId: 'services', includes: HOTEL_SERVICE })
     expect(group('training').showIf).toEqual({ questionId: 'services', includes: TRAINING_SERVICE })
-    for (const id of ['guardian', 'pet', 'visit', 'deposit']) expect(group(id).showIf).toBeUndefined()
+    for (const id of ['guardian', 'pet', 'health', 'visit', 'deposit']) expect(group(id).showIf).toBeUndefined()
     // 조건이 가리키는 문항은 서비스별 묶음보다 앞 묶음의 복수 선택이다.
     expect(question('services').type).toBe('multi')
     expect(applyForm.groups.indexOf(group('visit'))).toBeLessThan(applyForm.groups.indexOf(group('grooming')))
@@ -35,7 +35,7 @@ describe('신청서 정의', () => {
       .filter((q) => q.required)
       .map((q) => q.id)
     // 이용 서비스 묶음에서 알게 된 경로만 선택이다.
-    const always = ['guardian', 'pet', 'visit'].flatMap((id) => group(id).questions.filter((q) => q.id !== 'visit_source').map((q) => q.id))
+    const always = ['guardian', 'pet', 'health', 'visit'].flatMap((id) => group(id).questions.filter((q) => q.id !== 'visit_source').map((q) => q.id))
     expect(required).toEqual([
       ...always,
       'groom_date',

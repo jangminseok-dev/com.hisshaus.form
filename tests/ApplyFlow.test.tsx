@@ -375,7 +375,8 @@ describe('세션', () => {
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/apply/done'))
 
     const { unmount } = render(<Done />)
-    expect(await screen.findByText('보리 · Grooming 미용 · 1월 1일 (목) 희망')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: '보리의 신청서가 잘 도착했어요' })).toBeInTheDocument()
+    expect(screen.getByText('Grooming 미용 · 1월 1일 (목) 희망')).toBeInTheDocument()
     expect(router.replace).toHaveBeenCalledTimes(1)
     unmount()
   })
@@ -389,8 +390,8 @@ describe('신청을 낸 뒤 뒤로 가기', () => {
     saveDraft('apply', { answers: validAnswers(applyForm), groupIndex: 0, submissionId: ID, key: OLD_KEY })
     const first = render(<ApplyFlow />)
 
-    // 끝 묶음까지 넘기며(보호자→반려견→이용 안내→미용→예약금 안내, 칸 넷을 쌓고) 낸다.
-    for (let i = 0; i < 4; i++) fireEvent.click(await screen.findByRole('button', { name: '다음' }))
+    // 끝 묶음까지 넘기며(보호자→반려견→반려견 건강→이용 안내→미용→예약금 안내, 칸 다섯을 쌓고) 낸다.
+    for (let i = 0; i < 5; i++) fireEvent.click(await screen.findByRole('button', { name: '다음' }))
     fireEvent.click(await submitButton())
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/apply/done'))
 
@@ -405,11 +406,11 @@ describe('신청을 낸 뒤 뒤로 가기', () => {
     expect(history.state).toMatchObject({ hhForm: 'apply', hhStep: 0, hhPos: 0 })
     expect(history.state.hhKey).not.toBe(OLD_KEY)
 
-    // 다시 뒤로: 지난 신청서의 남은 칸 셋(이용 안내·반려견·보호자)을 하나씩 건너뛰고 양식 앞 페이지에서 멈춘다. 묶음도 초안도 그대로다.
+    // 다시 뒤로: 지난 신청서의 남은 칸 넷(이용 안내·반려견 건강·반려견·보호자)을 하나씩 건너뛰고 양식 앞 페이지에서 멈춘다. 묶음도 초안도 그대로다.
     const back = vi.spyOn(history, 'back')
     history.back()
     await waitFor(() => expect(history.state).toEqual({ page: 'landing' }))
-    expect(back).toHaveBeenCalledTimes(1 + 3)
+    expect(back).toHaveBeenCalledTimes(1 + 4)
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('보호자')
     expect(loadDraft('apply')).toBeNull()
   })

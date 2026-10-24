@@ -11,6 +11,8 @@ export interface Question {
   label: string
   type: QuestionType
   required: boolean
+  /** short 유형: 브라우저 자동 완성 종류(name·street-address 등) */
+  autoComplete?: string
   /** 질문 아래 안내문(원문 그대로) */
   hint?: string
   /** single·multi 의 선택지 */
@@ -27,6 +29,10 @@ export interface Question {
   blockIf?: { value: string; message: string }
   /** time 유형: 이 날짜 문항의 요일에 맞는 영업시간 안의 시간만 고를 수 있다 */
   dateId?: string
+  /** multi 유형: 'list' 면 칩을 한 줄에 하나씩 세로로 둔다(선택지가 많을 때 훑기 쉽게) */
+  layout?: 'list'
+  /** multi 유형(list): 선택지 글 → 그 선택지 앞에 둘 소제목. 선택지를 뜻 단위로 묶어 보여 준다(원문에는 없는 화면 장치) */
+  headings?: Record<string, string>
   /** multi 유형: 이 선택지는 다른 선택지와 같이 고를 수 없다(예: '없음'). 고르면 나머지가 풀리고, 다른 것을 고르면 이것이 풀린다 */
   exclusive?: string
   /** multi 유형: 접두마다 하나씩만 고른다(예: ['a.', 'b.'] — a 에서 하나, b 에서 하나) */

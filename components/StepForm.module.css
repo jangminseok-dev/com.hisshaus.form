@@ -35,6 +35,10 @@
   cursor: pointer;
 }
 
+.back:hover:not(:disabled) {
+  background: var(--line);
+}
+
 .back:disabled {
   color: var(--line);
   cursor: default;
@@ -55,6 +59,12 @@
   overflow-wrap: anywhere;
   /* 묶음이 바뀔 때 스크립트가 포커스를 주는 자리라 테두리를 그리지 않는다. */
   outline: none;
+}
+
+.pace {
+  margin: -16px 0 20px;
+  color: var(--mute);
+  font-size: 14px;
 }
 
 .notice {
@@ -108,6 +118,48 @@
   font-size: 17px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.primary {
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.primary:hover {
+  opacity: 0.9;
+}
+
+.primary:active {
+  opacity: 0.8;
+}
+
+/* 보내는 중 글자 앞의 작은 고리. 움직임 줄이기 설정에서는 돌지 않고 글자만 보인다. */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+
+  .primary,
+  .back {
+    transition: none;
+  }
 }
 
 /* 채울 곳이 남은 버튼은 꺼진 모양이지만 누를 수 있다(누르면 빈 곳으로 데려간다). 보내는 중에는 진짜 disabled 다.

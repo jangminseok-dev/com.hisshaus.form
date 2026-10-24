@@ -18,7 +18,8 @@ import { validAnswers } from './fixtures'
 const TODAY = '2026-10-23'
 const guardian = applyForm.groups[0]
 const pet = applyForm.groups[1]
-const visit = applyForm.groups[2]
+const health = applyForm.groups[2]
+const visit = applyForm.groups[3]
 const groupOf = (id: string) => applyForm.groups.find((g) => g.id === id)!
 const grooming = groupOf('grooming')
 const msg = (errs: { questionId: string; message: string }[], id: string) =>
@@ -68,7 +69,7 @@ describe('답변 검증', () => {
   })
 
   it('긴 답 3001자는 거부한다', () => {
-    const errs = validateGroup(pet, { pet_health: 'a'.repeat(3001), pet_treatment: 'a'.repeat(3000) }, TODAY)
+    const errs = validateGroup(health, { pet_health: 'a'.repeat(3001), pet_treatment: 'a'.repeat(3000) }, TODAY)
     expect(msg(errs, 'pet_health')).toBe('3,000자까지 적을 수 있어요')
     expect(msg(errs, 'pet_treatment')).toBeUndefined()
   })
@@ -193,12 +194,13 @@ describe('서비스별 묶음 — 고른 서비스의 묶음만 보인다', () =
   })
 
   it('visibleGroups: 정의 순서대로, 고른 서비스의 묶음만 끼운다', () => {
-    expect(visibleGroups(applyForm, {}).map((g) => g.id)).toEqual(['guardian', 'pet', 'visit', 'deposit'])
-    expect(visibleGroups(applyForm, { services }).map((g) => g.id)).toEqual(['guardian', 'pet', 'visit', 'grooming', 'hotel', 'deposit'])
+    expect(visibleGroups(applyForm, {}).map((g) => g.id)).toEqual(['guardian', 'pet', 'health', 'visit', 'deposit'])
+    expect(visibleGroups(applyForm, { services }).map((g) => g.id)).toEqual(['guardian', 'pet', 'health', 'visit', 'grooming', 'hotel', 'deposit'])
     // 고른 순서가 아니라 정의 순서다.
     expect(visibleGroups(applyForm, { services: [TRAINING_SERVICE, DAYCARE_SERVICE] }).map((g) => g.id)).toEqual([
       'guardian',
       'pet',
+      'health',
       'visit',
       'daycare',
       'training',
@@ -507,6 +509,6 @@ describe('복수 선택의 중복·개수', () => {
 
   it('선택지를 모두 고르고 기타 하나를 더해도 통과한다', () => {
     expect(q16Of([...q16.options!, '기타: 가'])).toBeUndefined()
-    expect(services(applyForm.groups[2].questions.find((q) => q.id === 'services')!.options!)).toBeUndefined()
+    expect(services(applyForm.groups.find((g) => g.id === 'visit')!.questions.find((q) => q.id === 'services')!.options!)).toBeUndefined()
   })
 })

@@ -35,6 +35,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  // 폰 브라우저 주소창·상태 표시줄을 바탕색과 같게.
+  themeColor: '#f6f3ed',
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {

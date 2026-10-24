@@ -1,5 +1,7 @@
 'use client'
 
+import { Fragment } from 'react'
+
 import { OTHER_PREFIX } from '../../lib/validate'
 import styles from './Field.module.css'
 import { Chip, describedBy, fieldIds, type FieldProps, Frame, isOtherValue, OtherInput } from './parts'
@@ -41,12 +43,15 @@ export function MultiChoice({ q, value, error, onChange }: FieldProps) {
         aria-labelledby={ids.label}
         aria-describedby={described}
         aria-invalid={error ? true : undefined}
-        className={styles.chips}
+        className={q.layout === 'list' ? styles.chipList : styles.chips}
       >
         {(q.options ?? []).map((option) => (
-          <Chip key={option} role="checkbox" checked={picked.includes(option)} onClick={() => toggle(option)}>
-            {option}
-          </Chip>
+          <Fragment key={option}>
+            {q.headings?.[option] && <p className={styles.subhead}>{q.headings[option]}</p>}
+            <Chip role="checkbox" checked={picked.includes(option)} onClick={() => toggle(option)}>
+              {option}
+            </Chip>
+          </Fragment>
         ))}
         {q.other && (
           <Chip role="checkbox" checked={otherAt >= 0} onClick={toggleOther}>

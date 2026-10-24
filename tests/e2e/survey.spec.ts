@@ -94,7 +94,7 @@ test('끝까지 제출하면 검사지 탭에 한 줄, 슬랙은 한 통 이상�
   await submitSurvey(page)
 
   await expect(page).toHaveURL(/\/survey\/done$/)
-  await expect(page.getByRole('heading', { name: '검사지가 접수되었어요' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /검사지가 잘 도착했어요$/ })).toBeVisible()
 
   const { sheets, slack } = await fakeState(request)
   expect(sheets).toHaveLength(1)
@@ -122,7 +122,7 @@ test('검사지를 낸 뒤 완료 화면에서 뒤로 두 번이면 지난 칸�
   await expectGroup(page, 'a')
   await submitSurvey(page)
   await expect(page).toHaveURL(/\/survey\/done$/)
-  await expect(page.getByRole('heading', { name: '검사지가 접수되었어요' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /검사지가 잘 도착했어요$/ })).toBeVisible()
 
   // 신청서에서 이어 쓴 검사지는 같은 신청 ID 로 두 탭이 이어진다.
   const { sheets, slack } = await fakeState(request)
@@ -142,7 +142,7 @@ test('검사지를 낸 뒤 완료 화면에서 뒤로 두 번이면 지난 칸�
   // 두 번째 뒤로: 지난 검사지가 남긴 칸을 모두 건너뛴다. 검사지를 낸 세션이라 검사지 안내는 완료 화면으로 보낸다.
   await page.goBack()
   await expect(page).toHaveURL(/\/apply\/done$/)
-  await expect(page.getByRole('heading', { name: '신청이 접수되었어요' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /의 신청서가 잘 도착했어요$/ })).toBeVisible()
   expect(await seen()).toEqual(['a'])
 })
 

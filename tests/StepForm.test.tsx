@@ -109,6 +109,30 @@ afterEach(() => {
 })
 
 describe('화면 틀', () => {
+  it('얼마나 왔는지는 숫자·막대 대신 말로 알린다 — 절반 넘게·거의 다·마지막, 앞쪽에서는 없다', () => {
+    // 검사지 12묶음: 1~6 없음, 7~10 '절반 넘게 왔어요', 11 '거의 다 왔어요', 12 '마지막 화면이에요'.
+    const expectPace = (idx: number, text: string | null) => {
+      const view = setup({ form: surveyForm, initial: draft(idx, validAnswers(surveyForm)), submitLabel: '제출하기' })
+      const found = screen.queryByText(/절반 넘게 왔어요|거의 다 왔어요|마지막 화면이에요/)
+      expect(found?.textContent ?? null).toBe(text)
+      view.unmount()
+    }
+    expectPace(0, null)
+    expectPace(5, null)
+    expectPace(6, '절반 넘게 왔어요')
+    expectPace(9, '절반 넘게 왔어요')
+    expectPace(10, '거의 다 왔어요')
+    expectPace(11, '마지막 화면이에요')
+    // 숫자 진행 표시는 여전히 없다.
+    setup({ form: surveyForm, initial: draft(11, validAnswers(surveyForm)), submitLabel: '제출하기' })
+    expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument()
+  })
+
+  it('양식 제목은 보조 기기용 h1 로 있다', () => {
+    setup()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('예약 신청')
+  })
+
   it('위 막대에 이전 버튼과 묶음 제목만 있고 진행 표시(k / N·막대)는 없다', () => {
     setup()
     expect(screen.getByRole('button', { name: '이전' })).toBe(action('back'))
@@ -882,8 +906,8 @@ describe('제출', () => {
     const { onSubmit, onDraft } = setup({ initial: draft(0, answers), today: '2026-10-23' })
     const sending = deferred<'ok' | 'invalid' | 'failed'>()
     onSubmit.mockReturnValue(sending.promise)
-    // 보호자→반려견→이용 안내→미용→예약금 안내.
-    for (let i = 0; i < 4; i++) fireEvent.click(action('next'))
+    // 보호자→반려견→반려견 건강→이용 안내→미용→예약금 안내.
+    for (let i = 0; i < 5; i++) fireEvent.click(action('next'))
     expect(groupId()).toBe('deposit')
     fireEvent.click(action('submit'))
     expect(onSubmit).toHaveBeenCalledTimes(1)
@@ -891,14 +915,14 @@ describe('제출', () => {
     // 두 칸 뒤로 가 이용 안내로 돌아왔다.
     act(() => history.go(-2))
     await waitFor(() => expect(groupId()).toBe('visit'))
-    expect(history.state).toMatchObject(entry(2, 2))
+    expect(history.state).toMatchObject(entry(groupIndexOf(applyForm, 'visit'), 3))
 
     await act(async () => sending.resolve('invalid'))
 
     // 오류가 있는 묶음(미용의 희망 날짜)으로 옮기고, 칸과 초안도 그 묶음을 적는다. 위치는 그대로다.
     await waitFor(() => expect(groupId()).toBe('grooming'))
     expect(within(box('groom_date')).getByRole('alert')).toHaveTextContent('오늘 이후 날짜를 골라 주세요')
-    expect(history.state).toMatchObject(entry(GROOMING, 2))
+    expect(history.state).toMatchObject(entry(GROOMING, 3))
     expect(onDraft).toHaveBeenLastCalledWith({ answers, groupIndex: GROOMING, submissionId: ID, key: KEY })
   })
 

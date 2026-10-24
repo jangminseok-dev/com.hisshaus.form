@@ -57,13 +57,14 @@ afterEach(() => {
 })
 
 describe('첫 화면', () => {
-  it('매장 이름·사진·제목·안내·양식 둘·정보가 구역별로 있다', () => {
+  it('매장 이름·제목과 양식 둘·사진·안내·정보 순서로 있다 — 할 일(양식 선택)이 사진보다 위다', () => {
     render(<Landing />)
     expect(Array.from(document.querySelectorAll('[data-section]')).map((e) => e.getAttribute('data-section'))).toEqual([
       'head',
+      'lead',
+      'choices',
       'hero',
       'intro',
-      'choices',
       'info',
     ])
 
@@ -74,13 +75,11 @@ describe('첫 화면', () => {
     expect(photo).toHaveAttribute('width')
     expect(photo).toHaveAttribute('height')
 
-    expect(within(section('intro')).getByRole('heading', { level: 1, name: '예약 신청' })).toBeInTheDocument()
+    expect(within(section('lead')).getByRole('heading', { level: 1, name: '예약 신청' })).toBeInTheDocument()
+    expect(within(section('lead')).getByText('작성할 양식을 골라 주세요.')).toBeInTheDocument()
+    // 안내는 한 문단이다(잡초 뽑기). 상세 순서는 완료 화면에 있다.
     const paragraphs = Array.from(section('intro').querySelectorAll('p')).map((p) => p.textContent)
-    expect(paragraphs).toEqual([
-      '신청서를 보내 주시면 확인한 뒤 연락드려요.',
-      '연락하면서 예약 날짜와 시간을 확정한 뒤, 예약금을 입금해 주시면 예약이 완료돼요.',
-      '아이가 편안하게 케어받을 수 있도록 충분히 상담한 뒤 예약을 진행해요.',
-    ])
+    expect(paragraphs).toEqual(['신청서를 보내 주시면 확인하고 연락드려요. 날짜와 시간을 정하고 예약금을 입금하면 예약이 완료돼요.'])
 
     // 양식 둘은 링크 이름이 제목 줄이고(설명 줄은 이름에 들어가지 않는다) 각자 양식으로 간다.
     const choices = within(section('choices')).getAllByRole('link')
@@ -296,8 +295,8 @@ describe('완료 화면', () => {
     saveSession(session)
     const { container } = render(<Done />)
 
-    expect(await screen.findByRole('heading', { level: 1, name: '신청이 접수되었어요' })).toBeInTheDocument()
-    expect(screen.getByText('보리 · Grooming 미용, 교육미용 / 미용 트레이닝 상담 · 10월 28일 (수) 오전 희망')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: '보리의 신청서가 잘 도착했어요' })).toBeInTheDocument()
+    expect(screen.getByText('Grooming 미용, 교육미용 / 미용 트레이닝 상담 · 10월 28일 (수) 오전 희망')).toBeInTheDocument()
 
     expect(screen.getByText('다음 순서')).toBeInTheDocument()
     expect(screen.getByText('1. 히스하우스가 신청서를 확인하고 연락드려요')).toBeInTheDocument()
@@ -314,7 +313,7 @@ describe('완료 화면', () => {
     expect(screen.getByText('3. 확정된 뒤 예약금 50,000원을 아래 계좌로 입금해 주세요')).toBeInTheDocument()
     expect(screen.getByText('4. 입금이 확인되면 예약이 완료돼요')).toBeInTheDocument()
 
-    expect(screen.getByText('010-****-5678 로 연락드려요.')).toBeInTheDocument()
+    expect(screen.getByText('곧 010-****-5678 로 연락드릴게요.')).toBeInTheDocument()
     // 가운데 네 자리는 화면에 나오지 않는다.
     expect(container.textContent).not.toContain('1234')
     expect(container.textContent).not.toContain('입니다')
@@ -335,7 +334,7 @@ describe('완료 화면', () => {
   ])('%s 이어서 쓰기 링크가 없다', async (_name, over) => {
     saveSession({ ...session, ...over })
     render(<Done />)
-    await screen.findByRole('heading', { level: 1, name: '신청이 접수되었어요' })
+    await screen.findByRole('heading', { level: 1, name: '보리의 신청서가 잘 도착했어요' })
     expect(screen.queryByRole('link', { name: '검사지 이어서 쓰기' })).not.toBeInTheDocument()
     // 확인은 첫 화면으로 간다.
     expect(screen.getByRole('link', { name: '확인' })).toHaveAttribute('href', '/')
@@ -351,7 +350,7 @@ describe('완료 화면', () => {
   it('서비스가 하나여도 요약이 이어진다', async () => {
     saveSession({ ...session, services: ['Hotel 호텔'], training: false })
     render(<Done />)
-    expect(await screen.findByText('보리 · Hotel 호텔 · 10월 28일 (수) 오전 희망')).toBeInTheDocument()
+    expect(await screen.findByText('Hotel 호텔 · 10월 28일 (수) 오전 희망')).toBeInTheDocument()
   })
 })
 
@@ -359,8 +358,8 @@ describe('검사지 완료 화면', () => {
   it('신청서를 내고 이어서 쓴 경우: 신청과 함께 전달됐다고 알리고 다음 순서와 처음으로 링크가 있다', async () => {
     saveSession({ ...session, surveyDone: true })
     const { container } = render(<SurveyDone />)
-    expect(screen.getByRole('heading', { level: 1, name: '검사지가 접수되었어요' })).toBeInTheDocument()
-    expect(await screen.findByText('보리의 예약 신청과 함께 히스하우스에 전달됐어요.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: '보리의 검사지가 잘 도착했어요' })).toBeInTheDocument()
+    expect(await screen.findByText('예약 신청과 함께 히스하우스에 전달됐어요.')).toBeInTheDocument()
     expect(screen.getByText('3. 확정된 뒤 예약금 50,000원을 아래 계좌로 입금해 주세요')).toBeInTheDocument()
     expect(screen.getByText('553-910109-67607')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: '다음 순서' })).toBeInTheDocument()
@@ -381,7 +380,8 @@ describe('검사지 완료 화면', () => {
 
 describe('화면 맞춤(viewport)', () => {
   it('화면을 기기 끝까지 채운다(viewport-fit=cover) — 아래 고정 막대의 안전 영역 여백은 CSS 가 비운다', () => {
-    expect(viewport).toEqual({ width: 'device-width', initialScale: 1, viewportFit: 'cover' })
+    // themeColor: 폰 브라우저의 주소창·상태 표시줄을 바탕색(#f6f3ed)과 같게.
+    expect(viewport).toEqual({ width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: '#f6f3ed' })
   })
 })
 

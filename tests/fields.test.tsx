@@ -201,6 +201,22 @@ describe('단일 선택', () => {
   })
 })
 
+describe('연락처', () => {
+  it('적는 대로 하이픈이 들어가고 값도 하이픈 포함으로 돌려준다', () => {
+    const { last } = renderField(phoneQ)
+    fireEvent.change(screen.getByLabelText(phoneQ.label), { target: { value: '01012345678' } })
+    expect(last()).toBe('010-1234-5678')
+    expect(screen.getByLabelText(phoneQ.label)).toHaveValue('010-1234-5678')
+  })
+
+  it('연락처·이메일은 맞춤법 검사를 끄고, 이름 칸은 autocomplete 를 받는다', () => {
+    renderField(phoneQ)
+    expect(screen.getByLabelText(phoneQ.label)).toHaveAttribute('spellcheck', 'false')
+    renderField({ ...shortQ, id: 'nm', label: '이름', autoComplete: 'name' })
+    expect(screen.getByLabelText('이름')).toHaveAttribute('autocomplete', 'name')
+  })
+})
+
 describe('복수 선택', () => {
   it('복수 선택은 여러 개가 켜진다', () => {
     const { last } = renderField(multiQ)
@@ -245,6 +261,21 @@ describe('복수 선택', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'a. 적어졌다' }))
     expect(last()).toEqual(['b. 심해졌다', 'a. 적어졌다'])
     expect(screen.getByRole('checkbox', { name: 'a. 많아졌다' })).not.toBeChecked()
+  })
+
+  it("layout 'list' 면 소제목이 그 선택지 앞에 끼고, 소제목은 고를 수 없다", () => {
+    const q: Question = { ...multiQ, options: ['쓰다듬는다', '껴안는다', '먹을 때 만진다'], layout: 'list', headings: { 쓰다듬는다: '만질 때', '먹을 때 만진다': '먹을 때' } }
+    const { container } = renderField(q)
+    const group = screen.getByRole('group')
+    expect(Array.from(group.children).map((el) => `${el.tagName}:${el.textContent}`)).toEqual([
+      'P:만질 때',
+      'BUTTON:쓰다듬는다',
+      'BUTTON:껴안는다',
+      'P:먹을 때',
+      'BUTTON:먹을 때 만진다',
+    ])
+    expect(screen.getAllByRole('checkbox')).toHaveLength(3)
+    expect(container.querySelector('[role="group"]')!.className).toContain('chipList')
   })
 
   it('칩 묶음은 그룹이고 이름이 문항 그대로다', () => {

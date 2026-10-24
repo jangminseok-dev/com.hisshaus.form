@@ -164,6 +164,9 @@ export async function writeApply(page: Page, o: { pet?: string; training?: boole
   await setText(page, 'pet_name', o.pet ?? '보리')
   await fillGroup(page)
   await goNext(page)
+  // 반려견 건강
+  await fillGroup(page)
+  await goNext(page)
   if (o.training) await choose(page, 'services', TRAINING_SERVICE)
   await fillGroup(page)
   await goNext(page)

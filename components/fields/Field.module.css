@@ -113,6 +113,27 @@
   gap: 8px;
 }
 
+/* 선택지가 많은 문항: 한 줄에 하나씩 세로로. 소제목이 뜻 단위로 나눈다. */
+.chipList {
+  display: grid;
+  gap: 8px;
+}
+
+.chipList .chip {
+  width: 100%;
+}
+
+.subhead {
+  margin: 12px 0 0;
+  color: var(--mute);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.subhead:first-child {
+  margin-top: 0;
+}
+
 .chip {
   max-width: 100%;
   min-height: 44px;
@@ -128,6 +149,18 @@
   word-break: keep-all;
   overflow-wrap: anywhere;
   cursor: pointer;
+}
+
+.chip {
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.chip:hover {
+  border-color: var(--mute);
+}
+
+.chip:active {
+  background: var(--line);
 }
 
 .chip[aria-checked='true'] {

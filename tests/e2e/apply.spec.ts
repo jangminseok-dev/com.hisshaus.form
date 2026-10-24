@@ -25,7 +25,7 @@ test.beforeEach(async ({ request }) => {
   await resetFake(request)
 })
 
-const done = (page: Page) => page.getByRole('heading', { name: '신청이 접수되었어요' })
+const done = (page: Page) => page.getByRole('heading', { name: /의 신청서가 잘 도착했어요$/ })
 const FORBIDDEN = /입니다|됩니다|십시오/
 
 /** 슬랙 통의 mrkdwn 본문(섹션 글)을 한 덩이로. */
@@ -41,8 +41,8 @@ test('신청서를 끝까지 쓰면 완료 화면이 뜨고 시트 한 줄·슬�
   await expect(page).toHaveURL(/\/apply\/done$/)
   await expect(done(page)).toBeVisible()
   // 이름은 글자 그대로 보이고(HTML 로 읽히지 않는다), 연락처는 가운데가 가려진다.
-  await expect(page.getByText(`${pet} · Grooming 미용 · `)).toBeVisible()
-  await expect(page.getByText('010-****-5678 로 연락드려요.')).toBeVisible()
+  await expect(page.getByText(`Grooming 미용 · `)).toBeVisible()
+  await expect(page.getByText('곧 010-****-5678 로 연락드릴게요.')).toBeVisible()
 
   const { sheets, slack } = await fakeState(request)
   expect(sheets).toHaveLength(1)
@@ -133,7 +133,7 @@ for (const width of [320, 390]) {
 
     await page.getByRole('link', { name: '예약 신청서' }).click()
     // 도우미는 이용 서비스에서 첫 선택지(미용)를 고르므로 미용 묶음과 예약금 안내가 이어진다.
-    for (const group of ['guardian', 'pet', 'visit', 'grooming', 'deposit']) {
+    for (const group of ['guardian', 'pet', 'health', 'visit', 'grooming', 'deposit']) {
       await expectGroup(page, group)
       await expectNoHorizontalOverflow(page, width)
       await fillGroup(page)
@@ -238,6 +238,7 @@ test('화면 어디에도 입니다 체가 없다', async ({ page }) => {
   for (const [group, title] of [
     ['guardian', '보호자 정보'],
     ['pet', '반려견 정보'],
+    ['health', '반려견 건강'],
     ['visit', '이용 서비스'],
     ['grooming', 'Grooming 미용'],
     ['training', '교육 미용 / 미용 트레이닝 상담'],

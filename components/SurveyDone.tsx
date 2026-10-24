@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { TRAINING_SERVICE } from '../forms/apply'
 import { depositOf } from '../lib/deposit'
 import { BankAccount } from './BankAccount'
+import { CheckMark } from './CheckMark'
 import { loadSession, type ApplySession } from '../lib/draft'
 import styles from './Screen.module.css'
 
@@ -23,10 +24,9 @@ export function SurveyDone() {
 
   return (
     <div className={styles.screen}>
-      <h1 className={styles.title}>검사지가 접수되었어요</h1>
-      {withApply && (
-        <p className={`${styles.text} ${styles.summary}`}>{session.petName}의 예약 신청과 함께 히스하우스에 전달됐어요.</p>
-      )}
+      <CheckMark />
+      <h1 className={styles.title}>{withApply ? `${session.petName}의 검사지가 잘 도착했어요` : '검사지가 잘 도착했어요'}</h1>
+      {withApply && <p className={`${styles.text} ${styles.summary}`}>예약 신청과 함께 히스하우스에 전달됐어요.</p>}
       <div className={styles.box}>
         <h2 className={styles.boxTitle}>다음 순서</h2>
         <ol className={styles.steps}>

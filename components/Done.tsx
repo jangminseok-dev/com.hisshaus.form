@@ -4,6 +4,7 @@ import Link from 'next/link'
 
 import { depositOf } from '../lib/deposit'
 import { BankAccount } from './BankAccount'
+import { CheckMark } from './CheckMark'
 import { maskPhone } from '../lib/format'
 import { useApplySession } from '../lib/use-session'
 import styles from './Screen.module.css'
@@ -15,9 +16,11 @@ export function Done() {
 
   return (
     <div className={styles.screen}>
-      <h1 className={styles.title}>신청이 접수되었어요</h1>
+      <CheckMark />
+      {/* 반려견 이름을 불러 준다(끝맛). 요약은 아래에 그대로. */}
+      <h1 className={styles.title}>{session.petName}의 신청서가 잘 도착했어요</h1>
       <p className={`${styles.text} ${styles.summary}`}>
-        {session.petName} · {session.services.join(', ')} · {session.wish} 희망
+        {session.services.join(', ')} · {session.wish} 희망
       </p>
       <div className={styles.box}>
         <h2 className={styles.boxTitle}>다음 순서</h2>
@@ -29,7 +32,7 @@ export function Done() {
         </ol>
         <BankAccount />
       </div>
-      <p className={styles.text}>{maskPhone(session.guardianPhone)} 로 연락드려요.</p>
+      <p className={styles.text}>곧 {maskPhone(session.guardianPhone)} 로 연락드릴게요.</p>
       {/* 교육미용이면 검사지가 주 버튼이고 확인은 보조 버튼. 아니면 확인 하나가 주 버튼이다. 확인은 첫 화면으로 간다. */}
       <div className={styles.actions}>
         {session.training && !session.surveyDone ? (
