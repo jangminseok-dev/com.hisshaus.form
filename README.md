@@ -124,7 +124,7 @@ pnpm dev                     # http://localhost:3020/hisshaus
 
 - 사진은 같은 이름으로 덮어쓴다. 이름이나 확장자를 바꾸면 `content/shop.ts` 의 `heroImage` 와 `app/layout.tsx`·`app/survey/page.tsx` 의 `og:image` 경로도 고친다.
 - 사진은 최적화를 거치지 않고 원본 그대로 보호자 폰으로 간다(`next/image` 를 쓰지 않는다). 첫 화면 사진은 가로 1200px 안팎, 300KB 이하의 JPG 로 줄여서 넣는다.
-- 예약금 금액(10,000원)은 `content/shop.ts` 의 `deposit` 과 완료 화면 안내(`components/Done.tsx`) 두 곳에 적혀 있다. 바꾸면 둘 다 고친다.
+- 예약금은 교육미용 상담 50,000원, 그 밖 10,000원이다. 금액은 `lib/deposit.ts`(완료 화면), `content/shop.ts` 의 `deposit`(첫 화면), `forms/apply.ts` 의 예약금 안내문 세 곳에 적혀 있다. 바꾸면 셋 다 고친다.
 - 카카오톡은 미리보기를 한동안 보관한다. 사진을 바꾼 뒤 옛 모양이 보이면 카카오 디벨로퍼스의 공유 디버거에서 그 주소의 캐시를 지우고, 그래도 그대로면 사진 파일 이름을 바꾼다.
 
 ## 출시 전에 정할 것

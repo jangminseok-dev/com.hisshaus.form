@@ -17,8 +17,8 @@ export const shop = {
     { days: [1, 2, 3], open: '10:00', close: '16:00' },
     { days: [4, 5, 6, 0], open: '10:00', close: '20:00' },
   ],
-  // 금액(10,000원)은 완료 화면 안내(components/Done.tsx)에도 적혀 있다. 바꾸면 둘 다 고친다.
-  deposit: '10,000원 입금 시 확정',
+  // 예약금 안내 글. 금액은 lib/deposit.ts(완료 화면·검사지 완료 화면이 씀)와 forms/apply.ts 의 예약금 안내문에도 적혀 있다. 바꾸면 셋 다 고친다.
+  deposit: '미용·데이케어·호텔 10,000원\n교육미용 상담 50,000원\n입금 시 확정',
   // 첫 화면 큰 사진(매장 내부). 바꿀 때는 public/hero.jpg 를 같은 이름으로 덮어쓴다.
   // (카카오톡 링크 미리보기 그림은 public/og.jpg 이고 app/layout.tsx 와 app/survey/page.tsx 가 가리킨다.)
   // <img> 주소에는 basePath 가 붙지 않아서 직접 붙인다.

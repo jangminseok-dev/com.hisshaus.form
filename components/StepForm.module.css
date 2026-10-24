@@ -7,10 +7,10 @@
 
 .bar {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr;
   grid-template-areas:
-    'back . count'
-    'title title title';
+    'back'
+    'title';
   align-items: center;
   padding-top: 8px;
 }
@@ -48,40 +48,13 @@
 
 .title {
   grid-area: title;
-  margin: 4px 0 0;
+  margin: 4px 0 24px;
   font-size: 22px;
   line-height: 1.35;
   word-break: keep-all;
   overflow-wrap: anywhere;
   /* 묶음이 바뀔 때 스크립트가 포커스를 주는 자리라 테두리를 그리지 않는다. */
   outline: none;
-}
-
-.count {
-  grid-area: count;
-  color: var(--mute);
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-
-.progress {
-  height: 4px;
-  margin: 16px 0 24px;
-  border-radius: 2px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.fill {
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.2s ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fill {
-    transition: none;
-  }
 }
 
 .notice {

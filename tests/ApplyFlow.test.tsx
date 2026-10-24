@@ -81,7 +81,6 @@ describe('신청서를 열 때', () => {
     render(<ApplyFlow />)
     expect(await screen.findByRole('heading', { level: 2, name: '보호자 정보' })).toBeInTheDocument()
     // 서비스를 고르기 전에는 서비스별 묶음이 하나도 끼지 않는다.
-    expect(screen.getByText('1 / 4')).toBeInTheDocument()
 
     // 입력하면 초안이 저장되고, 그 신청 ID 는 브라우저가 만든 10자다.
     fireEvent.change(screen.getByLabelText('보호자 성함'), { target: { value: '김하나' } })
@@ -98,7 +97,6 @@ describe('신청서를 열 때', () => {
     saveDraft('apply', { answers: { guardian_name: '김하나' }, groupIndex: 1, submissionId: ID, key: KEY })
     render(<ApplyFlow />)
     expect(await screen.findByRole('heading', { level: 2, name: '반려견 정보' })).toBeInTheDocument()
-    expect(screen.getByText('2 / 4')).toBeInTheDocument()
 
     // 이어 쓰는 동안 신청 ID 는 그대로다.
     fireEvent.change(screen.getByLabelText('반려견 이름'), { target: { value: '보리' } })

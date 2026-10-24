@@ -109,18 +109,12 @@ afterEach(() => {
 })
 
 describe('화면 틀', () => {
-  it('위 막대에 이전 버튼·묶음 제목·진행이 있고 진행 막대는 장식이다', () => {
+  it('위 막대에 이전 버튼과 묶음 제목만 있고 진행 표시(k / N·막대)는 없다', () => {
     setup()
     expect(screen.getByRole('button', { name: '이전' })).toBe(action('back'))
-    const title = screen.getByRole('heading', { level: 2 })
-    expect(title).toHaveTextContent('보호자')
-    // 서비스를 고르기 전에는 서비스별 묶음이 하나도 끼지 않는다(보호자·반려견·이용 안내·예약금 안내).
-    expect(screen.getByText('1 / 4')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('보호자')
     expect(groupId()).toBe('guardian')
-    // 진행 막대는 위 막대 바로 아래에 있다. 읽히지 않고 글이 없는 장식이다.
-    const progress = title.parentElement!.nextElementSibling
-    expect(progress).toHaveAttribute('aria-hidden', 'true')
-    expect(progress).toHaveTextContent('')
+    expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument()
   })
 
   it('묶음에 note 가 있으면 제목 아래에 보인다', () => {
@@ -135,9 +129,8 @@ describe('화면 틀', () => {
     expect(screen.queryByText(/서비스별 희망 날짜와 요청 사항을 여쭤봐요/)).not.toBeInTheDocument()
   })
 
-  it('검사지는 묶음 번호로만 진행을 보여 주고 전체 문항 수나 시간은 적지 않는다', () => {
+  it('검사지 화면에 전체 문항 수나 시간을 적지 않는다', () => {
     setup({ form: surveyForm, submitLabel: '제출하기' })
-    expect(screen.getByText('1 / 12')).toBeInTheDocument()
     const frame = [
       screen.getByRole('heading', { level: 2 }).parentElement!.textContent,
       action('next').textContent,
@@ -201,7 +194,6 @@ describe('다음·검증', () => {
 
     expect(groupId()).toBe('pet')
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('반려견')
-    expect(screen.getByText('2 / 4')).toBeInTheDocument()
     expect(onDraft).toHaveBeenCalledTimes(4)
     expect(onDraft).toHaveBeenLastCalledWith({ answers: GUARDIAN, groupIndex: 1, submissionId: ID, key: KEY })
   })
@@ -257,46 +249,21 @@ describe('서비스별 묶음', () => {
     return setup({ initial: draft(groupIndexOf(applyForm, 'visit'), answers) })
   }
 
-  it('서비스를 더 골라도 진행 막대는 되돌아가지 않는다 — 서비스별 묶음은 한 단계로 친다', () => {
+  it('서비스를 둘 고르면 그 두 묶음만 정의 순서로 이어진다', () => {
     atVisit()
-    const fill = () => screen.getByRole('heading', { level: 2 }).parentElement!.nextElementSibling!.firstElementChild as HTMLElement
-    // 보호자·반려견·이용 서비스·(서비스별)·예약금 안내 다섯 단계 중 셋째다.
-    expect(fill().style.width).toBe('60%')
 
     chooseMany(SERVICES_LABEL, HOTEL_SERVICE)
     chooseMany(SERVICES_LABEL, GROOMING_SERVICE)
-    expect(screen.getByText('3 / 6')).toBeInTheDocument()
-    expect(fill().style.width).toBe('60%')
-
-    // 서비스별 단계 안에서는 보이는 묶음 수로 나눠 조금씩 찬다: 미용(1/2) → 호텔(2/2).
-    fireEvent.click(action('next'))
-    expect(groupId()).toBe('grooming')
-    expect(fill().style.width).toBe('70%')
-    fireEvent.click(action('next'))
-    expect(groupId()).toBe('hotel')
-    expect(fill().style.width).toBe('80%')
-  })
-
-  it('서비스를 둘 고르면 그 두 묶음만 정의 순서로 이어지고 진행 표시는 보이는 묶음만 센다', () => {
-    atVisit()
-    expect(screen.getByText('3 / 4')).toBeInTheDocument()
-
-    chooseMany(SERVICES_LABEL, HOTEL_SERVICE)
-    expect(screen.getByText('3 / 5')).toBeInTheDocument()
-    chooseMany(SERVICES_LABEL, GROOMING_SERVICE)
-    expect(screen.getByText('3 / 6')).toBeInTheDocument()
     expect(action('next')).not.toBeNull()
 
     // 고른 순서(호텔→미용)가 아니라 정의 순서(미용→호텔)다.
     fireEvent.click(action('next'))
     expect(groupId()).toBe('grooming')
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Grooming 미용')
-    expect(screen.getByText('4 / 6')).toBeInTheDocument()
     // 미용 날짜는 validAnswers 가 이미 채웠다(미용은 기본으로 고른 서비스).
 
     fireEvent.click(action('next'))
     expect(groupId()).toBe('hotel')
-    expect(screen.getByText('5 / 6')).toBeInTheDocument()
     // 2026-11-03 은 화요일(10:00~15:30), 2026-11-05 는 목요일이다.
     pickDate('체크인 날짜', '2026-11-03')
     chooseOne('체크인 시간', '오후 3:00')
@@ -305,7 +272,6 @@ describe('서비스별 묶음', () => {
 
     fireEvent.click(action('next'))
     expect(groupId()).toBe('deposit')
-    expect(screen.getByText('6 / 6')).toBeInTheDocument()
     expect(action('submit')).toHaveTextContent('신청하기')
     expect(action('next')).toBeNull()
   })
@@ -313,23 +279,19 @@ describe('서비스별 묶음', () => {
   it('고르지 않은 서비스의 묶음은 건너뛴다', () => {
     atVisit()
     chooseMany(SERVICES_LABEL, TRAINING_SERVICE)
-    expect(screen.getByText('3 / 5')).toBeInTheDocument()
 
     // 미용·데이케어·호텔을 건너 교육미용으로, 그 뒤는 바로 예약금 안내다.
     fireEvent.click(action('next'))
     expect(groupId()).toBe('training')
-    expect(screen.getByText('4 / 5')).toBeInTheDocument()
     pickDate('교육미용 희망 날짜', '2026-11-05')
     fireEvent.click(action('next'))
     expect(groupId()).toBe('deposit')
-    expect(screen.getByText('5 / 5')).toBeInTheDocument()
   })
 
   it('복원된 묶음 번호가 숨은 묶음을 가리키면 그 앞의 가장 가까운 보이는 묶음으로 맞춘다 — 안 본 필수 묶음을 건너뛰지 않는다', () => {
     // 데이케어 묶음에서 저장된 초안인데 지금 답은 미용만 골랐다(옛 버전이 남긴 초안이거나 손으로 고친 값).
     const first = setup({ initial: draft(groupIndexOf(applyForm, 'daycare'), validAnswers(applyForm)) })
     expect(groupId()).toBe('grooming')
-    expect(screen.getByText('4 / 5')).toBeInTheDocument()
     expect(history.state).toMatchObject(entry(GROOMING, 0))
     // 맞추기만 했을 뿐 사용자가 한 일이 아니니 초안을 내보내지 않는다.
     expect(first.onDraft).not.toHaveBeenCalled()
@@ -351,7 +313,6 @@ describe('서비스별 묶음', () => {
 
     // 호텔 뒤의 예약금 안내가 아니라 지금 묶음 다음의 미용 묶음이다.
     expect(groupId()).toBe('grooming')
-    expect(screen.getByText('4 / 5')).toBeInTheDocument()
     expect(onDraft).toHaveBeenLastCalledWith({ answers, groupIndex: GROOMING, submissionId: ID, key: KEY })
     // 그 칸이 보이는 묶음을 가리키게 고쳐 둔다.
     expect(replace).toHaveBeenCalledWith(expect.objectContaining(entry(GROOMING, 1)), '')
@@ -390,10 +351,8 @@ describe('서비스별 묶음', () => {
       hotel_stayed: 'O',
     }
     const { onSubmit } = setup({ initial: draft(groupIndexOf(applyForm, 'visit'), answers) })
-    expect(screen.getByText('3 / 6')).toBeInTheDocument()
 
     chooseMany(SERVICES_LABEL, HOTEL_SERVICE) // 해제
-    expect(screen.getByText('3 / 5')).toBeInTheDocument()
 
     fireEvent.click(action('next'))
     expect(groupId()).toBe('grooming')
@@ -719,7 +678,6 @@ describe('이전·방문 기록', () => {
     const { onDraft } = setup({ initial: draft(99, validAnswers(applyForm)) })
     expect(groupId()).toBe('deposit')
     expect(action('submit')).toHaveTextContent('신청하기')
-    expect(screen.getByText('5 / 5')).toBeInTheDocument()
     // 맞추기만 했을 뿐 사용자가 한 일이 아니니 초안을 내보내지 않는다.
     expect(onDraft).not.toHaveBeenCalled()
     expect(history.state).toMatchObject(entry(LAST, 0))

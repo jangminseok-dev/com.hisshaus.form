@@ -27,7 +27,8 @@ test('검사지를 몇 묶음 쓰고 닫았다 열면 쓰던 묶음으로 돌아
   await fillUntil(page, 'd')
   const fourth = groups[3]
   await expect(page.locator('[data-group] h2')).toHaveText(fourth.title)
-  await expect(page.getByText(`4 / ${groups.length}`)).toBeVisible()
+  // 진행 표시(k / N)는 두지 않는다.
+  await expect(page.getByText(/\d+ \/ \d+/)).toHaveCount(0)
 
   // 새로 고침.
   await page.reload()

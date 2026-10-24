@@ -151,7 +151,6 @@ describe('검사지를 열 때', () => {
 
     // 첫 묶음에서 새로 시작한다.
     expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[0].title })).toBeInTheDocument()
-    expect(screen.getByText('1 / 12')).toBeInTheDocument()
     expect(loadDraft('survey')).toBeNull()
     await goToSecondGroup()
     expect(screen.getByLabelText('의뢰인 성함')).toHaveValue('김하나')
@@ -165,7 +164,6 @@ describe('검사지를 열 때', () => {
     render(<SurveyFlow />)
 
     expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[3].title })).toBeInTheDocument()
-    expect(screen.getByText('4 / 12')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '이전' }))
     expect(loadDraft('survey')).toMatchObject({ groupIndex: 2, submissionId: APPLY_ID, key: KEY, applyId: APPLY_ID })
   })
@@ -177,7 +175,6 @@ describe('검사지를 열 때', () => {
     render(<SurveyFlow />)
 
     expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[3].title })).toBeInTheDocument()
-    expect(screen.getByText('4 / 12')).toBeInTheDocument()
     // 미리 채우기는 새 초안에만 한다. 쓰던 답과 신청 ID 는 그대로다.
     const kept = loadDraft('survey')!
     expect(kept).toEqual({ answers: { q3: '먼저 쓴 이름' }, groupIndex: 3, submissionId: OTHER_ID, key: KEY })

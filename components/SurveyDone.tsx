@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { TRAINING_SERVICE } from '../forms/apply'
+import { depositOf } from '../lib/deposit'
 import { loadSession, type ApplySession } from '../lib/draft'
 import styles from './Screen.module.css'
 
@@ -29,7 +31,8 @@ export function SurveyDone() {
         <ol className={styles.steps}>
           <li>1. 히스하우스가 검사지를 확인해요</li>
           <li>2. 교육미용 상담 날짜와 시간을 연락드려요</li>
-          <li>3. 예약금 10,000원 입금이 확인되면 예약이 확정돼요</li>
+          {/* 검사지는 교육미용 상담 전용이라 예약금은 늘 교육미용 금액이다. */}
+          <li>3. 예약금 {depositOf([TRAINING_SERVICE])} 입금이 확인되면 예약이 확정돼요</li>
         </ol>
       </div>
       {session === null && (

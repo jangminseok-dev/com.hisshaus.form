@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 
-import { blockedBy, isGroupVisible, isRequired, isVisible, visibleAnswers, visibleGroups } from '../forms/rules'
+import { blockedBy, isGroupVisible, isRequired, isVisible, visibleAnswers } from '../forms/rules'
 import type { Answer, Answers, FormDef, Question } from '../forms/types'
 import type { Draft } from '../lib/draft'
 import { todayKst } from '../lib/format'
@@ -38,23 +38,6 @@ function nextVisible(form: FormDef, from: number, a: Answers): number {
 function prevVisible(form: FormDef, from: number, a: Answers): number {
   for (let i = from - 1; i >= 0; i--) if (isGroupVisible(form.groups[i], a)) return i
   return -1
-}
-
-/**
- * 진행 막대의 비율. showIf 가 있는 연속한 묶음(서비스별 묶음)은 **한 단계**로 친다. 그래야 이용 서비스에서 서비스를 더 골라도
- * 막대가 되돌아가지 않는다. 단계 안에서는 보이는 묶음 수로 나눠 조금씩 찬다. 글자로 보이는 `k / N` 은 실제 묶음 수다.
- */
-function progressRatio(form: FormDef, index: number, a: Answers): number {
-  const phases: number[][] = []
-  form.groups.forEach((g, i) => {
-    const last = phases.at(-1)
-    if (g.showIf && last && form.groups[last[0]].showIf) last.push(i)
-    else phases.push([i])
-  })
-  const p = phases.findIndex((ids) => ids.includes(index))
-  const shown = phases[p].filter((i) => isGroupVisible(form.groups[i], a))
-  const j = shown.indexOf(index)
-  return (p + (j + 1) / Math.max(shown.length, 1)) / phases.length
 }
 
 /**
@@ -115,9 +98,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   const shownIndex = useRef(index)
 
   const group = form.groups[index]
-  // 묶음은 보이는 것 사이로만 옮긴다. 서비스별 묶음은 그 서비스를 골랐을 때만 끼고, 진행 표시도 보이는 묶음만 센다.
-  const shownGroups = visibleGroups(form, answers)
-  const position = shownGroups.indexOf(group) + 1
+  // 묶음은 보이는 것 사이로만 옮긴다. 서비스별 묶음은 그 서비스를 골랐을 때만 낀다.
   const isLast = nextVisible(form, index, answers) === -1
   const todayNow = freshToday > today ? freshToday : today
   const errors = validateGroup(group, answers, todayNow)
@@ -326,10 +307,6 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
         <h2 key={group.id} ref={titleRef} tabIndex={-1} className={styles.title}>
           {group.title}
         </h2>
-        <span className={styles.count}>{`${position} / ${shownGroups.length}`}</span>
-      </div>
-      <div className={styles.progress} aria-hidden="true">
-        <div className={styles.fill} style={{ width: `${progressRatio(form, index, answers) * 100}%` }} />
       </div>
       {notice && (
         <p ref={noticeRef} role="alert" className={styles.notice}>

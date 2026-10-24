@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 
+import { depositOf } from '../lib/deposit'
 import { maskPhone } from '../lib/format'
 import { useApplySession } from '../lib/use-session'
 import styles from './Screen.module.css'
@@ -21,7 +22,7 @@ export function Done() {
         <h2 className={styles.boxTitle}>다음 순서</h2>
         <ol className={styles.steps}>
           <li>1. 히스하우스가 신청서를 확인하고 연락드려요</li>
-          <li>2. 날짜·시간을 맞춘 뒤 예약금 10,000원을 입금해 주세요</li>
+          <li>2. 날짜·시간을 맞춘 뒤 예약금 {depositOf(session.services)}을 입금해 주세요</li>
           <li>3. 입금이 확인되면 예약이 확정돼요</li>
         </ol>
       </div>

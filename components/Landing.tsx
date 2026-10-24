@@ -67,7 +67,7 @@ export function Landing() {
         </div>
         <div className={styles.row}>
           <dt>예약금</dt>
-          <dd>{shop.deposit}</dd>
+          <dd className={styles.lines}>{shop.deposit}</dd>
         </div>
         <div className={styles.row}>
           <dt>소식</dt>
