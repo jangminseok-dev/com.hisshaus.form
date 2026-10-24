@@ -343,8 +343,20 @@ describe('완료 화면', () => {
     render(<Done />)
     await screen.findByRole('heading', { level: 1, name: '보리의 신청서가 잘 도착했어요' })
     expect(screen.queryByRole('link', { name: '검사지 이어서 쓰기' })).not.toBeInTheDocument()
-    // 확인은 첫 화면으로 간다.
-    expect(screen.getByRole('link', { name: '확인' })).toHaveAttribute('href', '/')
+    // 확인은 첫 화면으로 가고, 세션과 검사지 초안을 지운다(공용 기기에서 다음 사람이 완료 화면을 못 본다).
+    saveDraft('survey', { answers: { q3: '김하나' }, groupIndex: 0, submissionId: session.submissionId, key: 'Kk3dE5gH7j' })
+    const ok = screen.getByRole('link', { name: '확인' })
+    expect(ok).toHaveAttribute('href', '/')
+    fireEvent.click(ok)
+    expect(loadSession()).toBeNull()
+    expect(loadDraft('survey')).toBeNull()
+  })
+
+  it('검사지 이어서 쓰기는 세션을 지우지 않는다(검사지가 신청 ID 를 이어받아야 한다)', async () => {
+    saveSession(session)
+    render(<Done />)
+    fireEvent.click(await screen.findByRole('link', { name: '검사지 이어서 쓰기' }))
+    expect(loadSession()).not.toBeNull()
   })
 
   it('교육미용이고 검사지를 안 썼으면 검사지 링크와 함께 확인도 있다', async () => {
@@ -382,6 +394,10 @@ describe('검사지 완료 화면', () => {
     expect(screen.getByText(/검사지만으로는 예약이 잡히지 않아요/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '처음으로' })).toHaveAttribute('href', '/')
     expect(screen.queryByText(/예약 신청과 함께/)).not.toBeInTheDocument()
+    // 처음으로 = 끝. 남은 초안을 지운다.
+    saveDraft('survey', { answers: { q3: '김하나' }, groupIndex: 2, submissionId: 'Ab3dE5gH7j', key: 'Kk3dE5gH7j' })
+    fireEvent.click(screen.getByRole('link', { name: '처음으로' }))
+    expect(loadDraft('survey')).toBeNull()
   })
 })
 

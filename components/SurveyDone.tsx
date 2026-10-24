@@ -8,7 +8,7 @@ import { depositOf } from '../lib/deposit'
 import { BankAccount } from './BankAccount'
 import { CheckMark } from './CheckMark'
 import { KakaoLink } from './KakaoLink'
-import { loadSession, type ApplySession } from '../lib/draft'
+import { clearDraft, clearSession, loadSession, type ApplySession } from '../lib/draft'
 import styles from './Screen.module.css'
 
 /**
@@ -22,6 +22,13 @@ export function SurveyDone() {
     setSession(loadSession())
   }, [])
   const withApply = session?.surveyDone === true
+
+  /** 처음으로 = 다 봤다. 세션과 초안을 지운다(공용 기기에서 다음 사람이 완료 화면을 못 본다). */
+  function finish() {
+    clearSession()
+    clearDraft('survey')
+    clearDraft('apply')
+  }
 
   return (
     <div className={styles.screen}>
@@ -51,14 +58,14 @@ export function SurveyDone() {
                 예약 신청서 쓰기
               </Link>
               <KakaoLink />
-              <Link className={styles.secondary} href="/">
+              <Link className={styles.secondary} href="/" onClick={finish}>
                 처음으로
               </Link>
             </>
           ) : (
             <>
               <KakaoLink />
-              <Link className={styles.primary} href="/">
+              <Link className={styles.primary} href="/" onClick={finish}>
                 처음으로
               </Link>
             </>

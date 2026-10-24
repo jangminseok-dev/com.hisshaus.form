@@ -3,6 +3,7 @@
 import Link from 'next/link'
 
 import { depositOf } from '../lib/deposit'
+import { clearDraft, clearSession } from '../lib/draft'
 import { BankAccount } from './BankAccount'
 import { CheckMark } from './CheckMark'
 import { KakaoLink } from './KakaoLink'
@@ -13,6 +14,11 @@ import styles from './Screen.module.css'
 export function Done() {
   const session = useApplySession()
   if (!session) return null
+
+  function finish() {
+    clearSession()
+    clearDraft('survey')
+  }
 
   return (
     <div className={styles.screen}>
@@ -37,7 +43,11 @@ export function Done() {
         <br />
         변경이나 취소는 카카오톡 채널로 알려 주세요.
       </p>
-      {/* 교육미용이면 검사지가 주 버튼이고 확인은 보조 버튼. 아니면 확인 하나가 주 버튼이다. 확인은 첫 화면으로 간다. */}
+      {/*
+        교육미용이면 검사지가 주 버튼이고 확인은 보조 버튼. 아니면 확인 하나가 주 버튼이다.
+        확인은 "다 봤다" 는 뜻이라 세션과 검사지 초안을 지우고 첫 화면으로 간다(공용 기기에서 다음 사람이 완료 화면을 못 본다).
+        뒤로·앞으로 가기만으로는 지우지 않는다(CLAUDE.md).
+      */}
       <div className={styles.actions}>
         {session.training && !session.surveyDone ? (
           <>
@@ -45,14 +55,14 @@ export function Done() {
               검사지 이어서 쓰기
             </Link>
             <KakaoLink />
-            <Link className={styles.secondary} href="/">
+            <Link className={styles.secondary} href="/" onClick={finish}>
               확인
             </Link>
           </>
         ) : (
           <>
             <KakaoLink />
-            <Link className={styles.primary} href="/">
+            <Link className={styles.primary} href="/" onClick={finish}>
               확인
             </Link>
           </>

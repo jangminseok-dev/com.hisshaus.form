@@ -204,6 +204,19 @@ test('완료 화면에서 뒤로 가도 세션이 남아 앞으로 가면 완료
   await expect(done(page)).toBeVisible()
 })
 
+test('완료 화면에서 확인을 누르면 첫 화면으로 가고 세션이 지워져 완료 화면을 다시 열 수 없다', async ({ page }) => {
+  await writeApply(page)
+  await expect(done(page)).toBeVisible()
+
+  await page.getByRole('link', { name: '확인' }).click()
+  await expect(page).toHaveURL(/\/hisshaus$/)
+  expect(await page.evaluate(() => localStorage.getItem('hh.session'))).toBeNull()
+
+  // 완료 화면 주소를 다시 열어도 세션이 없어 첫 화면으로 보낸다(공용 기기에서 다음 사람이 못 본다).
+  await page.goto('/hisshaus/apply/done')
+  await expect(page).toHaveURL(/\/hisshaus$/)
+})
+
 test('신청을 마치고 완료 화면에서 뒤로 두 번이면 양식을 떠난다', async ({ page }) => {
   await writeApply(page)
   await expect(done(page)).toBeVisible()
