@@ -314,7 +314,8 @@ describe('완료 화면', () => {
     expect(screen.getByText('4. 입금이 확인되면 예약이 완료돼요')).toBeInTheDocument()
 
     // 방금 적은 본인이 확인하는 자리라 번호를 가리지 않는다.
-    expect(screen.getByText('곧 010-1234-5678 로 연락드릴게요.')).toBeInTheDocument()
+    expect(screen.getByText(/곧 010-1234-5678 로 연락드릴게요\./)).toBeInTheDocument()
+    expect(screen.getByText(/변경이나 취소는 연락 주시면 돼요\./)).toBeInTheDocument()
     expect(container.textContent).not.toContain('입니다')
     expect(container.textContent).not.toContain('됩니다')
     expect(router.replace).not.toHaveBeenCalled()
