@@ -27,6 +27,9 @@ export const shop = {
   // <img> 주소에는 basePath 가 붙지 않아서 직접 붙인다.
   heroImage: `${BASE_PATH}/hero.jpg`,
   // 첫 화면 정보 줄의 인스타그램 링크. 공유 링크의 추적 값(?rpxt=…)은 뺐다. handle 은 화면에 @hisshaus 로 보인다.
+  // 카카오톡 채널(사장님 제공 2026-10-24). /chat 은 채널 홈을 건너뛰고 채팅창을 바로 연다.
+  kakaoChannelUrl: 'https://pf.kakao.com/_uMxcJX',
+  kakaoChatUrl: 'https://pf.kakao.com/_uMxcJX/chat',
   instagramHandle: 'hisshaus',
   instagramUrl: 'https://www.instagram.com/hisshaus/',
   ogTitle: '히스하우스 예약 신청',

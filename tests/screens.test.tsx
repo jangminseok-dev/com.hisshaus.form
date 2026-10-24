@@ -108,6 +108,7 @@ describe('첫 화면', () => {
       '위치',
       '영업시간',
       '예약금',
+      '문의',
       '소식',
     ])
   })
@@ -118,8 +119,13 @@ describe('첫 화면', () => {
       shop.address,
       shop.hours,
       shop.deposit,
+      '카카오톡 채널',
       `@${shop.instagramHandle}`,
     ])
+    // 문의는 카카오톡 채널 채팅을 새 탭으로 연다.
+    const kakao = within(section('info')).getByRole('link', { name: '카카오톡 채널' })
+    expect(kakao).toHaveAttribute('href', 'https://pf.kakao.com/_uMxcJX/chat')
+    expect(kakao).toHaveAttribute('target', '_blank')
   })
 
   it('정보 줄의 인스타그램 링크는 매장 인스타그램을 새 탭으로 연다', () => {
@@ -315,7 +321,8 @@ describe('완료 화면', () => {
 
     // 방금 적은 본인이 확인하는 자리라 번호를 가리지 않는다.
     expect(screen.getByText(/곧 010-1234-5678 로 연락드릴게요\./)).toBeInTheDocument()
-    expect(screen.getByText(/변경이나 취소는 연락 주시면 돼요\./)).toBeInTheDocument()
+    expect(screen.getByText(/변경이나 취소는 카카오톡 채널로 알려 주세요\./)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '카카오톡 채널로 문의하기' })).toHaveAttribute('href', 'https://pf.kakao.com/_uMxcJX/chat')
     expect(container.textContent).not.toContain('입니다')
     expect(container.textContent).not.toContain('됩니다')
     expect(router.replace).not.toHaveBeenCalled()

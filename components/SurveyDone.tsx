@@ -7,6 +7,7 @@ import { TRAINING_SERVICE } from '../forms/apply'
 import { depositOf } from '../lib/deposit'
 import { BankAccount } from './BankAccount'
 import { CheckMark } from './CheckMark'
+import { KakaoLink } from './KakaoLink'
 import { loadSession, type ApplySession } from '../lib/draft'
 import styles from './Screen.module.css'
 
@@ -38,6 +39,7 @@ export function SurveyDone() {
         </ol>
         <BankAccount />
       </div>
+      {withApply && <p className={styles.text}>변경이나 취소는 카카오톡 채널로 알려 주세요.</p>}
       {session === null && (
         <p className={styles.text}>예약 신청서를 아직 보내지 않았다면 이어서 작성해 주세요. 검사지만으로는 예약이 잡히지 않아요.</p>
       )}
@@ -48,14 +50,18 @@ export function SurveyDone() {
               <Link className={styles.primary} href="/apply">
                 예약 신청서 쓰기
               </Link>
+              <KakaoLink />
               <Link className={styles.secondary} href="/">
                 처음으로
               </Link>
             </>
           ) : (
-            <Link className={styles.primary} href="/">
-              처음으로
-            </Link>
+            <>
+              <KakaoLink />
+              <Link className={styles.primary} href="/">
+                처음으로
+              </Link>
+            </>
           )}
         </div>
       )}

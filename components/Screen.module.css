@@ -167,3 +167,8 @@
     stroke-dashoffset: 0;
   }
 }
+
+/* 보조 버튼 안의 아이콘(카카오톡). 글자 앞에 붙는다. */
+.icon {
+  margin-right: 8px;
+}

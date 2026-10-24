@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { depositOf } from '../lib/deposit'
 import { BankAccount } from './BankAccount'
 import { CheckMark } from './CheckMark'
+import { KakaoLink } from './KakaoLink'
 import { useApplySession } from '../lib/use-session'
 import styles from './Screen.module.css'
 
@@ -34,7 +35,7 @@ export function Done() {
       <p className={styles.text}>
         곧 {session.guardianPhone} 로 연락드릴게요.
         <br />
-        변경이나 취소는 연락 주시면 돼요.
+        변경이나 취소는 카카오톡 채널로 알려 주세요.
       </p>
       {/* 교육미용이면 검사지가 주 버튼이고 확인은 보조 버튼. 아니면 확인 하나가 주 버튼이다. 확인은 첫 화면으로 간다. */}
       <div className={styles.actions}>
@@ -43,14 +44,18 @@ export function Done() {
             <Link className={styles.primary} href="/survey?from=apply">
               검사지 이어서 쓰기
             </Link>
+            <KakaoLink />
             <Link className={styles.secondary} href="/">
               확인
             </Link>
           </>
         ) : (
-          <Link className={styles.primary} href="/">
-            확인
-          </Link>
+          <>
+            <KakaoLink />
+            <Link className={styles.primary} href="/">
+              확인
+            </Link>
+          </>
         )}
       </div>
     </div>

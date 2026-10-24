@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import { shop } from '../content/shop'
+import { KakaoIcon } from './KakaoLink'
 import styles from './Landing.module.css'
 
 /**
@@ -67,6 +68,15 @@ export function Landing() {
         <div className={styles.row}>
           <dt>예약금</dt>
           <dd className={styles.lines}>{shop.deposit}</dd>
+        </div>
+        <div className={styles.row}>
+          <dt>문의</dt>
+          <dd>
+            <a className={styles.social} href={shop.kakaoChatUrl} target="_blank" rel="noopener noreferrer">
+              <KakaoIcon />
+              카카오톡 채널
+            </a>
+          </dd>
         </div>
         <div className={styles.row}>
           <dt>소식</dt>
