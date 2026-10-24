@@ -337,6 +337,15 @@ describe('완료 화면', () => {
     render(<Done />)
     await screen.findByRole('heading', { level: 1, name: '신청이 접수되었어요' })
     expect(screen.queryByRole('link', { name: '검사지 이어서 쓰기' })).not.toBeInTheDocument()
+    // 확인은 첫 화면으로 간다.
+    expect(screen.getByRole('link', { name: '확인' })).toHaveAttribute('href', '/')
+  })
+
+  it('교육미용이고 검사지를 안 썼으면 검사지 링크와 함께 확인도 있다', async () => {
+    saveSession(session)
+    render(<Done />)
+    await screen.findByRole('link', { name: '검사지 이어서 쓰기' })
+    expect(screen.getByRole('link', { name: '확인' })).toHaveAttribute('href', '/')
   })
 
   it('서비스가 하나여도 요약이 이어진다', async () => {
