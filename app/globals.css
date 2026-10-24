@@ -1,0 +1,33 @@
+:root {
+  --ink: #1d1d1f;
+  /* 흰 바탕과 대비 5:1. '선택'(13px)·'k / N'(14px) 같은 작은 글자라 4.5:1 이상이어야 한다. */
+  --mute: #6e6e73;
+  --line: #e5e5ea;
+  --accent: #2f6f5e;
+  --accent-ink: #ffffff;
+  --danger: #c0392b;
+  --bg: #ffffff;
+  --radius: 12px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  background: var(--bg);
+}
+
+body {
+  max-width: 480px;
+  min-height: 100vh;
+  margin: 0 auto;
+  color: var(--ink);
+  background: var(--bg);
+  /* 16px 미만이면 폰에서 입력칸을 누를 때 화면이 확대된다. */
+  font-size: 16px;
+  line-height: 1.6;
+}

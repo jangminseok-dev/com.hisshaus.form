@@ -18,7 +18,7 @@
 - `process.env` 는 `lib/config.ts` 에서만 읽는다. 환경변수 셋: `SLACK_WEBHOOK_URL`, `GOOGLE_SERVICE_ACCOUNT_JSON`(base64), `GOOGLE_SHEET_ID`.
 - 웹훅 주소·키·답변 내용·요청 본문을 `console.*` 에 넣지 않는다. 로그에는 "슬랙 전송 실패" + 신청 ID 만.
 - 폴더는 `app` · `components` · `forms` · `content` · `lib` · `public` · `tests` · `scripts` · `docs` 만.
-- 주석·테스트 이름·커밋 메시지는 한국어. 커밋 메시지 끝에 `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` 를 붙인다.
+- 주석·테스트 이름·커밋 메시지는 한국어. 커밋 메시지 끝에 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` 를 붙인다.
 - 답변 글자 수 상한: 짧은 답(`short`·`email`·`phone`·기타 입력) 200자, 긴 답(`long`) 3,000자. 서버가 검증한다.
 - 신청 ID: 브라우저가 만든 영숫자 10자(`^[A-Za-z0-9]{10}$`). 서버는 형식만 본다.
 - 시트 탭 이름 `예약신청` · `검사지`. 맨 앞 두 열은 `접수 시각`(KST, `YYYY-MM-DD HH:mm:ss`) · `신청 ID`.
@@ -128,12 +128,12 @@ README.md                    설정·운영 안내
   ```
   `multi` 답은 `string[]`, 그 밖은 `string`. "기타" 를 골랐을 때 값은 `'기타: ' + 입력`(single 은 그 문자열 하나, multi 는 배열 원소 하나). `consent` 의 동의 값은 `'동의'`. `date` 값은 `YYYY-MM-DD`.
 - Produces `forms/rules.ts`: `isVisible(q: Question, a: Answers): boolean`, `isRequired(q: Question, a: Answers): boolean`(보이지 않으면 false), `blockedBy(group: Group, a: Answers): { questionId: string; message: string } | null`, `allQuestions(form: FormDef): Question[]`.
-- Produces `lib/validate.ts`: `export interface FieldError { questionId: string; message: string }` · `validateGroup(group: Group, a: Answers, today: string): FieldError[]` · `validateForm(form: FormDef, a: Answers, today: string): FieldError[]`. 메시지(해요체): 필수 비움 `'꼭 적어 주세요'`(선택형은 `'하나를 골라 주세요'`, 복수는 `'하나 이상 골라 주세요'`), 길이 초과 `'200자까지 적을 수 있어요'`/`'3,000자까지 적을 수 있어요'`, 선택지 밖 값 `'고를 수 없는 값이에요'`, 날짜 형식 `'날짜를 골라 주세요'`, 오늘 이전 `'오늘 이후 날짜를 골라 주세요'`, 연락처(숫자·하이픈·공백 외 문자 또는 숫자 9자 미만) `'연락처를 다시 확인해 주세요'`, 이메일(`@` 없음) `'이메일을 다시 확인해 주세요'`, 동의 안 함 `'동의해야 신청할 수 있어요'`. 보이지 않는 문항은 검사하지 않고, `blockIf` 에 걸리면 그 메시지를 낸다.
+- Produces `lib/validate.ts`: `export interface FieldError { questionId: string; message: string }` · `validateGroup(group: Group, a: Answers, today: string): FieldError[]` · `validateForm(form: FormDef, a: Answers, today: string): FieldError[]`. 메시지(해요체): 필수 비움 `'꼭 적어 주세요'`(선택형은 `'하나를 골라 주세요'`, 복수는 `'하나 이상 골라 주세요'`), 길이 초과 `'200자까지 적을 수 있어요'`/`'3,000자까지 적을 수 있어요'`, 선택지 밖 값 `'고를 수 없는 값이에요'`, 날짜 형식 `'날짜를 골라 주세요'`, 오늘 이전 `'오늘 이후 날짜를 골라 주세요'`, 연락처(숫자·공백·하이픈·괄호·맨 앞 `+` 외 문자, 또는 숫자 9자 미만 — 실행 중 판정으로 괄호·`+` 허용) `'연락처를 다시 확인해 주세요'`, 이메일(`@` 없음) `'이메일을 다시 확인해 주세요'`, 동의 안 함 `'동의해야 신청할 수 있어요'`. 보이지 않는 문항은 검사하지 않고, `blockIf` 에 걸리면 그 메시지를 낸다.
 - Produces `lib/id.ts`: `newSubmissionId(): string`(영숫자 10자, `crypto.getRandomValues`), `isSubmissionId(v: unknown): v is string`.
 - Produces `forms/apply.ts`: `export const applyForm: FormDef` — 묶음 셋:
   - `guardian`(제목 `보호자`): `guardian_name`(short, 필수, 라벨 `보호자 성함`), `guardian_phone`(phone, 필수, `보호자 연락처`), `privacy_consent`(consent, 필수, 라벨 `개인정보 수집·이용 동의`, consentText 는 수집 항목(보호자 성함·연락처, 반려견 정보)·목적(예약 상담·안내)·보유 기간 `shop.privacyRetention` 을 해요체로 쓴 세 줄).
   - `pet`(제목 `반려견`): `pet_name`·`pet_breed`·`pet_age`·`pet_weight`(short, 필수), `pet_sex`(single `남`/`여`), `pet_neutered`(single `O`/`X`, 라벨 `반려견 중성화 여부`), `pet_vaccinated`(single `O`/`X`, `예방접종 유무`), `pet_health`(long, 필수, `질병, 질환 등 건강상태에 대해 알려주세요.`), `pet_treatment`(long, 필수, `최근 수술 또는 치료 이력이 있으면 알려주세요.`), `pet_aggression`(single 필수, 라벨 `사람이나 다른 강아지에 대한 공격성 여부`, options `O`/`X`, hint `심한 경우 이용에 제한이 있을 수 있어요`).
-  - `visit`(제목 `희망 일시·서비스`, note `원하는 날짜와 시간대를 알려 주시면 가능한지 확인하고 연락드려요. 안 맞으면 함께 조율해요.`): `wish1_date`(date 필수 `희망 날짜 1순위`), `wish1_slot`(single 필수, options `오전`/`오후`/`상관없어요`, 라벨 `시간대`), `wish2_date`(date 선택 `희망 날짜 2순위`), `wish2_slot`(single 선택, 같은 options, 라벨 `시간대`; `validateGroup` 에 특례 한 줄 — `wish2_date` 가 있으면 `wish2_slot` 도 필수), `services`(multi 필수, options `Grooming 미용`/`Daycare 데이케어`/`Hotel 호텔`/`교육미용 / 미용 트레이닝 상담`), `visit_type`(single 필수, `첫 방문`/`재방문`, 라벨 `히스하우스 방문 여부`).
+  - `visit`(제목 `희망 일시·서비스`, note `원하는 날짜와 시간대를 알려 주시면 가능한지 확인하고 연락드려요. 안 맞으면 함께 조율해요.`): `wish1_date`(date 필수 `희망 날짜 1순위`), `wish1_slot`(single 필수, options `오전`/`오후`/`상관없어요`, 라벨 `1순위 시간대` — 최종 검토 수정: 처음엔 둘 다 `시간대` 라 시트 헤더에서 1·2순위가 가려지지 않았다), `wish2_date`(date 선택 `희망 날짜 2순위`), `wish2_slot`(single 선택, 같은 options, 라벨 `2순위 시간대`; `requiredIf: { questionId: 'wish2_date' }` — 2순위 날짜가 있으면 필수. 실행 중 판정: 처음엔 `validateGroup` 특례였으나 화면의 '선택' 표시와 어긋나 문항 정의로 옮김), `services`(multi 필수, options `Grooming 미용`/`Daycare 데이케어`/`Hotel 호텔`/`교육미용 / 미용 트레이닝 상담`), `visit_type`(single 필수, `첫 방문`/`재방문`, 라벨 `히스하우스 방문 여부`).
   - 상수 `export const TRAINING_SERVICE = '교육미용 / 미용 트레이닝 상담'`.
 
 - [ ] **Step 1: 실패 테스트** `tests/apply-form.test.ts` — `신청서는 묶음 셋이고 문항 id 가 겹치지 않는다`, `희망 날짜 1순위와 시간대는 필수고 2순위는 선택이다`, `서비스 선택지에 교육미용 상담이 있다`(`TRAINING_SERVICE` 포함).
@@ -280,7 +280,7 @@ README.md                    설정·운영 안내
 
 **Interfaces:**
 ```ts
-export interface Draft { answers: Answers; groupIndex: number; submissionId: string }
+export interface Draft { answers: Answers; groupIndex: number; submissionId: string; key: string; applyId?: string }  // key: 초안마다 새로 만드는 이력 열쇠(실행 중 판정, Task 10 수정). applyId: 세션이 있을 때 만든 검사지 초안의 신청 ID(최종 검토 수정)
 export function loadDraft(formId: 'apply' | 'survey'): Draft | null
 export function saveDraft(formId, d: Draft): void
 export function clearDraft(formId): void
@@ -337,7 +337,7 @@ export function clearSession(): void
 
 **Interfaces / 문구(그대로):**
 - `Landing`: 위 `shop.name`, 큰 사진 `shop.heroImage`(alt `히스하우스 매장`), 제목 `예약 신청서`, 안내 두 문단 `이 신청서는 예약 확정이 아니에요. 신청서를 확인한 뒤 따로 연락드리고, 최종 안내를 받으면 예약이 확정돼요.` / `아이의 편안한 케어를 위해 충분히 상담한 뒤 예약을 진행해요.`, 정보 줄 `위치`·`영업시간`·`예약금`(소요 줄 없음), 고정 링크 버튼 `예약 신청하기` → `/apply`. 각 구역 `data-section="head|hero|intro|info|cta"`.
-- `ApplyFlow`: `loadDraft('apply')` 없으면 `clearSession()` 뒤 `{answers:{}, groupIndex:0, submissionId:newSubmissionId()}`(새 신청이 시작되면 지난 세션은 버린다). `StepForm` 에 `submitLabel='신청하기'`, `onBackFromFirst` → `/`. `onSubmit`: `fetch('/api/apply', { method:'POST', body: JSON.stringify({ submissionId, answers, website: '' }) })` → 200 이면 `saveSession({...})`(`training = services.includes(TRAINING_SERVICE)`), `clearDraft('apply')`, `router.push(training ? '/apply/training' : '/apply/done')`; 400 → `'invalid'`; 그 밖·네트워크 → `'failed'`. 허니팟 `website` 는 StepForm 밖 숨은 입력(`aria-hidden`, `tabIndex=-1`, `autoComplete="off"`).
+- `ApplyFlow`: `loadDraft('apply')` 없으면 `{answers:{}, groupIndex:0, submissionId:newSubmissionId()}`. (실행 중 판정: 처음엔 `clearSession()` 뒤에 시작했으나, 완료 화면에서 뒤로 가기만 해도 세션이 지워져 앞으로 가기 때 완료 화면이 튕겨서 지우지 않는다 — 세션은 다음 제출이 덮어쓴다.) `StepForm` 에 `submitLabel='신청하기'`, `onBackFromFirst` → `/`. `onSubmit`: `fetch('/api/apply', { method:'POST', body: JSON.stringify({ submissionId, answers, website: '' }) })` → 200 이면 `saveSession({...})`(`training = services.includes(TRAINING_SERVICE)`), `clearDraft('apply')`, `router.push(training ? '/apply/training' : '/apply/done')`; 400 → `'invalid'`; 그 밖·네트워크 → `'failed'`. 허니팟 `website` 는 StepForm 밖 숨은 입력(`aria-hidden`, `tabIndex=-1`, `autoComplete="off"`).
 - `TrainingIntro`(세션 필요, 없으면 `/`): 제목 `심층 행동 분석 검사지를 이어서 작성해요`, 문단 `중간에 창을 닫아도 쓰던 자리가 저장돼요.`, 상자 `예약 신청은 여기서 먼저 접수돼요. 검사지를 다 못 써도 신청은 히스하우스에 전달돼요. 검사지는 나중에 같은 링크로 이어서 쓸 수 있어요.`, 버튼 `검사지 작성 시작` → `/survey`, 보조 버튼 `교육미용은 아니에요` → `POST /api/apply/cancel-training` `{ submissionId, petName, guardianName }` 뒤(실패해도) 세션 `training=false` 저장 → `/apply/done`.
 - `Done`(세션 필요, 없으면 `/`): 제목 `신청이 접수되었어요`, 요약 `{petName} · {services.join(', ')} · {dateKo(wish1 날짜)} {시간대} 희망`, 상자 `다음 순서` 세 줄 `1. 히스하우스가 신청서를 확인하고 연락드려요` / `2. 날짜·시간을 맞춘 뒤 예약금 10,000원을 입금해 주세요` / `3. 입금이 확인되면 예약이 확정돼요`, 문단 `{maskPhone} 로 연락드려요.`, `training && !surveyDone` 이면 링크 `검사지 이어서 쓰기` → `/survey`.
 - `SurveyFlow`: `loadDraft('survey')` 없으면 새 초안이되 세션이 있으면 `q3`←`guardianName`, `q4`←`guardianPhone`, `q7`←`petName` 미리 채움. `submitLabel='제출하기'`, `onSubmit` → `POST /api/survey` `{ submissionId, answers, applyId: session?.submissionId, website: '' }` → 200 이면 `clearDraft('survey')`, 세션 있으면 `surveyDone=true` 저장 → `/survey/done`. `onBackFromFirst` → 세션 있으면 `/apply/done`, 없으면 `/`.

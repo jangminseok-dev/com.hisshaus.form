@@ -1,0 +1,122 @@
+import { applyForm } from '../forms/apply'
+import { isEmpty, visibleAnswers } from '../forms/rules'
+import { surveyForm } from '../forms/survey'
+import type { Answers, FormDef } from '../forms/types'
+import { nowKst, todayKst } from './format'
+import { isAnswers, isObject } from './guards'
+import { isSubmissionId } from './id'
+import { sheetRow, type Meta } from './sheet-row'
+import { appendRow as defaultAppendRow, type SheetTab } from './sheets'
+import { sendSlack as defaultSendSlack } from './slack'
+import { applyMessages, cancelTrainingMessage, surveyMessages, type SlackMessage } from './slack-blocks'
+import { validateForm, type FieldError } from './validate'
+
+export type SubmitResult =
+  | { status: 'ok' }
+  | { status: 'invalid'; errors: FieldError[] }
+  | { status: 'failed' }
+
+export interface Deps {
+  appendRow?: typeof defaultAppendRow
+  sendSlack?: typeof defaultSendSlack
+  /** 접수 시각 `YYYY-MM-DD HH:mm:ss` (KST). 기본은 지금. */
+  now?: () => string
+  /** 오늘 `YYYY-MM-DD` (KST). 기본은 오늘. */
+  today?: () => string
+}
+
+/** 짧은 답 상한(validate.ts)과 같다. */
+const NAME_MAX = 200
+
+const invalid = (): SubmitResult => ({ status: 'invalid', errors: [] })
+
+/** 비었다고 보는 답(공백뿐인 글·빈 배열)을 뺀 새 답 맵. */
+function withoutEmpty(a: Answers): Answers {
+  return Object.fromEntries(Object.entries(a).filter(([, v]) => !isEmpty(v)))
+}
+
+/**
+ * 신청서·검사지 공통 순서: 허니팟 → 본문 모양·ID → 숨은 문항의 답·빈 답 버리기 → 답변 검증 → 시트 → 슬랙.
+ * 로그에는 "무엇이 실패했나 + 신청 ID" 만 남긴다. 오류 객체·답변·요청 본문·주소는 찍지 않는다.
+ */
+async function submitForm(
+  form: FormDef,
+  tab: SheetTab,
+  body: unknown,
+  deps: Deps,
+  messages: (answers: Answers, meta: Meta, applyId?: string) => SlackMessage[],
+): Promise<SubmitResult> {
+  if (!isObject(body)) return invalid()
+  // 허니팟: 사람 눈에 안 보이는 칸이다. 값이 있으면 봇이니 성공한 척 조용히 끝낸다.
+  if (body.website) return { status: 'ok' }
+  const { submissionId, answers: given } = body
+  if (!isSubmissionId(submissionId) || !isAnswers(given)) return invalid()
+  // 숨은 문항의 답은 거부하지 않고 조용히 버린다: 화면이 옛 답을 지우지 않았을 뿐인 보호자를 막지 않으려는 것이다.
+  // 검증은 숨은 문항을 건너뛰고 행·메시지는 숨김을 따지지 않으므로, 여기서 걸러야 길이·선택지 검증을 못 피한다.
+  // 빈 답(공백뿐인 글·빈 배열)도 같은 까닭으로 버린다: 검증은 '답 없음' 으로 보고 건너뛰는데 행·메시지에는 그대로 실려
+  // 공백이 시트 칸에 들어가고, 날짜 칸은 슬랙에서 날짜로 읽혀 깨진다. 버리면 시트는 '', 슬랙은 '—' 다.
+  const answers = withoutEmpty(visibleAnswers(form, given))
+
+  // 검사지만 신청 ID 를 이어서 받는다. 없는 것(undefined·null·'')은 괜찮고, 있으면 형식이 맞아야 한다.
+  let applyId: string | undefined
+  const rawApplyId = body.applyId
+  if (form.id === 'survey' && rawApplyId != null && rawApplyId !== '') {
+    if (!isSubmissionId(rawApplyId)) return invalid()
+    applyId = rawApplyId
+  }
+
+  const errors = validateForm(form, answers, (deps.today ?? todayKst)())
+  if (errors.length > 0) return { status: 'invalid', errors }
+
+  const appendRow = deps.appendRow ?? defaultAppendRow
+  const sendSlack = deps.sendSlack ?? defaultSendSlack
+  const meta: Meta = { submissionId, receivedAt: (deps.now ?? nowKst)() }
+  try {
+    await appendRow(tab, sheetRow(form, answers, meta))
+  } catch {
+    console.error('시트 저장 실패', submissionId)
+    return { status: 'failed' }
+  }
+  try {
+    await sendSlack(messages(answers, meta, applyId))
+  } catch {
+    // 기록은 시트에 남았다. 사장님은 시트에서 보면 되니 보호자에게는 성공으로 답한다.
+    console.error('슬랙 전송 실패', submissionId)
+  }
+  return { status: 'ok' }
+}
+
+export async function submitApply(body: unknown, deps: Deps = {}): Promise<SubmitResult> {
+  return submitForm(applyForm, '예약신청', body, deps, (answers, meta) => applyMessages(answers, meta))
+}
+
+export async function submitSurvey(body: unknown, deps: Deps = {}): Promise<SubmitResult> {
+  return submitForm(surveyForm, '검사지', body, deps, (answers, meta, applyId) =>
+    surveyMessages(answers, { ...meta, applyId }),
+  )
+}
+
+/** 이름 칸: 문자열이고 앞뒤 공백을 뗀 길이가 1~200자면 그 값, 아니면 null. */
+function cleanName(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const name = v.trim()
+  return name !== '' && name.length <= NAME_MAX ? name : null
+}
+
+/** "교육미용은 아니에요". 시트는 건드리지 않고 슬랙에 한 통만 보낸다. 기록이 시트에 없으니 슬랙 실패는 그대로 알린다. */
+export async function cancelTraining(body: unknown, deps: Deps = {}): Promise<SubmitResult> {
+  if (!isObject(body)) return invalid()
+  const { submissionId } = body
+  const petName = cleanName(body.petName)
+  const guardianName = cleanName(body.guardianName)
+  if (!isSubmissionId(submissionId) || petName === null || guardianName === null) return invalid()
+
+  const sendSlack = deps.sendSlack ?? defaultSendSlack
+  try {
+    await sendSlack([cancelTrainingMessage({ petName, guardianName, submissionId })])
+  } catch {
+    console.error('슬랙 전송 실패', submissionId)
+    return { status: 'failed' }
+  }
+  return { status: 'ok' }
+}
