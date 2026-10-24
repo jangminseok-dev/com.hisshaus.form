@@ -1,4 +1,4 @@
-import { isEmpty, isRequired, isVisible, visibleGroups } from '../forms/rules'
+import { allQuestions, isEmpty, isRequired, isVisible, visibleGroups } from '../forms/rules'
 import { timeSlots } from './slots'
 import type { Answers, FormDef, Group, Question } from '../forms/types'
 
@@ -30,6 +30,27 @@ function isRealDate(v: string): boolean {
 function allowedChoice(q: Question, v: string): boolean {
   if (q.options?.includes(v)) return true
   return !!q.other && v.startsWith(OTHER_PREFIX) && v.length > OTHER_PREFIX.length
+}
+
+/**
+ * 저장된 초안의 답 가운데 지금 문항 정의와 모양이 안 맞는 것을 버린다. 문항이 글 칸에서 칩으로 바뀌는 식으로 정의가 바뀐 뒤
+ * 옛 초안을 열면, 옛 답이 '고를 수 없는 값이에요' 로 걸려 보호자가 영문을 모른다. 양식에 없는 문항의 답도 버린다.
+ * 글 칸의 긴 답이나 지난 날짜처럼 모양은 맞는데 틀린 값은 그대로 두고 검증이 안내한다.
+ */
+export function pruneStaleAnswers(form: FormDef, a: Answers): Answers {
+  const out: Answers = {}
+  for (const q of allQuestions(form)) {
+    const v = a[q.id]
+    if (v === undefined) continue
+    const keep =
+      q.type === 'multi'
+        ? Array.isArray(v) && v.every((x) => allowedChoice(q, x) || (!!q.other && x.startsWith(OTHER_PREFIX)))
+        : q.type === 'single' || q.type === 'time'
+          ? typeof v === 'string' && (v === '' || allowedChoice(q, v) || (!!q.other && v.startsWith(OTHER_PREFIX)) || (q.type === 'time' && timeSlots().includes(v)))
+          : typeof v === 'string'
+    if (keep) out[q.id] = v
+  }
+  return out
 }
 
 /** 기타를 골랐는데 내용이 없다. 공백뿐인 것도 비었다고 본다. */

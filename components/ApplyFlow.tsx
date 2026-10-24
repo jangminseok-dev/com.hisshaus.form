@@ -9,6 +9,7 @@ import { clearDraft, loadDraft, saveDraft, saveSession, type Draft } from '../li
 import { todayKst } from '../lib/format'
 import { newSubmissionId } from '../lib/id'
 import { postJson } from '../lib/post'
+import { pruneStaleAnswers } from '../lib/validate'
 import { wishText } from '../lib/wish'
 import { Honeypot } from './Honeypot'
 import { StepForm } from './StepForm'
@@ -41,7 +42,11 @@ export function ApplyFlow() {
   useEffect(() => {
     setStart({
       // 새 초안마다 방문 기록 칸의 주인을 가리는 열쇠를 따로 만든다(신청 ID 와 별개).
-      initial: loadDraft('apply') ?? { answers: {}, groupIndex: 0, submissionId: newSubmissionId(), key: newSubmissionId() },
+      initial: (() => {
+        const d = loadDraft('apply')
+        // 문항 정의가 바뀐 뒤 남은 옛 답은 버린다.
+        return d ? { ...d, answers: pruneStaleAnswers(applyForm, d.answers) } : { answers: {}, groupIndex: 0, submissionId: newSubmissionId(), key: newSubmissionId() }
+      })(),
       today: todayKst(),
     })
   }, [])

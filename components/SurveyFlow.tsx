@@ -9,6 +9,7 @@ import { clearDraft, loadDraft, loadSession, saveDraft, saveSession, type ApplyS
 import { todayKst } from '../lib/format'
 import { newSubmissionId } from '../lib/id'
 import { postJson } from '../lib/post'
+import { pruneStaleAnswers } from '../lib/validate'
 import { Honeypot } from './Honeypot'
 import { StepForm } from './StepForm'
 
@@ -29,6 +30,8 @@ export function SurveyFlow() {
   useEffect(() => {
     const session = loadSession()
     let initial = loadDraft('survey')
+    // 문항 정의가 바뀐 뒤 남은 옛 답(글 칸이던 문항의 글 등)은 버린다.
+    if (initial) initial = { ...initial, answers: pruneStaleAnswers(surveyForm, initial.answers) }
     // 지난 신청 때 쓰던 검사지가 새 신청에 섞이지 않게, 다른 신청에 묶인 초안은 버린다. 세션 없이 쓰기 시작한 초안(applyId
     // 없음)은 나중에 신청 세션이 생겨도 버리지 않고 그대로 이어 쓴다(미리 채우기는 새 초안에만 한다).
     if (initial?.applyId && session && initial.applyId !== session.submissionId) {

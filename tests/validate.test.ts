@@ -12,7 +12,7 @@ import {
 } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import type { Answers, FormDef, Group } from '../forms/types'
-import { validateForm, validateGroup } from '../lib/validate'
+import { pruneStaleAnswers, validateForm, validateGroup } from '../lib/validate'
 import { validAnswers } from './fixtures'
 
 const TODAY = '2026-10-23'
@@ -510,5 +510,40 @@ describe('복수 선택의 중복·개수', () => {
   it('선택지를 모두 고르고 기타 하나를 더해도 통과한다', () => {
     expect(q16Of([...q16.options!, '기타: 가'])).toBeUndefined()
     expect(services(applyForm.groups.find((g) => g.id === 'visit')!.questions.find((q) => q.id === 'services')!.options!)).toBeUndefined()
+  })
+})
+
+describe('옛 초안 정리(pruneStaleAnswers)', () => {
+  it('문항 모양과 안 맞는 답은 버리고 맞는 답은 남긴다 — 글 칸이던 문항에 남은 글, 선택지에 없는 칩, 양식에 없는 문항', () => {
+    const form: FormDef = {
+      id: 'survey',
+      title: 't',
+      groups: [
+        {
+          id: 'g',
+          title: 'g',
+          questions: [
+            { id: 'yn', label: 'yn', type: 'single', required: true, options: ['네', '아니오'] },
+            { id: 'o', label: 'o', type: 'single', required: false, options: ['a'], other: true },
+            { id: 'm', label: 'm', type: 'multi', required: true, options: ['x', 'y'], other: true },
+            { id: 't', label: 't', type: 'long', required: false },
+            { id: 'tm', label: 'tm', type: 'time', required: false },
+          ],
+        },
+      ],
+    }
+    expect(
+      pruneStaleAnswers(form, {
+        yn: '없음', // 글 칸이던 때의 답
+        o: '기타: 직접',
+        m: ['x', '없어진 선택지', '기타: 메모'],
+        t: '그대로',
+        tm: '13:30',
+        gone: '양식에 없는 문항',
+      }),
+    ).toEqual({ o: '기타: 직접', t: '그대로', tm: '13:30' })
+    expect(pruneStaleAnswers(form, { yn: '네', m: ['y'], tm: '25:00' })).toEqual({ yn: '네', m: ['y'] })
+    // 빈 글('')은 고르기 전 상태라 남긴다.
+    expect(pruneStaleAnswers(form, { yn: '' })).toEqual({ yn: '' })
   })
 })

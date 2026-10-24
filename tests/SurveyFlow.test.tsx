@@ -86,6 +86,21 @@ afterEach(() => {
 })
 
 describe('검사지를 열 때', () => {
+  it('옛 초안에 글 칸이던 문항의 글이 남아 있어도 열 때 버려서 "고를 수 없는 값" 이 뜨지 않는다', async () => {
+    // q66 은 글 칸이었다가 네/아니오 칩이 됐다. 그 전에 저장된 초안이다.
+    saveDraft('survey', { answers: { q66: '없음', q3: '김하나' }, groupIndex: 6, submissionId: APPLY_ID, key: KEY })
+    render(<SurveyFlow />)
+    await screen.findByRole('heading', { level: 2 })
+    expect(screen.queryByText('고를 수 없는 값이에요')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '다음' }))
+    expect(screen.queryByText('고를 수 없는 값이에요')).not.toBeInTheDocument()
+    // 저장된 초안은 다음 입력 때 걸러진 답으로 다시 쓰인다.
+    const q66 = document.querySelector<HTMLElement>('[data-question="q66"]')!
+    fireEvent.click(within(q66).getByRole('radio', { name: '네' }))
+    expect(loadDraft('survey')?.answers.q66).toBe('네')
+    expect(loadDraft('survey')?.answers.q3).toBe('김하나')
+  })
+
   it('검사지는 세션이 있으면 성함·연락처·반려견 이름을 미리 채운다', async () => {
     saveSession(session)
     render(<SurveyFlow />)
