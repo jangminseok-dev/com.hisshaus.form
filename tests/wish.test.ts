@@ -11,7 +11,7 @@ describe('희망 일시 한 줄', () => {
   })
 
   it('서비스 하나, 날짜와 시간대를 둘 다 적었으면 날짜 뒤에 시간대를 그대로 붙인다', () => {
-    expect(wishText({ services: [GROOMING_SERVICE], groom_date: '2026-11-01', groom_time: '오후 2시' })).toBe('11월 1일 (일) 오후 2시')
+    expect(wishText({ services: [GROOMING_SERVICE], groom_date: '2026-11-01', groom_time: '기타: 오후 2시' })).toBe('11월 1일 (일) 오후 2시')
     expect(wishText({ services: [DAYCARE_SERVICE], daycare_date: '2026-11-02', daycare_time: ' 10시~16시 ' })).toBe('11월 2일 (월) 10시~16시')
   })
 

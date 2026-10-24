@@ -61,10 +61,10 @@
 }
 
 .intro p {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   line-height: 1.65;
-  /* 마지막 줄에 한두 글자만 남지 않게 줄을 고르게 나눈다. */
-  text-wrap: pretty;
+  /* 두 줄이 되면 길이를 비슷하게 나눈다(마지막 줄에 두어 글자만 남지 않는다). 한 줄이면 그대로다. */
+  text-wrap: balance;
   word-break: keep-all;
   overflow-wrap: anywhere;
 }

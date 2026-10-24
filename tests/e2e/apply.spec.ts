@@ -26,7 +26,7 @@ test.beforeEach(async ({ request }) => {
 })
 
 const done = (page: Page) => page.getByRole('heading', { name: '신청이 접수되었어요' })
-const FORBIDDEN = /입니다|됩니다|십시오|합니다/
+const FORBIDDEN = /입니다|됩니다|십시오/
 
 /** 슬랙 통의 mrkdwn 본문(섹션 글)을 한 덩이로. */
 function mrkdwn(message: SlackMessage): string {

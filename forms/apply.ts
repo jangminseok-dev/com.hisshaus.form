@@ -8,6 +8,8 @@ export const DAYCARE_SERVICE = 'Daycare 데이케어'
 export const HOTEL_SERVICE = 'Hotel 호텔'
 
 const OX = ['O', 'X']
+// 희망 시간대 칩. '기타' 를 고르면 원하는 시간을 직접 적는다(예: 오후 2시).
+const SLOTS = ['오전', '오후', '상관없어요']
 
 export const applyForm: FormDef = {
   id: 'apply',
@@ -77,7 +79,7 @@ export const applyForm: FormDef = {
       showIf: { questionId: 'services', includes: GROOMING_SERVICE },
       questions: [
         { id: 'groom_date', label: '희망 예약 날짜', type: 'date', required: true },
-        { id: 'groom_time', label: '희망 시간대', type: 'short', required: false },
+        { id: 'groom_time', label: '희망 시간대', type: 'single', required: false, options: SLOTS, other: true },
         { id: 'groom_kind', label: '원하시는 미용 종류', type: 'short', required: false },
         { id: 'groom_sensitive', label: '만지는 것을 특히 싫어하는 부위가 있으면 알려주세요.', type: 'short', required: false },
         { id: 'groom_request', label: '미용 중 요청사항이 있으면 편하게 알려주세요.', type: 'long', required: false },
@@ -126,7 +128,7 @@ export const applyForm: FormDef = {
       questions: [
         // 라벨은 시트 열 이름이라 미용 묶음의 '희망 시간대' 와 겹치지 않게 앞에 교육미용을 붙였다.
         { id: 'training_date', label: '교육미용 희망 날짜', type: 'date', required: true },
-        { id: 'training_time', label: '교육미용 희망 시간대', type: 'short', required: false },
+        { id: 'training_time', label: '교육미용 희망 시간대', type: 'single', required: false, options: SLOTS, other: true },
       ],
     },
     // 구글폼의 마지막 섹션 '예약금 안내'. 입금 계좌는 사장님이 정해 주면 note 에 넣는다.
@@ -135,7 +137,7 @@ export const applyForm: FormDef = {
       title: '예약금 안내',
       note: '신청서를 확인한 뒤 연락드릴게요. 날짜와 시간을 맞춘 뒤 예약금 10,000원을 입금해 주시면 예약이 확정돼요.',
       questions: [
-        { id: 'request', label: '마지막으로 요청 사항이 있으면 편하게 말씀해주세요!', type: 'long', required: false, hint: '고마워요 :)' },
+        { id: 'request', label: '마지막으로 요청 사항이 있으면 편하게 말씀해주세요!', type: 'long', required: false, hint: '감사합니다 :)' } // 구글폼 원문 인사. 사용자 결정(2026-10-24)으로 해요체로 바꾸지 않는다.,
       ],
     },
   ],

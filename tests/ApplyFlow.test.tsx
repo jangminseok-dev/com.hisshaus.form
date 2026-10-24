@@ -127,7 +127,9 @@ describe('신청서를 열 때', () => {
     expect(next).toHaveAttribute('aria-disabled', 'true')
     fireEvent.click(next)
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(screen.getByLabelText('희망 예약 날짜')).toHaveAttribute('min', '2026-12-25')
+    fireEvent.click(screen.getByLabelText('희망 예약 날짜'))
+    expect(document.querySelector('[data-date="2026-12-24"]')).toBeDisabled()
+    expect(document.querySelector('[data-date="2026-12-25"]')).not.toBeDisabled()
   })
 
   it('서버에서 그릴 때는 저장소를 읽지 않고 아무것도 그리지 않는다', () => {

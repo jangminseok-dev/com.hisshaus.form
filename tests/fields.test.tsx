@@ -322,19 +322,82 @@ describe('글 입력', () => {
 })
 
 describe('날짜', () => {
-  it('날짜 입력은 오늘을 min 으로 가진다', () => {
+  const field = () => screen.getByLabelText('희망 날짜')
+  const dayOf = (d: string) => document.querySelector<HTMLButtonElement>(`[data-date="${d}"]`)!
+
+  it('입력칸은 읽기 전용이고 누르면 오늘이 든 달의 달력이 열린다. 오늘 이전은 누를 수 없다', () => {
     renderField(dateQ)
-    const input = screen.getByLabelText('희망 날짜')
-    expect(input).toHaveAttribute('type', 'date')
-    expect(input).toHaveAttribute('min', TODAY)
+    expect(field()).toHaveAttribute('readonly')
+    expect(field()).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    fireEvent.click(field())
+    const dialog = screen.getByRole('dialog', { name: '희망 날짜 달력' })
+    expect(field()).toHaveAttribute('aria-expanded', 'true')
+    expect(within(dialog).getByText('2026년 10월')).toBeInTheDocument()
+    expect(dayOf('2026-10-22')).toBeDisabled()
+    expect(dayOf('2026-10-23')).not.toBeDisabled()
+    expect(dayOf('2026-10-23')).toHaveAttribute('aria-current', 'date')
+    // 오늘 이전뿐인 달로는 못 간다.
+    expect(within(dialog).getByRole('button', { name: '이전 달' })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: '다음 달' })).not.toBeDisabled()
+    // 날짜 칸은 보조 기기에 날짜 전체로 읽힌다.
+    expect(dayOf('2026-10-28')).toHaveAccessibleName('10월 28일 수요일')
   })
 
-  it('날짜를 고르면 YYYY-MM-DD 값을 돌려준다', () => {
+  it('날짜를 고르면 YYYY-MM-DD 값을 돌려주고 칸에는 한국어 날짜가 보이며 달력이 닫힌다', () => {
     const { last } = renderField(dateQ)
-    expect(screen.getByLabelText('희망 날짜')).toHaveValue('')
-    fireEvent.change(screen.getByLabelText('희망 날짜'), { target: { value: '2026-10-28' } })
+    expect(field()).toHaveValue('')
+    expect(field()).toHaveAttribute('placeholder', '날짜를 골라 주세요')
+    fireEvent.click(field())
+    fireEvent.click(dayOf('2026-10-28'))
     expect(last()).toBe('2026-10-28')
-    expect(screen.getByLabelText('희망 날짜')).toHaveValue('2026-10-28')
+    expect(field()).toHaveValue('2026년 10월 28일 (수)')
+    expect(field()).toHaveAttribute('data-value', '2026-10-28')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // 다시 열면 고른 날짜가 표시돼 있다.
+    fireEvent.click(field())
+    expect(dayOf('2026-10-28')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('다음 달로 넘기면 그 달이 보이고 이전 달 버튼이 살아난다', () => {
+    renderField(dateQ)
+    fireEvent.click(field())
+    fireEvent.click(screen.getByRole('button', { name: '다음 달' }))
+    expect(screen.getByText('2026년 11월')).toBeInTheDocument()
+    expect(dayOf('2026-11-15')).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: '이전 달' })).not.toBeDisabled()
+  })
+
+  it('화살표로 날짜를 옮기고 Enter 로 고르며 Esc 는 닫는다. 오늘 앞으로는 못 간다', () => {
+    const { last } = renderField(dateQ)
+    fireEvent.keyDown(field(), { key: 'ArrowDown' })
+    expect(dayOf('2026-10-23')).toHaveFocus()
+    fireEvent.keyDown(dayOf('2026-10-23'), { key: 'ArrowLeft' })
+    expect(dayOf('2026-10-23')).toHaveFocus()
+    fireEvent.keyDown(dayOf('2026-10-23'), { key: 'ArrowDown' })
+    expect(dayOf('2026-10-30')).toHaveFocus()
+    fireEvent.keyDown(dayOf('2026-10-30'), { key: 'ArrowRight' })
+    expect(dayOf('2026-10-31')).toHaveFocus()
+    // 달을 넘어가면 그 달이 보인다.
+    fireEvent.keyDown(dayOf('2026-10-31'), { key: 'ArrowRight' })
+    expect(screen.getByText('2026년 11월')).toBeInTheDocument()
+    expect(dayOf('2026-11-01')).toHaveFocus()
+    fireEvent.click(dayOf('2026-11-01'))
+    expect(last()).toBe('2026-11-01')
+
+    fireEvent.click(field())
+    fireEvent.keyDown(dayOf('2026-11-01'), { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(field()).toHaveFocus()
+  })
+
+  it('달력 밖을 누르면 닫힌다', () => {
+    renderField(dateQ)
+    fireEvent.click(field())
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.pointerDown(document.body)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })
 

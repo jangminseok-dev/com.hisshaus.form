@@ -56,6 +56,16 @@ const isBlocked = (button: HTMLElement) => button.getAttribute('aria-disabled') 
 const box = (id: string) => document.querySelector<HTMLElement>(`[data-question="${id}"]`)!
 
 const write = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } })
+/** 달력을 열어 날짜를 고른다('' 면 지운다). 테스트의 오늘(10-23)이 든 달이나 다음 달 날짜만 쓴다. */
+const pickDate = (label: string, date: string) => {
+  fireEvent.click(screen.getByLabelText(label))
+  if (date === '') {
+    fireEvent.click(screen.getByRole('button', { name: '날짜 지우기' }))
+    return
+  }
+  if (!document.querySelector(`[data-date="${date}"]:not([data-outside])`)) fireEvent.click(screen.getByRole('button', { name: '다음 달' }))
+  fireEvent.click(document.querySelector(`[data-date="${date}"]`)!)
+}
 const chooseOne = (label: string, option: string) =>
   fireEvent.click(within(screen.getByRole('radiogroup', { name: label })).getByRole('radio', { name: option }))
 const chooseMany = (label: string, option: string) =>
@@ -231,9 +241,11 @@ describe('다음·검증', () => {
     expect(within(box('groom_date')).getByRole('alert')).toHaveTextContent('오늘 이후 날짜를 골라 주세요')
   })
 
-  it('오늘 날짜는 min 으로 날짜 입력에 전해진다', () => {
+  it('오늘 날짜가 달력에 전해져 오늘 이전은 누를 수 없다', () => {
     setup({ initial: draft(GROOMING, { services: [GROOMING_SERVICE] }) })
-    expect(screen.getByLabelText('희망 예약 날짜')).toHaveAttribute('min', TODAY)
+    fireEvent.click(screen.getByLabelText('희망 예약 날짜'))
+    expect(document.querySelector('[data-date="2026-10-22"]')).toBeDisabled()
+    expect(document.querySelector('[data-date="2026-10-23"]')).not.toBeDisabled()
   })
 })
 
@@ -280,7 +292,7 @@ describe('서비스별 묶음', () => {
     expect(groupId()).toBe('grooming')
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Grooming 미용')
     expect(screen.getByText('4 / 6')).toBeInTheDocument()
-    write('희망 예약 날짜', '2099-01-01')
+    // 미용 날짜는 validAnswers 가 이미 채웠다(미용은 기본으로 고른 서비스).
 
     fireEvent.click(action('next'))
     expect(groupId()).toBe('hotel')
@@ -304,7 +316,7 @@ describe('서비스별 묶음', () => {
     fireEvent.click(action('next'))
     expect(groupId()).toBe('training')
     expect(screen.getByText('4 / 5')).toBeInTheDocument()
-    write('교육미용 희망 날짜', '2099-01-01')
+    pickDate('교육미용 희망 날짜', '2026-11-05')
     fireEvent.click(action('next'))
     expect(groupId()).toBe('deposit')
     expect(screen.getByText('5 / 5')).toBeInTheDocument()
@@ -965,7 +977,10 @@ describe('제출', () => {
     await waitFor(() => expect(groupId()).toBe('grooming'))
     expect(within(box('groom_date')).getByRole('alert')).toHaveTextContent('오늘 이후 날짜를 골라 주세요')
     expect(isBlocked(action('next'))).toBe(true)
-    expect(screen.getByLabelText('희망 예약 날짜')).toHaveAttribute('min', '2026-10-24')
+    // 새 오늘(10-24)이 달력에 전해진다.
+    fireEvent.click(screen.getByLabelText('희망 예약 날짜'))
+    expect(document.querySelector('[data-date="2026-10-23"]')).toBeDisabled()
+    expect(document.querySelector('[data-date="2026-10-24"]')).not.toBeDisabled()
     await waitFor(() => expect(scrolledTo().at(-1)).toBe(box('groom_date')))
   })
 
@@ -1125,7 +1140,7 @@ describe('조건 문항', () => {
     expect(within(box('s')).getByRole('radiogroup')).not.toBeRequired()
     expect(isBlocked(action('submit'))).toBe(false)
 
-    write('선택 날짜', '2026-10-30')
+    pickDate('선택 날짜', '2026-10-30')
 
     // 날짜를 고르면 시간대는 필수가 된다(보조 기기에도). 날짜 쪽은 여전히 선택이다.
     expect(within(box('s')).queryByText('선택')).not.toBeInTheDocument()
@@ -1142,7 +1157,7 @@ describe('조건 문항', () => {
     expect(afternoon()).toBeChecked()
 
     // 날짜를 지우면 다시 선택이다.
-    write('선택 날짜', '')
+    pickDate('선택 날짜', '')
     expect(within(box('s')).getByText('선택')).toBeInTheDocument()
     expect(isBlocked(action('submit'))).toBe(false)
   })

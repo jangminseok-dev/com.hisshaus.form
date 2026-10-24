@@ -77,7 +77,8 @@ describe('첫 화면', () => {
     expect(within(section('intro')).getByRole('heading', { level: 1, name: '예약 신청' })).toBeInTheDocument()
     const paragraphs = Array.from(section('intro').querySelectorAll('p')).map((p) => p.textContent)
     expect(paragraphs).toEqual([
-      '신청서를 보내 주시면 확인한 뒤 연락드려요. 날짜와 시간을 맞추고 예약금 입금이 확인되면 예약이 확정돼요.',
+      '신청서를 보내 주시면 확인한 뒤 연락드려요.',
+      '날짜와 시간을 맞추고 예약금 입금이 확인되면 예약이 확정돼요.',
       '아이가 편안하게 케어받을 수 있도록 충분히 상담한 뒤 예약을 진행해요.',
     ])
 

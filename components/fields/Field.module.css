@@ -174,3 +174,136 @@
   min-width: 0;
   padding: 10px 0;
 }
+
+/* 날짜: 읽기 전용 입력칸(누르면 달력이 열린다) + 오른쪽 달력 아이콘 + 아래에 펼쳐지는 달력. */
+.dateRoot {
+  position: relative;
+}
+
+.dateInput {
+  padding-right: 44px;
+  cursor: pointer;
+  caret-color: transparent;
+}
+
+.dateIcon {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: var(--mute);
+  pointer-events: none;
+}
+
+.calendar {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.calHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.calMonth {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.calNav {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.calNav:disabled {
+  color: var(--line);
+  cursor: default;
+}
+
+.weekdays,
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.weekdays {
+  margin-bottom: 4px;
+  color: var(--mute);
+  font-size: 13px;
+  text-align: center;
+}
+
+.day {
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.day[data-outside='true'] {
+  color: var(--mute);
+}
+
+.day[aria-current='date'] {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.day[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--accent-ink);
+}
+
+.day:disabled {
+  color: var(--line);
+  text-decoration: none;
+  cursor: default;
+}
+
+.calNav:focus-visible,
+.day:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.calFoot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.calClear {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--mute);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.calClear:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}

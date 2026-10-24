@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 
 import { TRAINING_SERVICE } from '../../forms/apply'
 
@@ -45,6 +45,22 @@ export async function choose(page: Page, id: string, option: string): Promise<vo
 
 type Kind = 'consent' | 'single' | 'multi' | 'date' | 'long' | 'phone' | 'email' | 'short' | 'unknown'
 
+/** 달력을 열어 date(YYYY-MM-DD)를 고른다. 그 달이 보일 때까지 다음 달을 누른다(도우미 날짜는 오늘+7일이라 많아야 한 번). */
+export async function pickDate(q: Locator, date: string): Promise<void> {
+  await q.getByRole('combobox').click()
+  const dialog = q.getByRole('dialog')
+  for (let i = 0; i < 3; i++) {
+    const day = dialog.locator(`[data-date="${date}"]:not([data-outside])`)
+    if ((await day.count()) > 0) {
+      await day.click()
+      await expect(q.getByRole('combobox')).toHaveAttribute('data-value', date)
+      return
+    }
+    await dialog.getByRole('button', { name: '다음 달' }).click()
+  }
+  throw new Error(`달력에서 ${date} 를 찾지 못했다`)
+}
+
 /**
  * 지금 묶음에서 아직 비어 있는 필수 문항. 필수 여부는 라벨 옆 `선택` 표시가 없는 것이고, 유형은 DOM 모양으로 알아낸다.
  * 이미 값이 있는 문항(미리 채운 값, 복원된 값, 테스트가 먼저 쓴 값)은 건드리지 않으려고 뺀다.
@@ -64,7 +80,8 @@ async function emptyRequired(page: Page): Promise<{ id: string; kind: Kind }[]> 
       if (input('checkbox')) [kind, filled] = ['consent', input('checkbox')!.checked]
       else if (root.querySelector('[role="radiogroup"]')) [kind, filled] = ['single', checked('[role="radio"]')]
       else if (root.querySelector('[role="group"]')) [kind, filled] = ['multi', checked('[role="checkbox"]')]
-      else if (input('date')) [kind, filled] = ['date', text(input('date'))]
+      else if (root.querySelector('input[data-value]'))
+        [kind, filled] = ['date', (root.querySelector<HTMLInputElement>('input[data-value]')!.dataset.value ?? '') !== '']
       else if (area) [kind, filled] = ['long', area.value.trim() !== '']
       else if (input('tel')) [kind, filled] = ['phone', text(input('tel'))]
       else if (input('email')) [kind, filled] = ['email', text(input('email'))]
@@ -85,7 +102,7 @@ async function fillOne(page: Page, id: string, kind: Kind): Promise<void> {
     case 'multi':
       return q.locator('[role="checkbox"]').first().click()
     case 'date':
-      return q.locator('input[type="date"]').fill(WISH_DATE)
+      return pickDate(q, WISH_DATE)
     case 'long':
       return q.locator('textarea').fill('가나다')
     case 'phone':

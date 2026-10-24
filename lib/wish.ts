@@ -1,10 +1,13 @@
 import { DAYCARE_SERVICE, GROOMING_SERVICE, HOTEL_SERVICE, TRAINING_SERVICE } from '../forms/apply'
 import type { Answers } from '../forms/types'
 import { dateKo } from './format'
+import { OTHER_PREFIX } from './validate'
 
+/** 답 글. '기타: 오후 2시' 처럼 직접 적은 시간대는 접두를 떼고 보여 준다. */
 const text = (a: Answers, id: string): string => {
   const v = a[id]
-  return typeof v === 'string' ? v.trim() : ''
+  if (typeof v !== 'string') return ''
+  return (v.startsWith(OTHER_PREFIX) ? v.slice(OTHER_PREFIX.length) : v).trim()
 }
 
 /** 서비스별 희망 일시 한 줄. 날짜 문항은 한국어 날짜로, 시간대는 적은 그대로 뒤에 붙인다. */
