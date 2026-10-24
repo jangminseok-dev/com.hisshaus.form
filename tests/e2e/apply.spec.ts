@@ -118,7 +118,7 @@ test('교육미용을 고르면 검사지 안내로 가고 아니에요를 누�
 for (const width of [320, 390]) {
   test(`폭 ${width} 에서 가로 넘침이 없다`, async ({ page }) => {
     await page.setViewportSize({ width, height: 700 })
-    await page.goto('/')
+    await page.goto('/hisshaus')
     await expect(page.getByRole('heading', { name: '예약 신청서' })).toBeVisible()
     await expectNoHorizontalOverflow(page, width)
 
@@ -155,7 +155,7 @@ test('브라우저 뒤로 가기는 이전 묶음으로 간다', async ({ page }
   await expectGroup(page, 'guardian')
   // 처음 묶음에서 더 뒤로 가면 양식을 떠난다.
   await page.goBack()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/hisshaus$/)
   await expect(page.getByRole('link', { name: '예약 신청하기' })).toBeVisible()
 })
 
@@ -176,7 +176,7 @@ test('새로 고침으로 복원된 뒤 이전은 앞 묶음으로 간다', asyn
 
   // 처음 묶음의 ‹ 는 첫 화면으로 간다.
   await page.locator('[data-action="back"]').click()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/hisshaus$/)
 })
 
 test('완료 화면에서 뒤로 가도 세션이 남아 앞으로 가면 완료 화면이 다시 보인다', async ({ page }) => {
@@ -206,7 +206,7 @@ test('신청을 마치고 완료 화면에서 뒤로 두 번이면 양식을 떠
 
   // 두 번째 뒤로: 지난 신청이 남긴 칸을 건너뛰어 첫 화면까지 간다.
   await page.goBack()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/hisshaus$/)
   await expect(page.getByRole('link', { name: '예약 신청하기' })).toBeVisible()
   expect(await seen()).toEqual(['guardian'])
 })
@@ -219,7 +219,7 @@ test('화면 어디에도 입니다 체가 없다', async ({ page }) => {
     expect(text).not.toMatch(FORBIDDEN)
   }
 
-  await page.goto('/')
+  await page.goto('/hisshaus')
   await expect(page.getByRole('heading', { name: '예약 신청서' })).toBeVisible()
   await expectHaeyo('예약 확정이 아니에요')
 
@@ -243,12 +243,12 @@ test('화면 어디에도 입니다 체가 없다', async ({ page }) => {
   await expectHaeyo('검사지는 나중에 같은 링크로 이어서 쓸 수 있어요')
 
   // 완료 화면(검사지 링크가 있는 쪽)과 취소한 뒤의 완료 화면.
-  await page.goto('/apply/done')
+  await page.goto('/hisshaus/apply/done')
   await expect(done(page)).toBeVisible()
   await expect(page.getByRole('link', { name: '검사지 이어서 쓰기' })).toBeVisible()
   await expectHaeyo('입금이 확인되면 예약이 확정돼요')
 
-  await page.goto('/apply/training')
+  await page.goto('/hisshaus/apply/training')
   await page.getByRole('button', { name: '교육미용은 아니에요' }).click()
   await expect(done(page)).toBeVisible()
   await expect(page.getByRole('link', { name: '검사지 이어서 쓰기' })).toHaveCount(0)
@@ -280,22 +280,32 @@ test('허니팟은 비어 있고 name 이 없다', async ({ page }) => {
 })
 
 test('없는 주소는 404 와 한국어 안내를 보이고 처음으로 돌아갈 수 있다', async ({ page }) => {
-  const res = await page.goto('/no-such-page')
+  const res = await page.goto('/hisshaus/no-such-page')
   expect(res?.status()).toBe(404)
   await expect(page.getByRole('heading', { name: '페이지를 찾을 수 없어요' })).toBeVisible()
   await page.getByRole('link', { name: '처음으로' }).click()
   await expect(page.getByRole('heading', { name: '예약 신청서' })).toBeVisible()
 })
 
-test('viewport 는 기기 화면 끝까지 채운다(viewport-fit=cover)', async ({ page }) => {
+test('도메인 첫 주소는 신청서 첫 화면(/hisshaus)으로 보내고, 첫 화면 사진이 열린다', async ({ page }) => {
   await page.goto('/')
+  await expect(page).toHaveURL(/\/hisshaus$/)
+  await expect(page.getByRole('link', { name: '예약 신청하기' })).toBeVisible()
+  // <img> 주소에는 basePath 가 저절로 붙지 않는다. 빠지면 그림이 깨진다.
+  const photo = page.locator('img').first()
+  await expect(photo).toHaveAttribute('src', '/hisshaus/hero.jpg')
+  await expect.poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+})
+
+test('viewport 는 기기 화면 끝까지 채운다(viewport-fit=cover)', async ({ page }) => {
+  await page.goto('/hisshaus')
   await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /viewport-fit=cover/)
 })
 
 test('첫 화면에 og:image 가 있다', async ({ page, request }) => {
-  await page.goto('/')
+  await page.goto('/hisshaus')
   const meta = page.locator('meta[property="og:image"]')
-  await expect(meta).toHaveAttribute('content', /\/og\.jpg$/)
+  await expect(meta).toHaveAttribute('content', /\/hisshaus\/og\.jpg$/)
   // 가리키는 그림이 실제로 열린다(주소의 호스트는 배포 주소에 따라 달라지므로 경로로 부른다).
   const res = await request.get(new URL((await meta.getAttribute('content'))!).pathname)
   expect(res.ok()).toBe(true)

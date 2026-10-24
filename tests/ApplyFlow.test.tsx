@@ -198,7 +198,7 @@ describe('제출', () => {
     expect(router.replace).toHaveBeenCalledTimes(1)
   })
 
-  it('/api/apply 에 신청 ID·답·빈 허니팟을 JSON 으로 보낸다', async () => {
+  it('/hisshaus/api/apply 에 신청 ID·답·빈 허니팟을 JSON 으로 보낸다', async () => {
     const answers = draftAtLastGroup()
     render(<ApplyFlow />)
     fireEvent.click(await submitButton())
@@ -206,7 +206,7 @@ describe('제출', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const { url, init, body } = sent()
-    expect(url).toBe('/api/apply')
+    expect(url).toBe('/hisshaus/api/apply')
     expect(init.method).toBe('POST')
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(body).toEqual({ submissionId: ID, answers, website: '' })

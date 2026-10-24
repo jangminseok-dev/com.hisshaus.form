@@ -23,7 +23,7 @@ test.beforeEach(async ({ request }) => {
 const groups = surveyForm.groups
 
 test('검사지를 몇 묶음 쓰고 닫았다 열면 쓰던 묶음으로 돌아온다', async ({ page }) => {
-  await page.goto('/survey')
+  await page.goto('/hisshaus/survey')
   await fillUntil(page, 'd')
   const fourth = groups[3]
   await expect(page.locator('[data-group] h2')).toHaveText(fourth.title)
@@ -38,7 +38,7 @@ test('검사지를 몇 묶음 쓰고 닫았다 열면 쓰던 묶음으로 돌아
   const context = page.context()
   await page.close()
   const again = await context.newPage()
-  await again.goto('/survey')
+  await again.goto('/hisshaus/survey')
   await expectGroup(again, 'd')
   await expect(again.locator('[data-group] h2')).toHaveText(fourth.title)
   // 앞 묶음에 쓴 답도 돌아와 있다.
@@ -48,7 +48,7 @@ test('검사지를 몇 묶음 쓰고 닫았다 열면 쓰던 묶음으로 돌아
 })
 
 test('q83 에서 없음만 고르고 나머지를 비워도 다음 묶음으로 넘어간다', async ({ page }) => {
-  await page.goto('/survey')
+  await page.goto('/hisshaus/survey')
   await fillUntil(page, 'k')
 
   await choose(page, 'q83', '없음')
@@ -63,7 +63,7 @@ test('q83 에서 없음만 고르고 나머지를 비워도 다음 묶음으로 
 })
 
 test('q2 에서 동의하지 않음을 고르면 버튼이 막힌다', async ({ page }) => {
-  await page.goto('/survey')
+  await page.goto('/hisshaus/survey')
   await expectGroup(page, 'a')
   await setText(page, 'q1', 'a@b.co')
 
@@ -85,7 +85,7 @@ test('q2 에서 동의하지 않음을 고르면 버튼이 막힌다', async ({ 
 })
 
 test('끝까지 제출하면 검사지 탭에 한 줄, 슬랙은 한 통 이상이고 머리글에 반려견 이름이 있다', async ({ page, request }) => {
-  await page.goto('/survey')
+  await page.goto('/hisshaus/survey')
   await fillUntil(page, 'b')
   await setText(page, 'q3', '김하나')
   await setText(page, 'q7', '보리')
@@ -146,12 +146,12 @@ test('검사지를 낸 뒤 완료 화면에서 뒤로 두 번이면 지난 칸�
 
 test('폭 320 에서 검사지의 모든 묶음, 긴 선택지의 k·l 묶음에도 가로 넘침이 없다', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 })
-  await page.goto('/survey')
+  await page.goto('/hisshaus/survey')
   await fillUntil(page, 'l', () => expectNoHorizontalOverflow(page, 320))
 })
 
 test('검사지 주소의 링크 미리보기는 검사지 제목·설명과 그림이다', async ({ page }) => {
-  await page.goto('/survey')
+  await page.goto('/hisshaus/survey')
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', '히스하우스 심층 행동 분석 검사지')
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', '교육미용 상담을 위해 반려견에 대해 알려 주세요.')
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/og\.jpg$/)

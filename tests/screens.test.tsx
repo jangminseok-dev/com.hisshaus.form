@@ -187,7 +187,7 @@ describe('검사지 안내', () => {
     expect(router.replace).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/apply/cancel-training')
+    expect(url).toBe('/hisshaus/api/apply/cancel-training')
     expect(init?.method).toBe('POST')
     expect(JSON.parse(init?.body as string)).toEqual({
       submissionId: session.submissionId,
@@ -322,7 +322,7 @@ describe('검사지 주소의 링크 미리보기', () => {
   it('검사지 제목·설명과 미리보기 그림을 가진다', () => {
     const title = '히스하우스 심층 행동 분석 검사지'
     const description = '교육미용 상담을 위해 반려견에 대해 알려 주세요.'
-    expect(surveyMetadata).toEqual({ title, description, openGraph: { title, description, images: ['/og.jpg'] } })
+    expect(surveyMetadata).toEqual({ title, description, openGraph: { title, description, images: ['/hisshaus/og.jpg'] } })
   })
 })
 

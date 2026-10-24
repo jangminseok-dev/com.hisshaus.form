@@ -214,7 +214,7 @@ describe('검사지를 열 때', () => {
 })
 
 describe('검사지 제출', () => {
-  it('/api/survey 에 신청 ID·답·applyId·빈 허니팟을 보낸다', async () => {
+  it('/hisshaus/api/survey 에 신청 ID·답·applyId·빈 허니팟을 보낸다', async () => {
     saveSession(session)
     const answers = draftAtLastGroup(APPLY_ID)
     render(<SurveyFlow />)
@@ -223,7 +223,7 @@ describe('검사지 제출', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const { url, init, body } = sent()
-    expect(url).toBe('/api/survey')
+    expect(url).toBe('/hisshaus/api/survey')
     expect(init.method).toBe('POST')
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(init.signal).toBeInstanceOf(AbortSignal)
