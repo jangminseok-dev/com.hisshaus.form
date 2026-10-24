@@ -110,3 +110,34 @@
   color: var(--mute);
   cursor: default;
 }
+
+/* 입금 계좌 줄: 은행·번호와 복사 버튼. 다음 순서 상자 안에서 쓴다. */
+.account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 10px 0 0 1.5em;
+}
+
+.accountNumber {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.copy {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.copy:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}

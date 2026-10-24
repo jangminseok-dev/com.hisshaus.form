@@ -137,7 +137,15 @@ export const applyForm: FormDef = {
       id: 'deposit',
       title: '예약금 안내',
       // 금액은 lib/deposit.ts·content/shop.ts 와 맞춘다.
-      note: '신청서를 확인한 뒤 연락드릴게요. 날짜와 시간을 맞춘 뒤 예약금(미용·데이케어·호텔 10,000원, 교육미용 상담 50,000원)을 입금해 주시면 예약이 확정돼요.',
+      note: [
+        '신청서를 확인한 뒤 연락드릴게요. 날짜와 시간을 맞춘 뒤 예약금을 입금해 주시면 예약이 확정돼요.',
+        '',
+        '예약금은 한 번만 내요.',
+        '· 교육미용 상담이 없으면 10,000원',
+        '· 교육미용 상담이 있으면 50,000원',
+        '',
+        `입금 계좌: ${shop.bankAccount.bank} ${shop.bankAccount.number}`,
+      ].join('\n'),
       questions: [
         { id: 'request', label: '마지막으로 요청 사항이 있으면 편하게 말씀해주세요!', type: 'long', required: false, hint: '감사합니다 :)' } // 구글폼 원문 인사. 사용자 결정(2026-10-24)으로 해요체로 바꾸지 않는다.,
       ],

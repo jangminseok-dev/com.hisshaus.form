@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { TRAINING_SERVICE } from '../forms/apply'
 import { depositOf } from '../lib/deposit'
+import { BankAccount } from './BankAccount'
 import { loadSession, type ApplySession } from '../lib/draft'
 import styles from './Screen.module.css'
 
@@ -34,6 +35,7 @@ export function SurveyDone() {
           {/* 검사지는 교육미용 상담 전용이라 예약금은 늘 교육미용 금액이다. */}
           <li>3. 예약금 {depositOf([TRAINING_SERVICE])} 입금이 확인되면 예약이 확정돼요</li>
         </ol>
+        <BankAccount />
       </div>
       {session === null && (
         <p className={styles.text}>예약 신청서를 아직 보내지 않았다면 이어서 작성해 주세요. 검사지만으로는 예약이 잡히지 않아요.</p>

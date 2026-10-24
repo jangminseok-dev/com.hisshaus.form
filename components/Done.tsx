@@ -3,6 +3,7 @@
 import Link from 'next/link'
 
 import { depositOf } from '../lib/deposit'
+import { BankAccount } from './BankAccount'
 import { maskPhone } from '../lib/format'
 import { useApplySession } from '../lib/use-session'
 import styles from './Screen.module.css'
@@ -25,6 +26,7 @@ export function Done() {
           <li>2. 날짜·시간을 맞춘 뒤 예약금 {depositOf(session.services)}을 입금해 주세요</li>
           <li>3. 입금이 확인되면 예약이 확정돼요</li>
         </ol>
+        <BankAccount />
       </div>
       <p className={styles.text}>{maskPhone(session.guardianPhone)} 로 연락드려요.</p>
       {session.training && !session.surveyDone && (

@@ -301,6 +301,13 @@ describe('완료 화면', () => {
 
     expect(screen.getByText('다음 순서')).toBeInTheDocument()
     expect(screen.getByText('1. 히스하우스가 신청서를 확인하고 연락드려요')).toBeInTheDocument()
+    // 입금 계좌와 복사 버튼. 복사는 하이픈을 뺀 숫자다.
+    expect(screen.getByText('553-910109-67607')).toBeInTheDocument()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    fireEvent.click(screen.getByRole('button', { name: '계좌번호 복사' }))
+    expect(writeText).toHaveBeenCalledWith('55391010967607')
+    expect(await screen.findByRole('button', { name: '복사했어요' })).toBeInTheDocument()
     // 교육미용이 든 신청이라 50,000원.
     expect(screen.getByText('2. 날짜·시간을 맞춘 뒤 예약금 50,000원을 입금해 주세요')).toBeInTheDocument()
     expect(screen.getByText('3. 입금이 확인되면 예약이 확정돼요')).toBeInTheDocument()
@@ -344,6 +351,7 @@ describe('검사지 완료 화면', () => {
     expect(screen.getByRole('heading', { level: 1, name: '검사지가 접수되었어요' })).toBeInTheDocument()
     expect(await screen.findByText('보리의 예약 신청과 함께 히스하우스에 전달됐어요.')).toBeInTheDocument()
     expect(screen.getByText('3. 예약금 50,000원 입금이 확인되면 예약이 확정돼요')).toBeInTheDocument()
+    expect(screen.getByText('553-910109-67607')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: '다음 순서' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '처음으로' })).toHaveAttribute('href', '/')
     expect(screen.queryByRole('link', { name: '예약 신청서 쓰기' })).not.toBeInTheDocument()
