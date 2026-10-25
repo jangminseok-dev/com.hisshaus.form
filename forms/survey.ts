@@ -21,6 +21,8 @@ const RECENT_HINT = '언제, 어디에서 일어났는지, 공격행동의 경�
 export const surveyForm: FormDef = {
   id: 'survey',
   title: '히스하우스 심층 행동 분석 검사지',
+  // 검사지 문항의 출처(사장님 요청 2026-10-25). 첫 화면과 완료 화면에 보인다.
+  credit: '출처: 어글리독',
   groups: [
     {
       id: 'a',

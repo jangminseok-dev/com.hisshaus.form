@@ -40,6 +40,10 @@ describe('검사지 정의', () => {
     expect(qs.filter((x) => !x.required && /^q\d+$/.test(x.id)).map((x) => Number(x.id.slice(1)))).toEqual(optional)
   })
 
+  it('검사지에는 출처(어글리독)가 적혀 있고 신청서에는 없다', () => {
+    expect(surveyForm.credit).toBe('출처: 어글리독')
+  })
+
   it('도입 안내에 없는 표시를 가리키는 "*표시는 필수 질문임" 줄이 없다', () => {
     expect(surveyForm.groups[0].note).not.toContain('*표시는 필수 질문임')
   })

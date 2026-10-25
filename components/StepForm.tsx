@@ -322,6 +322,8 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
           {group.title}
         </h2>
       </div>
+      {/* 출처는 첫 묶음에서 한 번만. */}
+      {form.credit && index === 0 && <p className={styles.credit}>{form.credit}</p>}
       {paceText && (
         <p className={styles.pace} aria-live="polite">
           {paceText}

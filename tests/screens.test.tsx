@@ -384,6 +384,7 @@ describe('검사지 완료 화면', () => {
     expect(screen.getByRole('heading', { level: 2, name: '다음 순서' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '처음으로' })).toHaveAttribute('href', '/')
     expect(screen.queryByRole('link', { name: '예약 신청서 쓰기' })).not.toBeInTheDocument()
+    expect(screen.getByText('출처: 어글리독')).toBeInTheDocument()
     expect(container.textContent).not.toContain('입니다')
     expect(container.textContent).not.toContain('됩니다')
   })

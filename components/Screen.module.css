@@ -172,3 +172,10 @@
 .icon {
   margin-right: 8px;
 }
+
+/* 완료 화면 끝의 출처 한 줄. */
+.credit {
+  margin: 24px 0 0;
+  color: var(--mute);
+  font-size: 13px;
+}

@@ -62,6 +62,12 @@
 }
 
 /* 남은 정도 한 줄. 제목 아래 작은 배지로, 흰 종이색 바탕에 검정 글자라 눈에 띈다. */
+.credit {
+  margin: -16px 0 20px;
+  color: var(--mute);
+  font-size: 13px;
+}
+
 .pace {
   display: inline-block;
   margin: -12px 0 20px;

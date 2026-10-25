@@ -128,6 +128,17 @@ describe('화면 틀', () => {
     expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument()
   })
 
+  it('출처는 검사지 첫 묶음에서만 보이고 다음 묶음과 신청서에는 없다', () => {
+    const first = setup({ form: surveyForm, submitLabel: '제출하기' })
+    expect(screen.getByText('출처: 어글리독')).toBeInTheDocument()
+    first.unmount()
+    const second = setup({ form: surveyForm, initial: draft(1), submitLabel: '제출하기' })
+    expect(screen.queryByText('출처: 어글리독')).not.toBeInTheDocument()
+    second.unmount()
+    setup()
+    expect(screen.queryByText(/출처/)).not.toBeInTheDocument()
+  })
+
   it('양식 제목은 보조 기기용 h1 로 있다', () => {
     setup()
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('예약 신청')

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { TRAINING_SERVICE } from '../forms/apply'
+import { surveyForm } from '../forms/survey'
 import { depositOf } from '../lib/deposit'
 import { BankAccount } from './BankAccount'
 import { CheckMark } from './CheckMark'
@@ -72,6 +73,7 @@ export function SurveyDone() {
           )}
         </div>
       )}
+      {surveyForm.credit && <p className={styles.credit}>{surveyForm.credit}</p>}
     </div>
   )
 }

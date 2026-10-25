@@ -53,6 +53,8 @@ export interface Group {
 export interface FormDef {
   id: 'apply' | 'survey'
   title: string
+  /** 출처 표기. 첫 묶음 제목 아래와 완료 화면 끝에 보인다(검사지: 어글리독) */
+  credit?: string
   groups: Group[]
 }
 
