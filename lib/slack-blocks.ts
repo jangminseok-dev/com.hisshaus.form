@@ -87,6 +87,8 @@ function buildMessages(
   headerText: string,
   notice: string,
   firstSection?: string,
+  /** 마지막 통의 신청 ID 줄 바로 앞에 붙는 단락(mrkdwn 그대로 싣는다). */
+  lastSection?: string,
 ): SlackMessage[] {
   const contextBlock: Block = {
     type: 'context',
@@ -115,6 +117,7 @@ function buildMessages(
     const lines = g.questions.map((q) => ({ label: q.label, answer: answerText(q, a) }))
     for (const text of packLines(lines)) add(section(text))
   }
+  if (lastSection) add(section(lastSection))
   add(contextBlock)
 
   const n = messages.length
@@ -129,23 +132,21 @@ const val = (a: Answers, id: string): string => {
   return Array.isArray(v) ? v.join(', ') : (v ?? '')
 }
 
-export function applyMessages(a: Answers, meta: Meta): SlackMessage[] {
+/** surveyLink 는 교육미용 신청일 때만 온다. 사장님이 입금을 확인한 뒤 보호자에게 보낼 검사지 링크다. */
+export function applyMessages(a: Answers, meta: Meta, surveyLink?: string): SlackMessage[] {
   const pet = val(a, 'pet_name')
   const guardian = val(a, 'guardian_name')
   const services = answerText(allQuestions(applyForm).find((q) => q.id === 'services')!, a)
   const notice = escapeMrkdwn(`새 예약 신청: ${pet} (${guardian}) · ${services} · ${wishText(a)}`)
-  return buildMessages(applyForm, a, meta, `🐾 새 예약 신청 — ${pet} (${guardian})`, notice)
+  const link = surveyLink && `📋 *검사지 링크* — 입금 확인 뒤 보내 주세요\n${escapeMrkdwn(surveyLink)}`
+  return buildMessages(applyForm, a, meta, `🐾 새 예약 신청 — ${pet} (${guardian})`, notice, undefined, link)
 }
 
-export function surveyMessages(a: Answers, meta: Meta & { applyId?: string }): SlackMessage[] {
+/** 검사지는 링크의 신청 ID 로 쌓이므로 meta.submissionId 가 곧 예약 신청 ID 다. */
+export function surveyMessages(a: Answers, meta: Meta): SlackMessage[] {
   const pet = val(a, 'q7')
   const guardian = val(a, 'q3')
   const notice = escapeMrkdwn(`행동 분석 검사지: ${pet} (${guardian})`)
-  const link = meta.applyId ? `예약 신청 ${meta.applyId}의 검사지예요` : undefined
+  const link = `예약 신청 ${meta.submissionId}의 검사지예요`
   return buildMessages(surveyForm, a, meta, `📋 행동 분석 검사지 — ${pet} (${guardian})`, notice, link)
-}
-
-export function cancelTrainingMessage(p: { petName: string; guardianName: string; submissionId: string }): SlackMessage {
-  const text = escapeMrkdwn(`↩️ ${p.petName} (${p.guardianName}) 보호자가 교육미용 선택을 취소했어요 (신청 ${p.submissionId})`)
-  return { text, blocks: [section(text)] }
 }

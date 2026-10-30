@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { serviceAccount, sheetId, sheetsBaseUrl, sheetsFakeToken, slackWebhookUrl } from '../lib/config'
+import { serviceAccount, sheetId, sheetsBaseUrl, sheetsFakeToken, slackWebhookUrl, surveyLinkSecret } from '../lib/config'
 
 afterEach(() => vi.unstubAllEnvs())
 
@@ -21,6 +21,19 @@ describe('설정', () => {
     expect(serviceAccount()).toEqual({ clientEmail: 'a@b', privateKey: '-----BEGIN PRIVATE KEY-----\nabc' })
   })
 
+  test('SURVEY_LINK_SECRET 을 읽는다', () => {
+    vi.stubEnv('SURVEY_LINK_SECRET', 'x'.repeat(32))
+    expect(surveyLinkSecret()).toBe('x'.repeat(32))
+  })
+
+  test('SURVEY_LINK_SECRET 이 32자보다 짧으면 이름만 담아 던진다 — 값은 메시지에 없다', () => {
+    const short = 'short-secret-value-31-character'
+    expect(short).toHaveLength(31)
+    vi.stubEnv('SURVEY_LINK_SECRET', short)
+    expect(surveyLinkSecret).toThrow('환경 변수 SURVEY_LINK_SECRET 이 너무 짧다.')
+    expect(surveyLinkSecret).not.toThrow('short-secret')
+  })
+
   test.each([
     ['없으면', undefined],
     ['비어 있으면', ''],
@@ -29,6 +42,7 @@ describe('설정', () => {
       ['SLACK_WEBHOOK_URL', slackWebhookUrl],
       ['GOOGLE_SHEET_ID', sheetId],
       ['GOOGLE_SERVICE_ACCOUNT_JSON', serviceAccount],
+      ['SURVEY_LINK_SECRET', surveyLinkSecret],
     ] as const) {
       vi.stubEnv(name, value)
       expect(fn).toThrow(name)

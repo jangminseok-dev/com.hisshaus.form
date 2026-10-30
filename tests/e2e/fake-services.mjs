@@ -3,6 +3,7 @@
 //
 //   POST /slack                                     슬랙 웹훅. JSON 본문을 쌓고 200
 //   POST /v4/spreadsheets/:id/values/:range:append  시트 append. 행을 쌓고 200
+//   GET  /v4/spreadsheets/:id/values/'탭'!X:X        시트 읽기. 그 탭에 쌓인 행들의 X열을 { values: [[값], …] } 로
 //   GET  /__state                                   쌓인 것을 { slack, sheets } 로
 //   POST /__reset                                   비운다
 //   그 밖은 404
@@ -15,6 +16,9 @@ const port = Number(process.argv[2] ?? 3031)
 const state = { slack: [], sheets: [] }
 
 const APPEND = /^\/v4\/spreadsheets\/([^/]+)\/values\/(.+):append$/
+const READ = /^\/v4\/spreadsheets\/[^/]+\/values\/([^/]+)$/
+/** '탭'!X:X 꼴의 범위. 한 열만 읽는다. */
+const COLUMN = /^'(.+)'!([A-Z]):\2$/
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -55,6 +59,14 @@ const server = createServer(async (req, res) => {
         values,
       })
       return send(res, 200)
+    }
+    const read = req.method === 'GET' ? READ.exec(url.pathname) : null
+    const column = read ? COLUMN.exec(decodeURIComponent(read[1])) : null
+    if (column) {
+      const [, tab, letter] = column
+      const index = letter.charCodeAt(0) - 'A'.charCodeAt(0)
+      const values = state.sheets.filter((s) => s.range.startsWith(`'${tab}'!`)).flatMap((s) => s.values.map((row) => [row[index] ?? '']))
+      return send(res, 200, { values })
     }
     send(res, 404)
   } catch {

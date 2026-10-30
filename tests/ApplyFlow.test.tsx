@@ -146,7 +146,6 @@ describe('신청서를 열 때', () => {
       services: ['Grooming 미용'],
       wish: '1월 1일 (목) 오전',
       training: false,
-      surveyDone: false,
     }
     saveSession(before)
     render(<ApplyFlow />)
@@ -172,7 +171,6 @@ describe('제출', () => {
       // 2099-01-01 은 목요일이다. 시간대는 선택이라 비어 있다.
       wish: '1월 1일 (목)',
       training: false,
-      surveyDone: false,
     })
     // 접수된 신청서 초안은 지운다.
     expect(loadDraft('apply')).toBeNull()
@@ -193,16 +191,15 @@ describe('제출', () => {
     expect(loadDraft('apply')).toBeNull()
   })
 
-  it('교육미용을 골랐으면 검사지 안내로 간다', async () => {
+  it('교육미용을 골라도 검사지로 이어지지 않고 완료로 간다(검사지는 입금 확인 뒤 링크로 받는다)', async () => {
     draftAtLastGroup({ services: ['Grooming 미용', TRAINING_SERVICE] })
     render(<ApplyFlow />)
     fireEvent.click(await submitButton())
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/apply/training'))
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/apply/done'))
     expect(loadSession()).toMatchObject({
       services: ['Grooming 미용', TRAINING_SERVICE],
       training: true,
-      surveyDone: false,
     })
     expect(router.replace).toHaveBeenCalledTimes(1)
   })
@@ -353,14 +350,14 @@ describe('세션', () => {
       services: ['Hotel 호텔'],
       wish: '1월 1일 (목) 오후',
       training: true,
-      surveyDone: true,
     })
     draftAtLastGroup()
     render(<ApplyFlow />)
     fireEvent.click(await submitButton())
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/apply/done'))
 
-    expect(loadSession()).toMatchObject({ submissionId: ID, petName: '보리', training: false, surveyDone: false })
+    expect(loadSession()).toEqual(expect.not.objectContaining({ surveyDone: expect.anything() }))
+    expect(loadSession()).toMatchObject({ submissionId: ID, petName: '보리', training: false })
   })
 
   it('저장소가 막혀도 제출이 성공하면 완료 화면이 방금 저장한 세션을 읽는다', async () => {

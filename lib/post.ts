@@ -1,4 +1,4 @@
-// 제출 경로 셋(/api/apply, /api/survey, /api/apply/cancel-training)에 JSON 을 보내는 브라우저 쪽 도우미다.
+// 제출 경로 둘(/api/apply, /api/survey)에 JSON 을 보내는 브라우저 쪽 도우미다.
 // fetch 에는 basePath 가 붙지 않으므로 여기서 BASE_PATH 를 앞에 붙인다. 부르는 쪽은 /api/... 로만 적는다.
 // 서버는 200 `{ok:true}` / 400 `{ok:false,errors}` / 503 `{ok:false}` 를 주고, 그 밖의 500 은 본문이 비어 있을 수 있어서
 // 본문은 읽지 않고 상태 코드만 본다. 요청 본문(답변·연락처)과 오류 객체는 어디에도 찍지 않는다.

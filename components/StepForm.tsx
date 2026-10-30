@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useId, useRef, useState } from 'react'
 
 import { blockedBy, isGroupVisible, isRequired, isVisible, visibleAnswers, visibleGroups } from '../forms/rules'
 import type { Answer, Answers, FormDef, Question } from '../forms/types'
@@ -22,6 +22,8 @@ export interface StepFormProps {
   onSubmit(answers: Answers): Promise<'ok' | 'invalid' | 'failed'>
   /** 첫 묶음에서 ‹ */
   onBackFromFirst?(): void
+  /** 있으면 마지막 묶음의 제출 버튼이 바로 보내지 않고 이 글로 한 번 확인받는다(검사지: 제출하면 고칠 수 없다). */
+  confirmSubmit?: string
 }
 
 const FAILED = '지금은 보낼 수 없어요. 잠시 뒤 다시 눌러 주세요.'
@@ -79,7 +81,7 @@ type Move = 'push' | 'replace' | 'pop'
  * 뒤로 가기는 양식을 떠나는 일이라 지난 초안의 칸은 더는 뜻이 없다. 하나씩 건너뛰어 양식 앞 페이지에서 멈춘다.
  * 다른 양식의 칸과 양식 앞 페이지의 칸은 이 화면의 일이 아니라 그대로 둔다.
  */
-export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit, onBackFromFirst }: StepFormProps) {
+export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit, onBackFromFirst, confirmSubmit }: StepFormProps) {
   const total = form.groups.length
   const sid = initial.submissionId
   const key = initial.key
@@ -92,6 +94,9 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   const [freshToday, setFreshToday] = useState(today)
   // 올릴 때마다 첫 오류 문항으로 한 번 간다.
   const [reveal, setReveal] = useState(0)
+  // 제출 전 확인 창. 열려 있으면 true, 닫았으면 false(제출 버튼으로 포커스), null 은 포커스를 옮기지 않는다(처음, 묶음이 바뀌어 닫힘).
+  const [confirming, setConfirming] = useState<boolean | null>(null)
+  const confirmId = useId()
 
   // 답과 보이는 묶음은 state 와 같은 값을 ref 로도 쥔다. 제출을 기다린 뒤나 popstate 처럼 그린 값이 한 박자 늦을 수 있는
   // 자리에서 가장 나중 값을 읽으려는 것이다. 쓰는 곳은 moveTo 와 change 뿐이다.
@@ -106,6 +111,8 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   const rootRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
   const noticeRef = useRef<HTMLParagraphElement>(null)
+  const submitRef = useRef<HTMLButtonElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
   const shownIndex = useRef(index)
 
   const group = form.groups[index]
@@ -150,6 +157,8 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
     setIndex(target)
     setShowErrors(false)
     setNotice('')
+    // 확인 창이 열린 채 묶음이 바뀌면(휴대폰 뒤로 버튼으로 창을 닫으려 했다) 창을 닫는다. 포커스는 새 묶음 제목이 받는다.
+    setConfirming((c) => (c ? null : c))
     emit()
   }
 
@@ -205,6 +214,21 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
       moveTo(next, 'push')
       return
     }
+    if (confirmSubmit) {
+      setConfirming(true)
+      return
+    }
+    await send()
+  }
+
+  /** 확인 창의 제출. 창을 닫고 보낸다. 다시 그려지기 전에 또 눌려도 send 가 한 번만 보낸다. */
+  function confirm() {
+    setConfirming(false)
+    void send()
+  }
+
+  async function send() {
+    if (submittingRef.current) return
     submittingRef.current = true
     setSubmitting(true)
     setNotice('')
@@ -297,6 +321,13 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
     control?.focus({ preventScroll: true })
   }, [reveal])
 
+  // 확인 창이 열리면 '다시 볼게요' 에 포커스를 둔다(잘못 눌러 보내지 않게). 닫히면 제출 버튼으로 돌려준다.
+  useEffect(() => {
+    if (confirming === null) return
+    if (confirming) cancelRef.current?.focus()
+    else submitRef.current?.focus()
+  }, [confirming])
+
   // 위쪽 안내가 화면 밖이면 보이는 곳으로 올려 준다. 버튼은 아래 고정이라 스크롤한 채로 눌렀을 수 있다.
   useEffect(() => {
     if (notice) noticeRef.current?.scrollIntoView({ block: 'nearest' })
@@ -350,6 +381,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
         ))}
       <div className={styles.actions}>
         <button
+          ref={submitRef}
           type="button"
           className={styles.primary}
           data-action={isLast ? 'submit' : 'next'}
@@ -361,6 +393,31 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
           {submitting ? '보내는 중…' : isLast ? submitLabel : '다음'}
         </button>
       </div>
+      {confirming && (
+        <div className={styles.scrim}>
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={confirmId}
+            className={styles.dialog}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setConfirming(false)
+            }}
+          >
+            <p id={confirmId} className={styles.dialogText}>
+              {confirmSubmit}
+            </p>
+            <div className={styles.dialogActions}>
+              <button ref={cancelRef} type="button" className={styles.secondary} data-action="cancel-submit" onClick={() => setConfirming(false)}>
+                다시 볼게요
+              </button>
+              <button type="button" className={styles.primary} data-action="confirm-submit" onClick={confirm}>
+                {submitLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

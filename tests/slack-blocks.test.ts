@@ -7,7 +7,6 @@ import {
   MESSAGE_BYTES_LIMIT,
   SECTION_LIMIT,
   applyMessages,
-  cancelTrainingMessage,
   escapeMrkdwn,
   surveyMessages,
   type Block,
@@ -76,6 +75,40 @@ describe('슬랙 메시지', () => {
     )
   })
 
+  describe('검사지 링크 단락', () => {
+    const LINK = 'https://chagocnote.com/hisshaus/survey/abcDEF1234-AAAAAAAAAAAAAAAAAAAAAA'
+    const PARAGRAPH = `📋 *검사지 링크* — 입금 확인 뒤 보내 주세요\n${LINK}`
+    const training = { ...base, services: [GROOMING_SERVICE, TRAINING_SERVICE], training_date: '2026-10-30' }
+
+    it('링크를 주면 마지막 통의 신청 ID 줄(context) 바로 앞에 한 단락으로 싣는다', () => {
+      const ms = applyMessages(training, meta, LINK)
+      const blocks = ms[ms.length - 1].blocks
+      expect(blocks[blocks.length - 1].type).toBe('context')
+      expect(blocks[blocks.length - 2]).toEqual({ type: 'section', text: { type: 'mrkdwn', text: PARAGRAPH } })
+    })
+
+    it('링크를 주지 않으면 단락이 없다', () => {
+      expect(JSON.stringify(applyMessages(training, meta))).not.toContain('검사지 링크')
+    })
+
+    it('여러 통으로 나뉘어도 마지막 통에만 한 번, 신청 ID 줄과 붙여 싣는다', () => {
+      // 이름을 뺀 보이는 글 문항을 3,000자로 채워 여러 통으로 나뉘게 한다.
+      const long = visibleGroups(applyForm, training)
+        .flatMap((g) => g.questions)
+        .filter((q) => (q.type === 'long' || q.type === 'short') && !['guardian_name', 'pet_name'].includes(q.id))
+      const ms = applyMessages({ ...training, ...Object.fromEntries(long.map((q) => [q.id, '가'.repeat(3000)])) }, meta, LINK)
+      expect(ms.length).toBeGreaterThan(1)
+      const counts = ms.map((m) => JSON.stringify(m.blocks).split('검사지 링크').length - 1)
+      expect(counts).toEqual([...Array(ms.length - 1).fill(0), 1])
+      for (const m of ms) {
+        expect(m.blocks.length).toBeLessThanOrEqual(BLOCKS_LIMIT)
+        expect(Buffer.byteLength(JSON.stringify(m))).toBeLessThanOrEqual(MESSAGE_BYTES_LIMIT)
+      }
+
+      expect(ms[ms.length - 1].blocks.slice(-2).map((b) => b.type)).toEqual(['section', 'context'])
+    })
+  })
+
   it('특수문자를 이스케이프한다', () => {
     expect(escapeMrkdwn('<b>&')).toBe('&lt;b&gt;&amp;')
     const ms = applyMessages({ ...base, pet_name: '<b>&' }, meta)
@@ -132,15 +165,8 @@ describe('슬랙 메시지', () => {
     expect(JSON.stringify(ms[0].blocks)).not.toContain('신청 ID abcDEF1234')
   })
 
-  it('applyId 가 있으면 첫 통에 적는다', () => {
-    const ms = surveyMessages({ q3: '홍길동', q7: '초코' }, { ...meta, applyId: 'ZZzz112233' })
-    expect(JSON.stringify(ms[0].blocks)).toContain('예약 신청 ZZzz112233의 검사지예요')
-    expect(JSON.stringify(surveyMessages({ q3: 'a', q7: 'b' }, meta))).not.toContain('검사지예요')
-  })
-
-  it('취소 메시지 문구', () => {
-    const m = cancelTrainingMessage({ petName: '초코', guardianName: '홍길동', submissionId: 'abcDEF1234' })
-    expect(m.text).toBe('↩️ 초코 (홍길동) 보호자가 교육미용 선택을 취소했어요 (신청 abcDEF1234)')
-    expect(m.blocks).toEqual([{ type: 'section', text: { type: 'mrkdwn', text: m.text } }])
+  it('검사지는 첫 통에 늘 그 신청(신청 ID)의 검사지라고 적는다', () => {
+    const ms = surveyMessages({ q3: '홍길동', q7: '초코' }, meta)
+    expect(JSON.stringify(ms[0].blocks)).toContain('예약 신청 abcDEF1234의 검사지예요')
   })
 })

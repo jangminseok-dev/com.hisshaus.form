@@ -13,12 +13,20 @@ const config: NextConfig = {
   async redirects() {
     return [{ source: '/', destination: BASE_PATH, basePath: false, permanent: false }]
   },
-  // basePath 가 있으면 source 앞에 저절로 붙는다(/hisshaus/apply/...).
+  // basePath 가 있으면 source 앞에 저절로 붙는다(/hisshaus/apply/...). /survey/:path* 는 /survey 자체도 잡는다.
+  // 검사지는 받은 링크로만 여는 페이지라 검색에 잡히지 않게 하고, 다른 사이트로 넘어갈 때 링크 주소가 따라가지 않게 한다.
   async headers() {
-    return ['/apply/:path*', '/survey/:path*', '/api/:path*'].map((source) => ({
-      source,
-      headers: noStore,
-    }))
+    return [
+      ...['/apply/:path*', '/api/:path*'].map((source) => ({ source, headers: noStore })),
+      {
+        source: '/survey/:path*',
+        headers: [
+          ...noStore,
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+        ],
+      },
+    ]
   },
 }
 

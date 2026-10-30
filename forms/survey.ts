@@ -1,3 +1,4 @@
+import { SURVEY_CREDIT } from './survey-credit'
 import type { FormDef } from './types'
 
 // 질문·선택지·안내문은 원본 검사지 그대로다. 원문과 다른 곳은 2026-10-24 사장님 결정으로 고친 것뿐이고 전부
@@ -21,8 +22,7 @@ const RECENT_HINT = '언제, 어디에서 일어났는지, 공격행동의 경�
 export const surveyForm: FormDef = {
   id: 'survey',
   title: '히스하우스 심층 행동 분석 검사지',
-  // 검사지 문항의 출처(사장님 요청 2026-10-25). 첫 화면과 완료 화면에 보인다.
-  credit: '출처: 어글리독',
+  credit: SURVEY_CREDIT,
   groups: [
     {
       id: 'a',

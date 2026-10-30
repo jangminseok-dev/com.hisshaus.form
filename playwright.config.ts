@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-import { FAKE_PORT, FAKE_URL, WEB_PORT } from './tests/e2e/fake'
+import { E2E_SURVEY_SECRET, FAKE_PORT, FAKE_URL, WEB_PORT } from './tests/e2e/fake'
 
 // 진짜 서비스 계정이 아니다. 앱은 시작할 때 모양만 읽고, 토큰은 SHEETS_FAKE_TOKEN 이 대신한다.
 const dummyAccount = Buffer.from(
@@ -8,7 +8,7 @@ const dummyAccount = Buffer.from(
 ).toString('base64')
 
 // 진짜 슬랙·시트를 절대 부르지 않는다. 두 서버 모두 e2e 전용 포트에서 새로 띄우고(reuseExistingServer: false),
-// 이미 떠 있는 서버(진짜 설정을 읽었을 수 있다)는 재사용하지 않는다. 앱이 읽는 다섯 값은 전부 여기서 넘긴다:
+// 이미 떠 있는 서버(진짜 설정을 읽었을 수 있다)는 재사용하지 않는다. 앱이 읽는 값은 전부 여기서 넘긴다:
 // Next 는 이미 있는 환경 변수를 .env.local 로 덮지 않아서 이 값이 이긴다.
 // 주의: `pnpm dev` 가 떠 있으면 Next 16 이 같은 폴더의 두 번째 next dev 를 막는다. 개발 서버를 끄고 돌린다.
 export default defineConfig({
@@ -45,6 +45,7 @@ export default defineConfig({
         SHEETS_FAKE_TOKEN: 'e2e-token',
         GOOGLE_SHEET_ID: 'e2e-sheet',
         GOOGLE_SERVICE_ACCOUNT_JSON: dummyAccount,
+        SURVEY_LINK_SECRET: E2E_SURVEY_SECRET,
       },
     },
   ],

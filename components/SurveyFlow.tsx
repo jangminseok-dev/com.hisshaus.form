@@ -5,71 +5,63 @@ import { useEffect, useRef, useState } from 'react'
 
 import { surveyForm } from '../forms/survey'
 import type { Answers } from '../forms/types'
-import { clearDraft, loadDraft, loadSession, saveDraft, saveSession, type ApplySession, type Draft } from '../lib/draft'
+import { clearDraft, loadDraft, markSurveySent, saveDraft, sentSurveyId, type Draft } from '../lib/draft'
 import { todayKst } from '../lib/format'
 import { newSubmissionId } from '../lib/id'
 import { postJson } from '../lib/post'
 import { pruneStaleAnswers } from '../lib/validate'
 import { Honeypot } from './Honeypot'
 import { StepForm } from './StepForm'
+import { SurveyNotice } from './SurveyNotice'
+
+const CONFIRM = '제출하면 답을 고칠 수 없어요. 제출할까요?'
 
 /**
- * 심층 행동 분석 검사지. 신청서를 쓴 뒤 이어서 열 수도 있고, `/survey` 를 바로 열어도 된다(신청 세션 없이).
- * 초안·세션·오늘 날짜는 브라우저에서만 알 수 있어서 마운트 뒤에 읽고, 읽기 전에는 아무것도 그리지 않는다.
+ * 심층 행동 분석 검사지. 사장님이 보낸 링크(app/survey/[token])로만 열린다. 서버가 링크를 확인하고 그 신청 ID 와 링크를 넘긴다.
+ * 초안·오늘 날짜는 브라우저에서만 알 수 있어서 마운트 뒤에 읽고, 읽기 전에는 아무것도 그리지 않는다.
  *
- * 세션이 있으면 새 초안의 신청 ID 는 신청서의 것을 그대로 쓴다(시트의 두 탭이 같은 ID 로 이어진다). 의뢰인 성함·연락처와
- * 반려견 이름은 신청서에서 쓴 값으로 미리 채우고, 초안에 그 신청 ID 를 applyId 로 적어 둔다.
+ * 초안은 이 링크의 신청 ID 로 묶는다(새 초안의 신청 ID 도 링크의 것이라 시트의 두 탭이 같은 ID 로 이어진다). 다른 링크의 초안과
+ * 옛 버전의 초안(applyId 없음)은 버린다. 이 기기에서 이 링크의 검사지를 이미 냈으면 문항 대신 닫힌 안내를 보인다:
+ * 완료 화면에서 뒤로 오면 Next 가 캐시해 둔 이 화면이 다시 열리는데, 그때 빈 검사지가 보이면 링크가 닫히지 않은 것처럼 보인다.
  */
-export function SurveyFlow() {
+export function SurveyFlow({ applyId, token }: { applyId: string; token: string }) {
   const router = useRouter()
   const website = useRef<HTMLInputElement>(null)
   // 제출이 접수됐다. 다음 화면이 그려지기 전의 입력·뒤로 가기로 초안이 되살아나지 않게 그 뒤의 초안 저장은 버린다.
   const submitted = useRef(false)
-  const [start, setStart] = useState<{ initial: Draft; session: ApplySession | null; today: string; fromApply: boolean } | null>(null)
+  const [start, setStart] = useState<{ initial: Draft; today: string } | 'sent' | null>(null)
 
   useEffect(() => {
-    const session = loadSession()
+    if (sentSurveyId() === applyId) {
+      setStart('sent')
+      return
+    }
     let initial = loadDraft('survey')
-    // 문항 정의가 바뀐 뒤 남은 옛 답(글 칸이던 문항의 글 등)은 버린다.
-    if (initial) initial = { ...initial, answers: pruneStaleAnswers(surveyForm, initial.answers) }
-    // 지난 신청 때 쓰던 검사지가 새 신청에 섞이지 않게, 다른 신청에 묶인 초안은 버린다. 세션 없이 쓰기 시작한 초안(applyId
-    // 없음)은 나중에 신청 세션이 생겨도 버리지 않고 그대로 이어 쓴다(미리 채우기는 새 초안에만 한다).
-    if (initial?.applyId && session && initial.applyId !== session.submissionId) {
+    if (initial && initial.applyId !== applyId) {
       clearDraft('survey')
       initial = null
     }
     setStart({
-      session,
-      // 신청 완료·검사지 안내 화면에서 넘어왔으면 주소에 ?from=apply 가 있다. 첫 묶음의 이전은 그때만 완료 화면으로 돌아가고,
-      // 첫 화면이나 링크로 바로 열었으면(지난 신청 세션이 남아 있어도) 첫 화면으로 간다.
-      fromApply: new URLSearchParams(window.location.search).get('from') === 'apply',
       today: todayKst(),
-      initial: initial ?? {
-        answers: session ? { q3: session.guardianName, q4: session.guardianPhone, q7: session.petName } : {},
-        groupIndex: 0,
-        submissionId: session ? session.submissionId : newSubmissionId(),
-        // 신청 ID 를 신청서와 같이 쓰므로, 방문 기록 칸의 주인은 새 초안마다 만드는 열쇠로 가린다.
-        key: newSubmissionId(),
-        applyId: session?.submissionId,
-      },
+      initial: initial
+        ? // 문항 정의가 바뀐 뒤 남은 옛 답(글 칸이던 문항의 글 등)은 버린다.
+          { ...initial, answers: pruneStaleAnswers(surveyForm, initial.answers) }
+        : // 방문 기록 칸의 주인은 새 초안마다 만드는 열쇠로 가린다(신청 ID 는 같은 링크면 늘 같다).
+          { answers: {}, groupIndex: 0, submissionId: applyId, key: newSubmissionId(), applyId },
     })
   }, [])
 
   if (!start) return null
-  const { initial, session, today, fromApply } = start
+  if (start === 'sent') return <SentNotice />
+  const { initial, today } = start
 
   async function submit(answers: Answers) {
-    const result = await postJson('/api/survey', {
-      submissionId: initial.submissionId,
-      answers,
-      applyId: session?.submissionId,
-      website: website.current?.value ?? '',
-    })
+    const result = await postJson('/api/survey', { token, answers, website: website.current?.value ?? '' })
     if (result !== 'ok') return result
     submitted.current = true
 
     clearDraft('survey')
-    if (session) saveSession({ ...session, surveyDone: true })
+    markSurveySent(applyId)
     router.replace('/survey/done')
     return 'ok'
   }
@@ -81,14 +73,30 @@ export function SurveyFlow() {
         initial={initial}
         today={today}
         submitLabel="제출하기"
-        // StepForm 이 알리는 초안에는 applyId 가 없으니 처음 받은 값을 붙여 저장한다.
+        confirmSubmit={CONFIRM}
+        // StepForm 이 알리는 초안에는 applyId 가 없으니 이 링크의 것을 붙여 저장한다.
         onDraft={(d) => {
-          if (!submitted.current) saveDraft('survey', { ...d, applyId: initial.applyId })
+          if (!submitted.current) saveDraft('survey', { ...d, applyId })
         }}
         onSubmit={submit}
-        onBackFromFirst={() => router.push(fromApply && session ? '/apply/done' : '/')}
       />
       <Honeypot ref={website} />
     </>
   )
+}
+
+/**
+ * 이 기기에서 낸 검사지의 링크를 다시 열었다. 닫힌 안내를 보이고, 여기서 뒤로 가기로 낸 검사지가 묶음마다 쌓은 방문 기록 칸에 닿으면
+ * 건너뛴다(그 칸들은 모두 같은 주소라 하나씩 누르면 같은 안내만 거듭 보인다). 처음 그릴 때는 건너뛰지 않는다: 완료 화면에서 뒤로 온
+ * 보호자가 이 안내를 본다.
+ */
+function SentNotice() {
+  useEffect(() => {
+    const skip = (event: PopStateEvent) => {
+      if (event.state?.hhForm === surveyForm.id) history.back()
+    }
+    window.addEventListener('popstate', skip)
+    return () => window.removeEventListener('popstate', skip)
+  }, [])
+  return <SurveyNotice kind="closed" />
 }

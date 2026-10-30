@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { applyForm, TRAINING_SERVICE } from '../../forms/apply'
 import { sheetHeader } from '../../lib/sheet-row'
 import type { SlackMessage } from '../../lib/slack-blocks'
-import { fakeState, resetFake, WEB_PORT } from './fake'
+import { fakeState, resetFake, surveyPath, WEB_PORT } from './fake'
 import {
   bodyText,
   choose,
@@ -100,29 +100,23 @@ test('시트는 RAW 로, 정해진 탭에, 가짜 토큰으로 쓴다', async ({
   expect(sheets[0].authorization).toBe('Bearer e2e-token')
 })
 
-test('교육미용을 고르면 검사지 안내로 가고 아니에요를 누르면 취소 알림이 온다', async ({ page, request }) => {
+test('교육미용을 고르면 바로 완료 화면이고, 입금 확인 뒤 검사지 링크를 보낸다는 줄이 있다. 슬랙에는 그 신청의 검사지 링크가 온다', async ({ page, request }) => {
   await writeApply(page, { training: true })
 
-  await expect(page).toHaveURL(/\/apply\/training$/)
-  await expect(page.getByRole('heading', { name: '심층 행동 분석 검사지를 이어서 작성해요' })).toBeVisible()
-  // 안내까지 왔을 때: 신청은 이미 접수됐다(시트 한 줄, 슬랙 한 통).
-  let state = await fakeState(request)
-  expect(state.sheets).toHaveLength(1)
-  expect(state.slack).toHaveLength(1)
-  const applyId = state.sheets[0].values[0][1]
-
-  await page.getByRole('button', { name: '교육미용은 아니에요' }).click()
   await expect(page).toHaveURL(/\/apply\/done$/)
   await expect(done(page)).toBeVisible()
-  await expect(page.getByRole('link', { name: '검사지 이어서 쓰기' })).toHaveCount(0)
+  await expect(page.getByText('5. 입금이 확인되면 카카오톡으로 검사지 링크를 보내 드려요')).toBeVisible()
+  await expect(page.locator('a[href*="survey"]')).toHaveCount(0)
 
-  state = await fakeState(request)
-  expect(state.slack).toHaveLength(2)
-  expect(state.slack[1].text).toContain('취소했어요')
-  expect(state.slack[1].text).toContain(`보리 (${GUARDIAN})`)
-  expect(state.slack[1].text).toContain(applyId)
-  // 취소는 슬랙에만 알린다. 시트는 그대로다.
-  expect(state.sheets).toHaveLength(1)
+  const { sheets, slack } = await fakeState(request)
+  expect(sheets).toHaveLength(1)
+  expect(slack).toHaveLength(1)
+  const applyId = sheets[0].values[0][1]
+  const blocks = slack[0].blocks
+  expect(blocks[blocks.length - 2]).toEqual({
+    type: 'section',
+    text: { type: 'mrkdwn', text: `📋 *검사지 링크* — 입금 확인 뒤 보내 주세요\nhttps://chagocnote.com${surveyPath(applyId)}` },
+  })
 })
 
 for (const width of [320, 390]) {
@@ -248,7 +242,7 @@ test('화면 어디에도 입니다 체가 없다', async ({ page }) => {
   await expectHaeyo('예약이 완료돼요')
 
   await page.getByRole('link', { name: '예약 신청서' }).click()
-  // 도우미가 고르는 미용에 교육미용을 더해, 서비스별 묶음 둘과 예약금 안내까지 본다. 교육미용은 검사지 안내로 이어진다.
+  // 도우미가 고르는 미용에 교육미용을 더해, 서비스별 묶음 둘과 예약금 안내까지 본다.
   for (const [group, title] of [
     ['guardian', '보호자 정보'],
     ['pet', '반려견 정보'],
@@ -265,21 +259,15 @@ test('화면 어디에도 입니다 체가 없다', async ({ page }) => {
     if (group !== 'deposit') await goNext(page)
   }
   await page.locator('[data-action="submit"]').click()
-  await expect(page).toHaveURL(/\/apply\/training$/)
-  await expect(page.getByRole('heading', { name: '심층 행동 분석 검사지를 이어서 작성해요' })).toBeVisible()
-  await expectHaeyo('검사지는 나중에 같은 링크로 이어서 쓸 수 있어요')
-
-  // 완료 화면(검사지 링크가 있는 쪽)과 취소한 뒤의 완료 화면.
-  await page.goto('/hisshaus/apply/done')
+  await expect(page).toHaveURL(/\/apply\/done$/)
   await expect(done(page)).toBeVisible()
-  await expect(page.getByRole('link', { name: '검사지 이어서 쓰기' })).toBeVisible()
-  await expectHaeyo('입금이 확인되면 예약이 완료돼요')
+  await expectHaeyo('입금이 확인되면 카카오톡으로 검사지 링크를 보내 드려요')
 
-  await page.goto('/hisshaus/apply/training')
-  await page.getByRole('button', { name: '교육미용은 아니에요' }).click()
-  await expect(done(page)).toBeVisible()
-  await expect(page.getByRole('link', { name: '검사지 이어서 쓰기' })).toHaveCount(0)
-  await expectHaeyo('다음 순서')
+  // 검사지 안내 화면 둘(링크 없음·틀린 링크).
+  await page.goto('/hisshaus/survey')
+  await expectHaeyo('검사지는 받은 링크로 열어 주세요')
+  await page.goto('/hisshaus/survey/abc-def')
+  await expectHaeyo('검사지는 받은 링크로 열어 주세요')
 })
 
 test('브라우저는 이 웹 밖으로 요청을 보내지 않는다', async ({ page }) => {

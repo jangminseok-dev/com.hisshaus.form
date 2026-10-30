@@ -73,11 +73,10 @@ export function ApplyFlow() {
       services,
       wish: wishText(answers),
       training,
-      surveyDone: false,
     })
     clearDraft('apply')
     // 보낸 화면으로 뒤로 가기 한 번에 돌아오지 않도록 방문 기록을 바꿔 쓴다.
-    router.replace(training ? '/apply/training' : '/apply/done')
+    router.replace('/apply/done')
     return 'ok'
   }
 

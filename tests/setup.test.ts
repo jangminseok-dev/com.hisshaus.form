@@ -12,7 +12,6 @@ const session: ApplySession = {
   services: ['Grooming 미용'],
   wish: '10월 28일 (수) 오전',
   training: false,
-  surveyDone: false,
 }
 const draft: Draft = { answers: { q3: '김하나' }, groupIndex: 1, submissionId: 'Ab3dE5gH7j', key: 'Kk3dE5gH7j' }
 

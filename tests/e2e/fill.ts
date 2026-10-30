@@ -176,10 +176,12 @@ export async function writeApply(page: Page, o: { pet?: string; training?: boole
 }
 
 /** 검사지의 지금 묶음부터 마지막 묶음 l 까지 채우고 `제출하기` 를 누른다. 결과 화면은 기다리지 않는다. */
+/** 검사지를 끝까지 채우고 제출하기 → 확인 창의 제출하기까지 누른다. */
 export async function submitSurvey(page: Page): Promise<void> {
   await fillUntil(page, 'l')
   await fillGroup(page)
   await page.locator('[data-action="submit"]').click()
+  await page.locator('[data-action="confirm-submit"]').click()
 }
 
 /** 가로로 넘치지 않는다: 문서 전체의 가로 스크롤 폭이 화면 폭 안이다. */

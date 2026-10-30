@@ -33,15 +33,19 @@ async function accessToken(): Promise<string> {
   return token
 }
 
+/** 토큰 함수. 테스트용 고정 토큰이 있으면 JWT 를 만들지 않는다(운영에서는 config 가 항상 없다고 답한다). */
+function tokenOf(deps: SheetsDeps): () => Promise<string> {
+  const fakeToken = sheetsFakeToken()
+  return deps.token ?? (fakeToken ? async () => fakeToken : accessToken)
+}
+
 /**
  * 탭 맨 아래에 한 줄을 붙인다. 실패하면 `Error('sheets')` 만 던진다.
  * 토큰·네트워크·응답 오류는 모두 버린다: 오류 안에 키나 주소가 들어 있을 수 있다.
  */
 export async function appendRow(tab: SheetTab, row: string[], deps: SheetsDeps = {}): Promise<void> {
   const post = deps.fetch ?? fetch
-  // 테스트용 고정 토큰이 있으면 JWT 를 만들지 않는다(운영에서는 config 가 항상 없다고 답한다).
-  const fakeToken = sheetsFakeToken()
-  const getToken = deps.token ?? (fakeToken ? async () => fakeToken : accessToken)
+  const getToken = tokenOf(deps)
   let ok = false
   try {
     const token = await getToken()
@@ -59,4 +63,27 @@ export async function appendRow(tab: SheetTab, row: string[], deps: SheetsDeps =
     // 토큰·설정·네트워크·타임아웃 오류는 버린다.
   }
   if (!ok) throw new Error('sheets')
+}
+
+/**
+ * 이 신청 ID 로 낸 검사지가 이미 있나. 검사지 탭의 B열(신청 ID)을 읽는다. 검사지 링크를 열 때와 제출할 때 부른다.
+ * 실패하면 appendRow 와 같이 `Error('sheets')` 만 던진다.
+ */
+export async function surveySubmitted(applyId: string, deps: SheetsDeps = {}): Promise<boolean> {
+  const get = deps.fetch ?? fetch
+  const getToken = tokenOf(deps)
+  let values: unknown
+  try {
+    const token = await getToken()
+    const range = encodeURIComponent("'검사지'!B:B")
+    const res = await get(`${sheetsBaseUrl()}/v4/spreadsheets/${sheetId()}/values/${range}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    })
+    if (res.ok) values = ((await res.json()) as { values?: unknown }).values ?? []
+  } catch {
+    // 토큰·설정·네트워크·타임아웃·깨진 응답은 버린다.
+  }
+  if (!Array.isArray(values)) throw new Error('sheets')
+  return values.some((row) => Array.isArray(row) && row[0] === applyId)
 }

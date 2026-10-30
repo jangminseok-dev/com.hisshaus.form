@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearDraft, clearSession, loadDraft, loadSession, saveDraft, saveSession } from '../lib/draft'
+import { clearDraft, clearSession, loadDraft, loadSession, markSurveySent, saveDraft, saveSession, sentSurveyId } from '../lib/draft'
 import type { ApplySession, Draft } from '../lib/draft'
 
 const draft: Draft = {
@@ -22,7 +22,6 @@ const session: ApplySession = {
   services: ['Grooming 미용', '교육미용 / 미용 트레이닝 상담'],
   wish: '2026-10-28 오전',
   training: true,
-  surveyDone: false,
 }
 
 /** 객체에서 키 하나를 뺀 사본. */
@@ -101,7 +100,6 @@ const stores: Store[] = [
       services: [],
       wish: '',
       training: false,
-      surveyDone: true,
     },
     load: loadSession,
     save: () => saveSession(session),
@@ -118,8 +116,6 @@ const stores: Store[] = [
       ['services 가 없으면', omit(session, 'services')],
       ['training 이 문자열이면', { ...session, training: 'true' }],
       ['training 이 없으면', omit(session, 'training')],
-      ['surveyDone 이 숫자이면', { ...session, surveyDone: 0 }],
-      ['surveyDone 이 없으면', omit(session, 'surveyDone')],
       ...notObjects,
     ],
   },
@@ -293,8 +289,8 @@ describe('같은 탭 메모리 대체', () => {
   it('다시 저장하면 마지막으로 저장한 값을 읽는다', () => {
     block()
     saveSession(session)
-    saveSession({ ...session, surveyDone: true })
-    expect(loadSession()).toEqual({ ...session, surveyDone: true })
+    saveSession({ ...session, petName: '초코' })
+    expect(loadSession()).toEqual({ ...session, petName: '초코' })
   })
 
   it('지우면 메모리에서도 지워진다', () => {
@@ -327,8 +323,8 @@ describe('같은 탭 메모리 대체', () => {
 
   it('저장소에 있는 값이 메모리보다 우선한다 — 다른 탭이 고친 값을 읽는다', () => {
     saveSession(session)
-    localStorage.setItem('hh.session', JSON.stringify({ ...session, surveyDone: true }))
-    expect(loadSession()).toEqual({ ...session, surveyDone: true })
+    localStorage.setItem('hh.session', JSON.stringify({ ...session, petName: '초코' }))
+    expect(loadSession()).toEqual({ ...session, petName: '초코' })
   })
 
   it('메모리로 읽을 때도 모양을 검사한다', () => {
@@ -336,6 +332,35 @@ describe('같은 탭 메모리 대체', () => {
     block()
     saveSession({ ...session, services: 'Grooming 미용' } as unknown as ApplySession)
     expect(loadSession()).toBeNull()
+  })
+})
+
+describe('옛 세션', () => {
+  it('옛 버전이 남긴 surveyDone 이 있어도 세션을 읽는다', () => {
+    localStorage.setItem('hh.session', JSON.stringify({ ...session, surveyDone: true }))
+    expect(loadSession()).toMatchObject(session)
+  })
+})
+
+describe('낸 검사지 표시', () => {
+  it('없으면 null, 표시하면 그 신청 ID 를 읽는다', () => {
+    expect(sentSurveyId()).toBeNull()
+    markSurveySent('Ab3dE5gH7j')
+    expect(sentSurveyId()).toBe('Ab3dE5gH7j')
+    expect(localStorage.getItem('hh.survey.sent')).toBe('"Ab3dE5gH7j"')
+  })
+
+  it('저장된 값이 신청 ID 꼴이 아니면 null', () => {
+    localStorage.setItem('hh.survey.sent', '"abc"')
+    expect(sentSurveyId()).toBeNull()
+    localStorage.setItem('hh.survey.sent', '{')
+    expect(sentSurveyId()).toBeNull()
+  })
+
+  it('저장소가 막혀도 같은 탭에서는 읽는다', () => {
+    vi.spyOn(globalThis, 'localStorage', 'get').mockImplementation(boom)
+    markSurveySent('Ab3dE5gH7j')
+    expect(sentSurveyId()).toBe('Ab3dE5gH7j')
   })
 })
 

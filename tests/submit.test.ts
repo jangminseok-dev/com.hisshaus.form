@@ -1,16 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
-import { applyForm, GROOMING_SERVICE, HOTEL_SERVICE } from '../forms/apply'
+import { applyForm, GROOMING_SERVICE, HOTEL_SERVICE, TRAINING_SERVICE } from '../forms/apply'
 import { allQuestions, isVisible, visibleAnswers } from '../forms/rules'
 import { surveyForm } from '../forms/survey'
 import { sheetRow } from '../lib/sheet-row'
 import type { SheetTab } from '../lib/sheets'
-import { applyMessages, cancelTrainingMessage, surveyMessages, type SlackMessage } from '../lib/slack-blocks'
-import { cancelTraining, submitApply, submitSurvey, type Deps } from '../lib/submit'
+import { applyMessages, surveyMessages, type SlackMessage } from '../lib/slack-blocks'
+import { submitApply, submitSurvey, type Deps } from '../lib/submit'
+import { surveyToken, surveyUrl } from '../lib/survey-link'
 import { validateForm } from '../lib/validate'
 import { validAnswers } from './fixtures'
 
 const ID = 'abcDEF1234'
-const APPLY_ID = 'ZZzz112233'
+const LINK_SECRET = 'test-survey-link-secret-0123456789abcdef'
+/** ID 로 낸 신청의 검사지 링크. 검사지 행의 신청 ID 는 이 링크의 것(= ID)이다. */
+const TOKEN = surveyToken(ID, LINK_SECRET)
 const NOW = '2026-10-23 10:00:00'
 const TODAY = '2026-10-23'
 const meta = { submissionId: ID, receivedAt: NOW }
@@ -37,8 +40,12 @@ function fakes() {
   const sendSlack = vi.fn(async (_messages: SlackMessage[]) => {
     events.push('슬랙')
   })
-  const deps: Deps = { appendRow, sendSlack, now: () => NOW, today: () => TODAY }
-  return { events, appendRow, sendSlack, deps }
+  const surveySubmitted = vi.fn(async (_applyId: string) => {
+    events.push('시트 읽기')
+    return false
+  })
+  const deps: Deps = { appendRow, sendSlack, surveySubmitted, secret: LINK_SECRET, now: () => NOW, today: () => TODAY }
+  return { events, appendRow, sendSlack, surveySubmitted, deps }
 }
 
 describe('테스트 픽스처', () => {
@@ -72,8 +79,24 @@ describe('신청서 제출', () => {
     expect(errorSpy).not.toHaveBeenCalled()
   })
 
+  it('교육미용이 든 신청이면 슬랙에 그 신청의 검사지 링크를 싣는다', async () => {
+    const { appendRow, sendSlack, deps } = fakes()
+    const answers = { ...validAnswers(applyForm), services: [GROOMING_SERVICE, TRAINING_SERVICE], training_date: '2099-01-02' }
+    expect(await submitApply({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+    expect(sendSlack).toHaveBeenCalledWith(applyMessages(answers, meta, surveyUrl(ID, LINK_SECRET)))
+    expect(JSON.stringify(sendSlack.mock.calls[0][0])).toContain(surveyUrl(ID, LINK_SECRET))
+    // 시트에는 링크를 적지 않는다(열이 그대로다).
+    expect(appendRow).toHaveBeenCalledWith('예약신청', sheetRow(applyForm, answers, meta))
+  })
+
+  it('교육미용이 없는 신청이면 링크를 싣지 않는다', async () => {
+    const { sendSlack, deps } = fakes()
+    await submitApply({ submissionId: ID, answers: validAnswers(applyForm) }, deps)
+    expect(JSON.stringify(sendSlack.mock.calls[0][0])).not.toContain('검사지 링크')
+  })
+
   it('허니팟에 값이 있으면 아무것도 보내지 않고 ok', async () => {
-    const full = { submissionId: ID, answers: validAnswers(applyForm), website: 'http://spam.test' }
+    const full = { submissionId: ID, token: TOKEN, answers: validAnswers(applyForm), website: 'http://spam.test' }
     for (const body of [full, { website: 'x' }]) {
       for (const submit of [submitApply, submitSurvey]) {
         const { appendRow, sendSlack, deps } = fakes()
@@ -118,13 +141,11 @@ describe('신청서 제출', () => {
     ['특수문자', 'abcDEF123!'],
     ['공백', 'abcDEF 123'],
     ['숫자', 1234567890],
-  ])('ID 형식이 틀리면 invalid (%s)', async (_label, bad) => {
-    for (const [submit, form] of [[submitApply, applyForm], [submitSurvey, surveyForm]] as const) {
-      const { appendRow, sendSlack, deps } = fakes()
-      expect(await submit({ submissionId: bad, answers: validAnswers(form) }, deps)).toEqual(INVALID)
-      expect(appendRow).not.toHaveBeenCalled()
-      expect(sendSlack).not.toHaveBeenCalled()
-    }
+  ])('신청서의 ID 형식이 틀리면 invalid (%s)', async (_label, bad) => {
+    const { appendRow, sendSlack, deps } = fakes()
+    expect(await submitApply({ submissionId: bad, answers: validAnswers(applyForm) }, deps)).toEqual(INVALID)
+    expect(appendRow).not.toHaveBeenCalled()
+    expect(sendSlack).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -133,9 +154,9 @@ describe('신청서 제출', () => {
     ['문자열', 'x'],
     ['숫자', 1],
     ['배열', []],
-  ])('본문이 객체가 아니면(%s) 세 함수 모두 invalid 이다', async (_label, body) => {
+  ])('본문이 객체가 아니면(%s) 두 함수 모두 invalid 이다', async (_label, body) => {
     const { appendRow, sendSlack, deps } = fakes()
-    for (const run of [submitApply, submitSurvey, cancelTraining]) expect(await run(body, deps)).toEqual(INVALID)
+    for (const run of [submitApply, submitSurvey]) expect(await run(body, deps)).toEqual(INVALID)
     expect(appendRow).not.toHaveBeenCalled()
     expect(sendSlack).not.toHaveBeenCalled()
   })
@@ -149,7 +170,7 @@ describe('신청서 제출', () => {
   ])('answers 가 객체가 아니면(%s) invalid 이다', async (_label, answers) => {
     const { appendRow, sendSlack, deps } = fakes()
     expect(await submitApply({ submissionId: ID, answers }, deps)).toEqual(INVALID)
-    expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual(INVALID)
+    expect(await submitSurvey({ token: TOKEN, answers }, deps)).toEqual(INVALID)
     expect(appendRow).not.toHaveBeenCalled()
     expect(sendSlack).not.toHaveBeenCalled()
   })
@@ -295,7 +316,7 @@ describe('공백뿐인 선택 답', () => {
     ])
     const base = validAnswers(surveyForm)
     const answers = { ...base, q32: ' '.repeat(2_000), q31: '\n' }
-    expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+    expect(await submitSurvey({ token: TOKEN, answers }, deps)).toEqual({ status: 'ok' })
 
     const row = appendRow.mock.calls[0][1]
     expect(row[columnOf(surveyForm, 'q32')]).toBe('')
@@ -326,8 +347,8 @@ describe('검사지 제출', () => {
   it('검사지는 검사지 탭에 쓴다', async () => {
     const { events, appendRow, sendSlack, deps } = fakes()
     const answers = validAnswers(surveyForm)
-    expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
-    expect(events).toEqual(['시트 시작', '시트 끝', '슬랙'])
+    expect(await submitSurvey({ token: TOKEN, answers }, deps)).toEqual({ status: 'ok' })
+    expect(events).toEqual(['시트 읽기', '시트 시작', '시트 끝', '슬랙'])
     expect(appendRow).toHaveBeenCalledTimes(1)
     expect(appendRow).toHaveBeenCalledWith('검사지', sheetRow(surveyForm, answers, meta))
     expect(appendRow.mock.calls[0][1]).toHaveLength(104)
@@ -340,50 +361,71 @@ describe('검사지 제출', () => {
     const base = validAnswers(surveyForm)
     const long = allQuestions(surveyForm).filter((q) => q.type === 'long' && isVisible(q, base))
     const answers = { ...base, ...Object.fromEntries(long.map((q) => [q.id, '가'.repeat(3000)])) }
-    expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+    expect(await submitSurvey({ token: TOKEN, answers }, deps)).toEqual({ status: 'ok' })
     expect(sendSlack).toHaveBeenCalledTimes(1)
     const sent = sendSlack.mock.calls[0][0]
     expect(sent.length).toBeGreaterThan(1)
     expect(sent).toEqual(surveyMessages(answers, meta))
   })
 
-  it('검사지에 applyId 가 있으면 슬랙 메시지에 그 ID 가 실린다', async () => {
-    const { sendSlack, deps } = fakes()
-    const answers = validAnswers(surveyForm)
-    expect(await submitSurvey({ submissionId: ID, answers, applyId: APPLY_ID }, deps)).toEqual({ status: 'ok' })
-    expect(JSON.stringify(sendSlack.mock.calls[0][0])).toContain(`예약 신청 ${APPLY_ID}의 검사지예요`)
-    expect(sendSlack).toHaveBeenCalledWith(surveyMessages(answers, { ...meta, applyId: APPLY_ID }))
+  it('검사지 행의 신청 ID 는 링크의 신청 ID 이고, 슬랙 첫 통에 그 신청의 검사지라고 적힌다', async () => {
+    const { appendRow, sendSlack, surveySubmitted, deps } = fakes()
+    expect(await submitSurvey({ token: TOKEN, answers: validAnswers(surveyForm) }, deps)).toEqual({ status: 'ok' })
+    expect(surveySubmitted).toHaveBeenCalledWith(ID)
+    expect(appendRow.mock.calls[0][1][1]).toBe(ID)
+    expect(JSON.stringify(sendSlack.mock.calls[0][0][0].blocks)).toContain(`예약 신청 ${ID}의 검사지예요`)
+  })
+
+  it('본문의 submissionId·applyId 는 믿지 않는다 — 행의 ID 는 링크의 것이다', async () => {
+    const { appendRow, deps } = fakes()
+    const body = { token: TOKEN, submissionId: 'ZZzz112233', applyId: 'YYyy112233', answers: validAnswers(surveyForm) }
+    expect(await submitSurvey(body, deps)).toEqual({ status: 'ok' })
+    expect(appendRow.mock.calls[0][1][1]).toBe(ID)
   })
 
   it.each([
     ['없음', undefined],
-    ['null', null],
     ['빈 문자열', ''],
-  ])('applyId 가 비어 있으면(%s) 없는 것으로 본다', async (_label, applyId) => {
-    const { sendSlack, deps } = fakes()
-    const body = { submissionId: ID, answers: validAnswers(surveyForm), applyId }
-    expect(await submitSurvey(body, deps)).toEqual({ status: 'ok' })
-    expect(JSON.stringify(sendSlack.mock.calls[0][0])).not.toContain('검사지예요')
-  })
-
-  it.each([
-    ['9자', 'abcDEF123'],
-    ['11자', 'abcDEF12345'],
-    ['특수문자', 'abcDEF123!'],
+    ['서명 없음', ID],
+    ['다른 비밀값으로 만든 링크', surveyToken(ID, 'another-survey-link-secret-0123456789abcdef')],
+    ['서명을 바꾼 링크', `${ID}-${'0'.repeat(32)}`],
     ['숫자', 1234567890],
     ['객체', {}],
-    ['배열', []],
-  ])('applyId 가 있는데 형식이 틀리면(%s) invalid 이고 아무것도 부르지 않는다', async (_label, applyId) => {
-    const { appendRow, sendSlack, deps } = fakes()
-    const body = { submissionId: ID, answers: validAnswers(surveyForm), applyId }
-    expect(await submitSurvey(body, deps)).toEqual(INVALID)
+  ])('링크가 틀리면(%s) invalid 이고 시트를 읽지도 쓰지도 않는다', async (_label, token) => {
+    const { appendRow, sendSlack, surveySubmitted, deps } = fakes()
+    expect(await submitSurvey({ token, answers: validAnswers(surveyForm) }, deps)).toEqual(INVALID)
+    expect(surveySubmitted).not.toHaveBeenCalled()
     expect(appendRow).not.toHaveBeenCalled()
     expect(sendSlack).not.toHaveBeenCalled()
   })
 
+  it('이미 낸 신청 ID 면 시트에 쓰지도 슬랙을 보내지도 않고 ok — 응답을 못 받은 재시도는 완료 화면으로 간다', async () => {
+    const { appendRow, sendSlack, surveySubmitted, deps } = fakes()
+    surveySubmitted.mockResolvedValue(true)
+    expect(await submitSurvey({ token: TOKEN, answers: validAnswers(surveyForm) }, deps)).toEqual({ status: 'ok' })
+    expect(appendRow).not.toHaveBeenCalled()
+    expect(sendSlack).not.toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('냈는지 시트를 못 읽으면 failed 이고 쓰지 않으며 로그에 ID 만 남는다', async () => {
+    const { appendRow, sendSlack, surveySubmitted, deps } = fakes()
+    surveySubmitted.mockRejectedValue(new Error(SECRET))
+    expect(await submitSurvey({ token: TOKEN, answers: validAnswers(surveyForm) }, deps)).toEqual({ status: 'failed' })
+    expect(appendRow).not.toHaveBeenCalled()
+    expect(sendSlack).not.toHaveBeenCalled()
+    expect(errorSpy.mock.calls).toEqual([['시트 저장 실패', ID]])
+  })
+
+  it('답이 틀리면 시트를 읽기 전에 invalid 다', async () => {
+    const { surveySubmitted, deps } = fakes()
+    expect((await submitSurvey({ token: TOKEN, answers: {} }, deps)).status).toBe('invalid')
+    expect(surveySubmitted).not.toHaveBeenCalled()
+  })
+
   it('검사지에서 필수가 비면 invalid 와 오류 목록이다', async () => {
     const { appendRow, sendSlack, deps } = fakes()
-    const result = await submitSurvey({ submissionId: ID, answers: {} }, deps)
+    const result = await submitSurvey({ token: TOKEN, answers: {} }, deps)
     expect(result).toEqual({ status: 'invalid', errors: validateForm(surveyForm, {}, TODAY) })
     expect(result.status === 'invalid' && result.errors.length).toBeGreaterThan(0)
     expect(appendRow).not.toHaveBeenCalled()
@@ -396,7 +438,7 @@ describe('검사지 제출', () => {
     const visible = { ...validAnswers(surveyForm), q59: '아니오', q80: '아니오', q81: '아니오' }
     const hidden = '숨'.repeat(40_000)
     const answers = { ...visible, q60: hidden, q82: hidden }
-    expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+    expect(await submitSurvey({ token: TOKEN, answers }, deps)).toEqual({ status: 'ok' })
 
     const row = appendRow.mock.calls[0][1]
     expect(row[column('q60')]).toBe('')
@@ -415,7 +457,7 @@ describe('검사지 제출', () => {
     // q49 가 '아니오' 면 q50(복수 선택) 이, q61 이 '아니오' 면 q62(단일 선택) 가 숨는다.
     const visible = { ...validAnswers(surveyForm), q49: '아니오', q61: '아니오' }
     const answers = { ...visible, q50: ['선택지 밖 값'], q62: '선택지 밖 값' }
-    expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+    expect(await submitSurvey({ token: TOKEN, answers }, deps)).toEqual({ status: 'ok' })
     const row = appendRow.mock.calls[0][1]
     expect(row[column('q50')]).toBe('')
     expect(row[column('q62')]).toBe('')
@@ -425,7 +467,7 @@ describe('검사지 제출', () => {
   it('보이는 조건부 문항의 답은 그대로 간다', async () => {
     const { appendRow, sendSlack, deps } = fakes()
     const answers = { ...validAnswers(surveyForm), q81: '네', q82: '작년에 슬개골 수술을 받았어요' }
-    expect(await submitSurvey({ submissionId: ID, answers }, deps)).toEqual({ status: 'ok' })
+    expect(await submitSurvey({ token: TOKEN, answers }, deps)).toEqual({ status: 'ok' })
     expect(appendRow.mock.calls[0][1][column('q82')]).toBe('작년에 슬개골 수술을 받았어요')
     expect(appendRow).toHaveBeenCalledWith('검사지', sheetRow(surveyForm, answers, meta))
     expect(JSON.stringify(sendSlack.mock.calls[0][0])).toContain('작년에 슬개골 수술을 받았어요')
@@ -435,11 +477,11 @@ describe('검사지 제출', () => {
     const { appendRow, deps } = fakes()
     // 보이는 q82 가 3,000자를 넘으면 거부한다. 숨은 q82 면 같은 값이어도 통과한다(버려지므로).
     const tooLong = '숨'.repeat(3001)
-    const whenShown = await submitSurvey({ submissionId: ID, answers: { ...validAnswers(surveyForm), q81: '네', q82: tooLong } }, deps)
+    const whenShown = await submitSurvey({ token: TOKEN, answers: { ...validAnswers(surveyForm), q81: '네', q82: tooLong } }, deps)
     expect(whenShown.status === 'invalid' && whenShown.errors).toEqual([{ questionId: 'q82', message: '3,000자까지 적을 수 있어요' }])
     expect(appendRow).not.toHaveBeenCalled()
     const whenHidden = await submitSurvey(
-      { submissionId: ID, answers: { ...validAnswers(surveyForm), q80: '아니오', q81: '아니오', q82: tooLong } },
+      { token: TOKEN, answers: { ...validAnswers(surveyForm), q80: '아니오', q81: '아니오', q82: tooLong } },
       deps,
     )
     expect(whenHidden).toEqual({ status: 'ok' })
@@ -448,7 +490,7 @@ describe('검사지 제출', () => {
   it('q2 에서 동의하지 않음을 고르면 invalid 이다', async () => {
     const { appendRow, deps } = fakes()
     const answers = { ...validAnswers(surveyForm), q2: '동의하지 않음 (서비스 이용 불가)' }
-    const result = await submitSurvey({ submissionId: ID, answers }, deps)
+    const result = await submitSurvey({ token: TOKEN, answers }, deps)
     expect(result.status === 'invalid' && result.errors.map((e) => e.questionId)).toEqual(['q2'])
     expect(appendRow).not.toHaveBeenCalled()
   })
@@ -456,7 +498,7 @@ describe('검사지 제출', () => {
   it('시트 실패면 failed 이고 슬랙을 부르지 않으며 로그에 ID 만 남는다', async () => {
     const { appendRow, sendSlack, deps } = fakes()
     appendRow.mockRejectedValue(new Error(SECRET))
-    expect(await submitSurvey({ submissionId: ID, answers: validAnswers(surveyForm) }, deps)).toEqual({ status: 'failed' })
+    expect(await submitSurvey({ token: TOKEN, answers: validAnswers(surveyForm) }, deps)).toEqual({ status: 'failed' })
     expect(sendSlack).not.toHaveBeenCalled()
     expect(errorSpy.mock.calls).toEqual([['시트 저장 실패', ID]])
   })
@@ -464,60 +506,7 @@ describe('검사지 제출', () => {
   it('슬랙 실패여도 ok 이고 로그에 ID 만 남는다', async () => {
     const { sendSlack, deps } = fakes()
     sendSlack.mockRejectedValue(new Error(SECRET))
-    expect(await submitSurvey({ submissionId: ID, answers: validAnswers(surveyForm) }, deps)).toEqual({ status: 'ok' })
+    expect(await submitSurvey({ token: TOKEN, answers: validAnswers(surveyForm) }, deps)).toEqual({ status: 'ok' })
     expect(errorSpy.mock.calls).toEqual([['슬랙 전송 실패', ID]])
-  })
-})
-
-describe('교육미용 취소', () => {
-  const body = { submissionId: ID, petName: '초코', guardianName: '홍길동' }
-
-  it('취소는 시트를 건드리지 않고 슬랙 한 통만 보낸다', async () => {
-    const { appendRow, sendSlack, deps } = fakes()
-    expect(await cancelTraining(body, deps)).toEqual({ status: 'ok' })
-    expect(appendRow).not.toHaveBeenCalled()
-    expect(sendSlack).toHaveBeenCalledTimes(1)
-    expect(sendSlack).toHaveBeenCalledWith([
-      cancelTrainingMessage({ petName: '초코', guardianName: '홍길동', submissionId: ID }),
-    ])
-    expect(sendSlack.mock.calls[0][0]).toHaveLength(1)
-  })
-
-  it('이름은 앞뒤 공백을 떼고 보낸다', async () => {
-    const { sendSlack, deps } = fakes()
-    await cancelTraining({ ...body, petName: '  초코 ', guardianName: ' 홍길동\n' }, deps)
-    expect(sendSlack).toHaveBeenCalledWith([cancelTrainingMessage({ petName: '초코', guardianName: '홍길동', submissionId: ID })])
-  })
-
-  it('이름이 200자면 통과한다', async () => {
-    const { sendSlack, deps } = fakes()
-    expect(await cancelTraining({ ...body, petName: '가'.repeat(200) }, deps)).toEqual({ status: 'ok' })
-    expect(sendSlack).toHaveBeenCalledTimes(1)
-  })
-
-  it.each([
-    ['ID 가 틀림', { ...body, submissionId: 'abc' }],
-    ['ID 가 없음', { petName: '초코', guardianName: '홍길동' }],
-    ['반려견 이름이 없음', { submissionId: ID, guardianName: '홍길동' }],
-    ['반려견 이름이 공백뿐', { ...body, petName: '   ' }],
-    ['보호자 이름이 빈 문자열', { ...body, guardianName: '' }],
-    ['이름이 문자열이 아님', { ...body, petName: 5 }],
-    ['보호자 이름이 배열', { ...body, guardianName: ['홍길동'] }],
-    ['반려견 이름이 201자', { ...body, petName: '가'.repeat(201) }],
-    ['보호자 이름이 201자', { ...body, guardianName: '가'.repeat(201) }],
-  ])('입력이 틀리면(%s) invalid 이고 아무것도 부르지 않는다', async (_label, bad) => {
-    const { appendRow, sendSlack, deps } = fakes()
-    expect(await cancelTraining(bad, deps)).toEqual(INVALID)
-    expect(appendRow).not.toHaveBeenCalled()
-    expect(sendSlack).not.toHaveBeenCalled()
-  })
-
-  it('슬랙 실패면 failed 이고 로그에 ID 만 남는다', async () => {
-    const { appendRow, sendSlack, deps } = fakes()
-    sendSlack.mockRejectedValue(new Error(`${SECRET} 초코`))
-    expect(await cancelTraining(body, deps)).toEqual({ status: 'failed' })
-    expect(appendRow).not.toHaveBeenCalled()
-    expect(errorSpy.mock.calls).toEqual([['슬랙 전송 실패', ID]])
-    expect(JSON.stringify(errorSpy.mock.calls)).not.toMatch(/초코|홍길동|SECRETTOKEN/)
   })
 })

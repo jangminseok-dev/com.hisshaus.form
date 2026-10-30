@@ -5,7 +5,8 @@ import { KakaoIcon } from './KakaoLink'
 import styles from './Landing.module.css'
 
 /**
- * 첫 화면: 로고 줄, 제목과 양식 둘(예약 신청서·검사지) — 할 일이 먼저 보이게 사진보다 위에 둔다, 큰 사진, 안내 한 문단, 정보 줄.
+ * 첫 화면: 로고 줄, 제목과 예약 신청서 — 할 일이 먼저 보이게 사진보다 위에 둔다, 큰 사진, 안내 한 문단, 정보 줄.
+ * 검사지는 여기서 열지 않는다. 교육미용 예약금 입금이 확인된 보호자에게 사장님이 링크를 따로 보낸다.
  * 사진은 next/image 가 아니라 평범한 img 다. 이미지 최적화 사용량을 쓰지 않고, 사진은 크기가 정해진 한 장이다.
  */
 export function Landing() {
@@ -17,7 +18,7 @@ export function Landing() {
 
       <section data-section="lead" className={styles.lead}>
         <h1 className={styles.title}>예약 신청</h1>
-        <p className={styles.leadText}>작성할 양식을 골라 주세요.</p>
+        <p className={styles.leadText}>신청서를 작성해 주세요.</p>
       </section>
       {/* 링크 이름은 제목 줄(aria-labelledby), 설명 줄은 설명(aria-describedby)이다. 이름에 다 넣으면 낭독이 길어진다. */}
       <nav data-section="choices" aria-label="작성할 양식" className={styles.choices}>
@@ -28,17 +29,6 @@ export function Landing() {
             </span>
             <span id="choice-apply-desc" className={styles.choiceDesc}>
               미용, 데이케어, 호텔, 교육미용 상담을 예약해요
-            </span>
-          </span>
-          <Chevron />
-        </Link>
-        <Link className={styles.choice} href="/survey" aria-labelledby="choice-survey" aria-describedby="choice-survey-desc">
-          <span className={styles.choiceText}>
-            <span id="choice-survey" className={styles.choiceTitle}>
-              심층 행동 분석 검사지
-            </span>
-            <span id="choice-survey-desc" className={styles.choiceDesc}>
-              교육미용 상담 전에 반려견의 행동을 미리 알려 주세요
             </span>
           </span>
           <Chevron />

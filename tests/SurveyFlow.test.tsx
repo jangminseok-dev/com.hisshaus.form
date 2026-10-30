@@ -12,17 +12,22 @@ import { validAnswers } from './fixtures'
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => router }))
 
+/** 링크의 신청 ID 와 링크. 화면은 링크를 확인하지 않는다(서버가 확인하고 넘긴다). */
 const APPLY_ID = 'Ab3dE5gH7j'
+const TOKEN = `${APPLY_ID}-${'0'.repeat(32)}`
 const OTHER_ID = 'Zz9Yy8Xx7W'
-/** 지난 검사지(초안)의 열쇠. 새로 연 검사지는 이것과 다른 열쇠를 만든다. */
+/** 지난 검사지(초안)의 열쇠. */
 const OLD_KEY = 'Kk3dE5gH7j'
 /** 이어 쓰는 초안의 열쇠. */
 const KEY = 'Qq3dE5gH7j'
 const FAILED = '지금은 보낼 수 없어요. 잠시 뒤 다시 눌러 주세요.'
+const CONFIRM = '제출하면 답을 고칠 수 없어요. 제출할까요?'
+const CLOSED = '이미 제출된 검사지예요'
 
 const fetchMock = vi.fn<typeof fetch>()
 const reply = (status: number, body?: object) => new Response(body === undefined ? null : JSON.stringify(body), { status })
 
+/** 같은 기기에 남은 신청 세션. 검사지는 이것을 읽지도 쓰지도 않는다. */
 const session: ApplySession = {
   submissionId: APPLY_ID,
   guardianName: '김하나',
@@ -31,28 +36,25 @@ const session: ApplySession = {
   services: ['Grooming 미용', TRAINING_SERVICE],
   wish: '10월 28일 (수) 오전',
   training: true,
-  surveyDone: false,
 }
 
 const lastGroup = surveyForm.groups.length - 1
 const q2 = surveyForm.groups[0].questions.find((q) => q.id === 'q2')!
 
-/** 마지막 묶음에서 제출만 남은 검사지를 저장소에 둔다. */
-function draftAtLastGroup(submissionId: string, over: Answers = {}): Answers {
+const open = () => render(<SurveyFlow applyId={APPLY_ID} token={TOKEN} />)
+
+/** 마지막 묶음에서 제출만 남은, 이 링크의 검사지를 저장소에 둔다. */
+function draftAtLastGroup(over: Answers = {}): Answers {
   const answers: Answers = { ...validAnswers(surveyForm), ...over }
-  saveDraft('survey', { answers, groupIndex: lastGroup, submissionId, key: KEY })
+  saveDraft('survey', { answers, groupIndex: lastGroup, submissionId: APPLY_ID, key: KEY, applyId: APPLY_ID })
   return answers
 }
 
-const submitButton = () => screen.findByRole('button', { name: '제출하기' })
-
-/** 첫 묶음(이메일·동의)을 채우고 두 번째 묶음으로 간다. */
-async function goToSecondGroup() {
-  await screen.findByRole('heading', { level: 2, name: surveyForm.groups[0].title })
-  fireEvent.change(screen.getByLabelText('이메일'), { target: { value: 'a@b.co' } })
-  fireEvent.click(within(screen.getByRole('radiogroup', { name: q2.label })).getByRole('radio', { name: '동의함' }))
-  fireEvent.click(screen.getByRole('button', { name: '다음' }))
-  await screen.findByRole('heading', { level: 2, name: surveyForm.groups[1].title })
+/** 마지막 묶음의 제출하기 → 확인 창의 제출하기. */
+async function submitWithConfirm() {
+  fireEvent.click(await screen.findByRole('button', { name: '제출하기' }))
+  const dialog = screen.getByRole('alertdialog', { name: CONFIRM })
+  fireEvent.click(within(dialog).getByRole('button', { name: '제출하기' }))
 }
 
 function sent() {
@@ -71,8 +73,7 @@ const goBack = () =>
 
 beforeEach(() => {
   localStorage.clear()
-  // 주소도 되돌린다. ?from=apply 를 쓴 테스트가 다음 테스트에 새지 않게.
-  history.replaceState(null, '', '/hisshaus/survey')
+  history.replaceState(null, '', `/hisshaus/survey/${TOKEN}`)
   router.push.mockReset()
   router.replace.mockReset()
   fetchMock.mockReset()
@@ -86,162 +87,117 @@ afterEach(() => {
 })
 
 describe('검사지를 열 때', () => {
-  it('옛 초안에 글 칸이던 문항의 글이 남아 있어도 열 때 버려서 "고를 수 없는 값" 이 뜨지 않는다', async () => {
-    // q66 은 글 칸이었다가 네/아니오 칩이 됐다. 그 전에 저장된 초안이다.
-    saveDraft('survey', { answers: { q66: '없음', q3: '김하나' }, groupIndex: 6, submissionId: APPLY_ID, key: KEY })
-    render(<SurveyFlow />)
-    await screen.findByRole('heading', { level: 2 })
-    expect(screen.queryByText('고를 수 없는 값이에요')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '다음' }))
-    expect(screen.queryByText('고를 수 없는 값이에요')).not.toBeInTheDocument()
-    // 저장된 초안은 다음 입력 때 걸러진 답으로 다시 쓰인다.
-    const q66 = document.querySelector<HTMLElement>('[data-question="q66"]')!
-    fireEvent.click(within(q66).getByRole('radio', { name: '네' }))
-    expect(loadDraft('survey')?.answers.q66).toBe('네')
-    expect(loadDraft('survey')?.answers.q3).toBe('김하나')
-  })
-
-  it('검사지는 세션이 있으면 성함·연락처·반려견 이름을 미리 채운다', async () => {
-    saveSession(session)
-    render(<SurveyFlow />)
-    await goToSecondGroup()
-
-    expect(screen.getByLabelText('의뢰인 성함')).toHaveValue('김하나')
-    expect(screen.getByLabelText('의뢰인 연락처')).toHaveValue('010-1234-5678')
-    expect(screen.getByLabelText('반려견의 이름')).toHaveValue('보리')
-    // 나머지는 비어 있다.
-    expect(screen.getByLabelText('의뢰인의 직업')).toHaveValue('')
-  })
-
-  it('세션이 없으면 미리 채우지 않는다', async () => {
-    render(<SurveyFlow />)
-    await goToSecondGroup()
-    expect(screen.getByLabelText('의뢰인 성함')).toHaveValue('')
-    expect(screen.getByLabelText('의뢰인 연락처')).toHaveValue('')
-    expect(screen.getByLabelText('반려견의 이름')).toHaveValue('')
-  })
-
-  it('새 검사지 초안의 신청 ID 는 세션의 신청 ID 다', async () => {
-    saveSession(session)
-    render(<SurveyFlow />)
-    await screen.findByRole('heading', { level: 2 })
+  it('초안이 없으면 첫 묶음부터 열고, 새 초안의 신청 ID 는 링크의 신청 ID 다', async () => {
+    open()
+    expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[0].title })).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('이메일'), { target: { value: 'a@b.co' } })
 
     const saved = loadDraft('survey')!
     expect(saved.submissionId).toBe(APPLY_ID)
-    // 어느 신청에 묶인 초안인지 적어 둔다. 다른 신청의 세션에서 열리면 이 값으로 가려 버린다.
     expect(saved.applyId).toBe(APPLY_ID)
-    // 신청 ID 는 신청서와 같지만 초안은 새 것이라 방문 기록 칸의 주인을 가리는 열쇠가 따로 있다.
+    // 방문 기록 칸의 주인은 새 초안마다 만드는 열쇠로 가린다.
     expect(isSubmissionId(saved.key)).toBe(true)
     expect(saved.key).not.toBe(APPLY_ID)
-    expect(saved.groupIndex).toBe(0)
-    // 미리 채운 답도 초안에 같이 실린다.
-    expect(saved.answers).toMatchObject({ q1: 'a@b.co', q3: '김하나', q4: '010-1234-5678', q7: '보리' })
+    expect(saved).toMatchObject({ groupIndex: 0, answers: { q1: 'a@b.co' } })
   })
 
-  it('세션이 없으면 새 신청 ID 를 만든다', async () => {
-    render(<SurveyFlow />)
-    await screen.findByRole('heading', { level: 2 })
+  it('같은 기기에 신청 세션이 있어도 미리 채우지 않고 세션을 건드리지 않는다', async () => {
+    saveSession(session)
+    open()
+    await screen.findByRole('heading', { level: 2, name: surveyForm.groups[0].title })
     fireEvent.change(screen.getByLabelText('이메일'), { target: { value: 'a@b.co' } })
-
-    const saved = loadDraft('survey')!
-    expect(isSubmissionId(saved.submissionId)).toBe(true)
-    expect(saved.submissionId).not.toBe(APPLY_ID)
-    expect(saved.answers).toEqual({ q1: 'a@b.co' })
-    // 어느 신청에도 묶이지 않은 초안이다.
-    expect(saved).not.toHaveProperty('applyId')
-    expect(loadSession()).toBeNull()
+    fireEvent.click(within(screen.getByRole('radiogroup', { name: q2.label })).getByRole('radio', { name: '동의함' }))
+    fireEvent.click(screen.getByRole('button', { name: '다음' }))
+    await screen.findByRole('heading', { level: 2, name: surveyForm.groups[1].title })
+    expect(screen.getByLabelText('의뢰인 성함')).toHaveValue('')
+    expect(screen.getByLabelText('의뢰인 연락처')).toHaveValue('')
+    expect(screen.getByLabelText('반려견의 이름')).toHaveValue('')
+    expect(loadSession()).toEqual(session)
   })
 
-  it('다른 신청에 묶인 검사지 초안은 버리고 새로 시작한다', async () => {
-    saveSession(session)
-    // 지난 신청 때 쓰던 검사지다. 네 번째 묶음까지 갔고 다른 사람의 이름이 들어 있다.
-    saveDraft('survey', {
-      answers: { q3: '지난 보호자', q7: '지난 아이' },
-      groupIndex: 3,
-      submissionId: OTHER_ID,
-      key: OLD_KEY,
-      applyId: OTHER_ID,
-    })
-    render(<SurveyFlow />)
-
-    // 첫 묶음에서 새로 시작한다.
-    expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[0].title })).toBeInTheDocument()
-    expect(loadDraft('survey')).toBeNull()
-    await goToSecondGroup()
+  it('이 링크(신청 ID)의 초안은 쓰던 묶음과 답으로 이어 쓴다', async () => {
+    saveDraft('survey', { answers: { q1: 'a@b.co', q2: '동의함', q3: '김하나' }, groupIndex: 1, submissionId: APPLY_ID, key: KEY, applyId: APPLY_ID })
+    open()
+    expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[1].title })).toBeInTheDocument()
     expect(screen.getByLabelText('의뢰인 성함')).toHaveValue('김하나')
-    expect(screen.getByLabelText('반려견의 이름')).toHaveValue('보리')
-    expect(loadDraft('survey')!.submissionId).toBe(APPLY_ID)
   })
 
-  it('이 신청에 묶인 검사지 초안은 이어 쓰고 묶인 신청 ID 를 지킨다', async () => {
-    saveSession(session)
-    saveDraft('survey', { answers: { q3: '고친 이름' }, groupIndex: 3, submissionId: APPLY_ID, key: KEY, applyId: APPLY_ID })
-    render(<SurveyFlow />)
-
-    expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[3].title })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '이전' }))
-    expect(loadDraft('survey')).toMatchObject({ groupIndex: 2, submissionId: APPLY_ID, key: KEY, applyId: APPLY_ID })
+  it.each([
+    ['다른 신청의 초안', OTHER_ID],
+    ['신청 ID 가 없는 옛 흐름의 초안', undefined],
+  ])('%s 은 버리고 새로 시작한다', async (_label, applyId) => {
+    saveDraft('survey', { answers: { q1: 'old@b.co' }, groupIndex: 3, submissionId: OTHER_ID, key: OLD_KEY, applyId })
+    open()
+    expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[0].title })).toBeInTheDocument()
+    expect(screen.getByLabelText('이메일')).toHaveValue('')
+    expect(loadDraft('survey')).toBeNull()
   })
 
-  it('세션 없이 시작한 검사지 초안은 나중에 신청을 내도 버리지 않고 그대로 이어 쓴다', async () => {
-    // 사장님 링크(/survey)로 쓰기 시작한 검사지다. 그 뒤 같은 브라우저에서 신청서를 내서 세션이 생겼다.
-    saveDraft('survey', { answers: { q3: '먼저 쓴 이름' }, groupIndex: 3, submissionId: OTHER_ID, key: KEY })
-    saveSession(session)
-    render(<SurveyFlow />)
-
-    expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[3].title })).toBeInTheDocument()
-    // 미리 채우기는 새 초안에만 한다. 쓰던 답과 신청 ID 는 그대로다.
-    const kept = loadDraft('survey')!
-    expect(kept).toEqual({ answers: { q3: '먼저 쓴 이름' }, groupIndex: 3, submissionId: OTHER_ID, key: KEY })
+  it('옛 초안에 글 칸이던 문항의 글이 남아 있어도 열 때 버려서 "고를 수 없는 값" 이 뜨지 않는다', async () => {
+    // q66 은 글 칸이었다가 네/아니오 칩이 됐다. 그 전에 저장된 초안이다.
+    saveDraft('survey', { answers: { q66: '없음', q3: '김하나' }, groupIndex: 6, submissionId: APPLY_ID, key: KEY, applyId: APPLY_ID })
+    open()
+    await screen.findByRole('heading', { level: 2 })
+    expect(screen.queryByText('고를 수 없는 값이에요')).not.toBeInTheDocument()
+    const q66 = document.querySelector<HTMLElement>('[data-question="q66"]')!
+    fireEvent.click(within(q66).getByRole('radio', { name: '네' }))
+    expect(loadDraft('survey')?.answers).toMatchObject({ q66: '네', q3: '김하나' })
   })
 
-  it('세션 없이 연 검사지는 저장된 초안을 그대로 이어 쓴다', async () => {
-    saveDraft('survey', { answers: {}, groupIndex: 2, submissionId: OTHER_ID, key: KEY })
-    render(<SurveyFlow />)
-    expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[2].title })).toBeInTheDocument()
-
-    fireEvent.change(screen.getByLabelText('반려견의 나이로 몇 살 때, 어디에서 입양하였습니까'), { target: { value: '2살' } })
-    expect(loadDraft('survey')!.submissionId).toBe(OTHER_ID)
+  it('첫 묶음의 이전은 막혀 있다(링크로 들어와 돌아갈 곳이 없다)', async () => {
+    open()
+    await screen.findByRole('heading', { level: 2, name: surveyForm.groups[0].title })
+    expect(screen.getByRole('button', { name: '이전' })).toBeDisabled()
   })
 
-  it('첫 묶음의 이전은 신청 흐름에서 넘어왔고(?from=apply) 세션이 있으면 신청 완료 화면으로 보낸다', async () => {
-    saveSession(session)
-    history.replaceState(null, '', '/hisshaus/survey?from=apply')
-    render(<SurveyFlow />)
-    fireEvent.click(await screen.findByRole('button', { name: '이전' }))
-    expect(router.push).toHaveBeenCalledWith('/apply/done')
+  it('이 기기에서 이 링크의 검사지를 이미 냈으면 문항 대신 닫힌 안내를 보인다', async () => {
+    draftAtLastGroup()
+    const first = open()
+    await submitWithConfirm()
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/survey/done'))
+
+    // 완료 화면에서 뒤로 오면 Next 가 캐시해 둔 이 화면이 다시 열린다.
+    first.unmount()
+    open()
+    expect(await screen.findByRole('heading', { level: 1, name: CLOSED })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '다음' })).not.toBeInTheDocument()
+    expect(loadDraft('survey')).toBeNull()
   })
 
-  it('첫 묶음의 이전은 첫 화면·링크로 바로 열었으면 지난 신청 세션이 있어도 첫 화면으로 보낸다', async () => {
-    saveSession(session)
-    history.replaceState(null, '', '/hisshaus/survey')
-    render(<SurveyFlow />)
-    fireEvent.click(await screen.findByRole('button', { name: '이전' }))
-    expect(router.push).toHaveBeenCalledWith('/')
-  })
+  it('다른 링크의 검사지를 낸 기기에서도 이 링크는 열린다', async () => {
+    saveDraft('survey', { answers: validAnswers(surveyForm), groupIndex: lastGroup, submissionId: OTHER_ID, key: KEY, applyId: OTHER_ID })
+    const other = render(<SurveyFlow applyId={OTHER_ID} token={`${OTHER_ID}-${'1'.repeat(32)}`} />)
+    await submitWithConfirm()
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/survey/done'))
 
-  it('첫 묶음의 이전은 세션이 없으면 ?from=apply 가 있어도 첫 화면으로 보낸다', async () => {
-    history.replaceState(null, '', '/hisshaus/survey?from=apply')
-    render(<SurveyFlow />)
-    fireEvent.click(await screen.findByRole('button', { name: '이전' }))
-    expect(router.push).toHaveBeenCalledWith('/')
+    other.unmount()
+    open()
+    expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[0].title })).toBeInTheDocument()
   })
 
   it('서버에서 그릴 때는 저장소를 읽지 않고 아무것도 그리지 않는다', () => {
-    saveSession(session)
+    draftAtLastGroup()
     const read = vi.spyOn(Storage.prototype, 'getItem')
-    expect(renderToString(<SurveyFlow />)).toBe('')
+    expect(renderToString(<SurveyFlow applyId={APPLY_ID} token={TOKEN} />)).toBe('')
     expect(read).not.toHaveBeenCalled()
   })
 })
 
 describe('검사지 제출', () => {
-  it('/hisshaus/api/survey 에 신청 ID·답·applyId·빈 허니팟을 보낸다', async () => {
-    saveSession(session)
-    const answers = draftAtLastGroup(APPLY_ID)
-    render(<SurveyFlow />)
-    fireEvent.click(await submitButton())
+  it('제출하기는 확인 창을 거친다 — 다시 볼게요면 보내지 않는다', async () => {
+    draftAtLastGroup()
+    open()
+    fireEvent.click(await screen.findByRole('button', { name: '제출하기' }))
+    const dialog = screen.getByRole('alertdialog', { name: CONFIRM })
+    fireEvent.click(within(dialog).getByRole('button', { name: '다시 볼게요' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('/hisshaus/api/survey 에 링크·답·빈 허니팟만 보낸다(신청 ID 는 서버가 링크에서 꺼낸다)', async () => {
+    const answers = draftAtLastGroup()
+    open()
+    await submitWithConfirm()
     await waitFor(() => expect(router.replace).toHaveBeenCalled())
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -250,86 +206,57 @@ describe('검사지 제출', () => {
     expect(init.method).toBe('POST')
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(init.signal).toBeInstanceOf(AbortSignal)
-    expect(body).toEqual({ submissionId: APPLY_ID, answers, applyId: APPLY_ID, website: '' })
+    expect(body).toEqual({ token: TOKEN, answers, website: '' })
   })
 
-  it('세션 없이 시작한 초안을 신청 뒤에 내면 신청 ID 는 초안의 것, applyId 는 세션의 것이다', async () => {
-    const answers = draftAtLastGroup(OTHER_ID)
+  it('제출 성공이면 초안을 지우고 완료로 간다 — 세션은 그대로다', async () => {
     saveSession(session)
-    render(<SurveyFlow />)
-    fireEvent.click(await submitButton())
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/survey/done'))
-
-    expect(sent().body).toEqual({ submissionId: OTHER_ID, answers, applyId: APPLY_ID, website: '' })
-  })
-
-  it('세션이 없으면 applyId 없이 보낸다', async () => {
-    const answers = draftAtLastGroup(OTHER_ID)
-    render(<SurveyFlow />)
-    fireEvent.click(await submitButton())
-    await waitFor(() => expect(router.replace).toHaveBeenCalled())
-
-    expect(sent().body).toEqual({ submissionId: OTHER_ID, answers, website: '' })
-  })
-
-  it('제출 성공이면 초안을 지우고 검사지를 썼다고 세션에 적고 완료로 간다', async () => {
-    saveSession(session)
-    draftAtLastGroup(APPLY_ID)
-    render(<SurveyFlow />)
-    fireEvent.click(await submitButton())
+    draftAtLastGroup()
+    open()
+    await submitWithConfirm()
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/survey/done'))
     expect(loadDraft('survey')).toBeNull()
-    expect(loadSession()).toEqual({ ...session, surveyDone: true })
+    expect(loadSession()).toEqual(session)
     expect(router.push).not.toHaveBeenCalled()
   })
 
   it('제출이 접수된 뒤에는 화면이 바뀌기 전에 입력이 와도 초안을 다시 저장하지 않는다', async () => {
-    saveSession(session)
-    draftAtLastGroup(APPLY_ID)
-    render(<SurveyFlow />)
-    fireEvent.click(await submitButton())
+    draftAtLastGroup()
+    open()
+    await submitWithConfirm()
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/survey/done'))
     expect(loadDraft('survey')).toBeNull()
 
-    // 다음 화면이 그려지기 전의 입력이다. 초안이 되살아나면 다음에 검사지를 열 때 낸 검사지가 이어진다.
     const q98 = surveyForm.groups[lastGroup].questions.find((q) => q.id === 'q98')!
     fireEvent.click(within(screen.getByRole('radiogroup', { name: q98.label })).getByRole('radio', { name: '아니오' }))
     expect(loadDraft('survey')).toBeNull()
   })
 
-  it('세션 없이 제출해도 세션을 새로 만들지 않는다', async () => {
-    draftAtLastGroup(OTHER_ID)
-    render(<SurveyFlow />)
-    fireEvent.click(await submitButton())
-
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/survey/done'))
-    expect(loadDraft('survey')).toBeNull()
-    expect(loadSession()).toBeNull()
-  })
-
-  it('503 이면 failed 로 입력과 초안이 남는다', async () => {
-    saveSession(session)
-    const answers = draftAtLastGroup(APPLY_ID)
+  it('503 이면 failed 로 입력과 초안이 남고, 닫힌 표시도 남기지 않는다', async () => {
+    const answers = draftAtLastGroup()
     fetchMock.mockResolvedValue(reply(503, { ok: false }))
-    render(<SurveyFlow />)
-    fireEvent.click(await submitButton())
+    const first = open()
+    await submitWithConfirm()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(FAILED)
     expect(router.replace).not.toHaveBeenCalled()
-    expect(loadSession()).toEqual(session)
-    expect(loadDraft('survey')).toEqual({ answers, groupIndex: lastGroup, submissionId: APPLY_ID, key: KEY })
+    expect(loadDraft('survey')).toEqual({ answers, groupIndex: lastGroup, submissionId: APPLY_ID, key: KEY, applyId: APPLY_ID })
     expect(screen.getByRole('button', { name: '제출하기' })).toBeEnabled()
+
+    first.unmount()
+    open()
+    expect(await screen.findByRole('button', { name: '제출하기' })).toBeInTheDocument()
   })
 
   it.each([
     ['네트워크 오류', new TypeError('Failed to fetch')],
     ['시간 초과', new DOMException('The operation timed out.', 'TimeoutError')],
   ])('제출이 시간 초과·네트워크 오류면 failed 다 — %s', async (_name, error) => {
-    draftAtLastGroup(OTHER_ID)
+    draftAtLastGroup()
     fetchMock.mockRejectedValue(error)
-    render(<SurveyFlow />)
-    fireEvent.click(await submitButton())
+    open()
+    await submitWithConfirm()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(FAILED)
     expect(router.replace).not.toHaveBeenCalled()
@@ -337,9 +264,9 @@ describe('검사지 제출', () => {
   })
 
   it('허니팟은 양식 밖의 이름 없는 숨은 입력이고 보낼 때 읽는다', async () => {
-    draftAtLastGroup(OTHER_ID)
-    render(<SurveyFlow />)
-    const submit = await submitButton()
+    draftAtLastGroup()
+    open()
+    await screen.findByRole('button', { name: '제출하기' })
     const field = honeypot()
     expect(field).not.toHaveAttribute('name')
     expect(field).toHaveAttribute('autocomplete', 'off')
@@ -347,45 +274,34 @@ describe('검사지 제출', () => {
     expect(document.querySelector('[data-group]')!.contains(field)).toBe(false)
 
     fireEvent.change(field, { target: { value: 'https://spam.example' } })
-    fireEvent.click(submit)
+    await submitWithConfirm()
     await waitFor(() => expect(router.replace).toHaveBeenCalled())
     expect(sent().body.website).toBe('https://spam.example')
   })
 })
 
 describe('검사지를 낸 뒤 뒤로 가기', () => {
-  // 검사지는 신청서의 신청 ID 를 그대로 쓴다. 낸 뒤 뒤로 와 다시 열린 검사지는 지난 검사지와 같은 신청 ID 로 새로 시작하는데,
-  // 방문 기록의 지난 칸을 이 검사지의 칸으로 착각하면 위치를 이어받아 빈 검사지에서 뒤로 가기가 뒤 묶음으로 뛴다.
-  it('검사지를 낸 뒤 뒤로 와 다시 열린 검사지는 지난 칸을 밟지 않고 한 번에 양식을 떠난다', async () => {
-    // 양식 앞 페이지(신청 완료 화면)와, 그 뒤에 새로 쌓인 검사지의 첫 칸.
-    history.replaceState({ page: 'apply-done' }, '')
-    history.pushState(null, '')
-    saveSession(session)
-    saveDraft('survey', { answers: validAnswers(surveyForm), groupIndex: 0, submissionId: APPLY_ID, key: OLD_KEY })
-    const first = render(<SurveyFlow />)
-
-    // 끝 묶음까지 넘기며(칸 열한 개를 쌓고) 낸다.
-    for (let i = 0; i < lastGroup; i++) fireEvent.click(await screen.findByRole('button', { name: '다음' }))
-    fireEvent.click(await submitButton())
+  it('완료 화면에서 뒤로 오면 닫힌 안내를 보이고, 다시 뒤로 가면 낸 검사지의 칸을 건너뛰어 링크 앞 페이지로 간다', async () => {
+    // 링크 앞 페이지, 그 뒤 검사지가 묶음마다 쌓은 칸 셋(위치 0~2). 마지막 칸은 완료 화면이 고쳐 썼다.
+    history.replaceState({ page: 'before' }, '')
+    for (let pos = 0; pos < 3; pos++) history.pushState({ hhForm: 'survey', hhKey: KEY, hhStep: pos, hhPos: pos }, '')
+    history.pushState({ page: 'survey-done' }, '')
+    draftAtLastGroup()
+    const first = open()
+    await submitWithConfirm()
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/survey/done'))
-
-    // Next 가 하는 일: 낸 칸을 완료 화면으로 바꾸고 검사지 화면은 내린다.
-    history.replaceState({ page: 'survey-done' }, '')
     first.unmount()
 
-    // 뒤로: 낸 칸 바로 앞의 지난 칸(위치 10)으로 돌아와 검사지가 다시 열린다. 같은 신청 ID 의 새 초안이다.
+    // 뒤로: 낸 검사지의 마지막 칸. 닫힌 안내가 보인다(그 자리에서 바로 건너뛰지 않는다).
     await goBack()
-    render(<SurveyFlow />)
-    expect(await screen.findByRole('heading', { level: 2, name: surveyForm.groups[0].title })).toBeInTheDocument()
-    expect(history.state).toMatchObject({ hhForm: 'survey', hhStep: 0, hhPos: 0 })
-    expect(history.state.hhKey).not.toBe(OLD_KEY)
+    open()
+    expect(await screen.findByRole('heading', { level: 1, name: CLOSED })).toBeInTheDocument()
+    expect(history.state).toMatchObject({ hhForm: 'survey', hhPos: 2 })
 
-    // 다시 뒤로: 지난 검사지의 칸 열 개를 하나씩 건너뛰고 양식 앞 페이지에서 멈춘다. 묶음은 한 번도 안 바뀌고 초안도 안 쓴다.
+    // 다시 뒤로: 낸 검사지의 칸 둘을 건너뛰고 링크 앞 페이지에서 멈춘다.
     const back = vi.spyOn(history, 'back')
     history.back()
-    await waitFor(() => expect(history.state).toEqual({ page: 'apply-done' }))
-    expect(back).toHaveBeenCalledTimes(1 + 10)
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(surveyForm.groups[0].title)
-    expect(loadDraft('survey')).toBeNull()
+    await waitFor(() => expect(history.state).toEqual({ page: 'before' }))
+    expect(back).toHaveBeenCalledTimes(1 + 2)
   })
 })

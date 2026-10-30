@@ -21,8 +21,8 @@ import { isSubmissionId } from './id'
  * 어느 초안의 것인지 가리는 데 쓴다. 검사지는 신청서의 신청 ID 를 그대로 쓰므로, 신청 ID 로는 지난 검사지가 남긴 칸과 새로
  * 연 검사지를 가릴 수 없다.
  *
- * `applyId` 는 검사지 초안에만 있다: 신청 세션이 있을 때 새로 만든 초안이면 그 신청 ID 다. 다른 신청의 세션에서 열리면
- * 이 값으로 가려 버린다. 세션 없이 쓰기 시작한 초안에는 없고, 나중에 세션이 생겨도 버리지 않는다.
+ * `applyId` 는 검사지 초안에만 있다: 그 초안을 쓰던 검사지 링크의 신청 ID 다. 다른 링크로 열리면 이 값으로 가려 버린다.
+ * 옛 버전이 남긴 초안(신청 세션 없이 쓰기 시작해 applyId 가 없다)도 읽기는 하지만 검사지가 버린다.
  */
 export interface Draft {
   answers: Answers
@@ -32,7 +32,7 @@ export interface Draft {
   applyId?: string
 }
 
-/** 신청이 접수된 뒤 검사지 안내·완료 화면이 이어 받는 정보. */
+/** 신청이 접수된 뒤 완료 화면이 이어 받는 정보. 옛 버전이 남긴 surveyDone 이 더 있어도 읽는다. */
 export interface ApplySession {
   submissionId: string
   guardianName: string
@@ -42,10 +42,11 @@ export interface ApplySession {
   /** 고른 서비스의 희망 일시 한 줄(lib/wish.ts) */
   wish: string
   training: boolean
-  surveyDone: boolean
 }
 
 const SESSION_KEY = 'hh.session'
+/** 이 기기에서 마지막으로 낸 검사지의 신청 ID. 같은 링크를 다시 열면(완료 화면에서 뒤로 가기 포함) 닫힌 안내를 보인다. */
+const SENT_SURVEY_KEY = 'hh.survey.sent'
 const draftKey = (formId: 'apply' | 'survey') => `hh.draft.${formId}`
 
 /** 이 탭 메모리의 사본. 값은 JSON 글로 둬서 호출한 쪽의 객체와 이어지지 않는다. */
@@ -108,8 +109,7 @@ function isApplySession(v: unknown): v is ApplySession {
     isText(v.petName) &&
     isTextList(v.services) &&
     isText(v.wish) &&
-    typeof v.training === 'boolean' &&
-    typeof v.surveyDone === 'boolean'
+    typeof v.training === 'boolean'
   )
 }
 
@@ -137,4 +137,13 @@ export function saveSession(s: ApplySession): void {
 
 export function clearSession(): void {
   remove(SESSION_KEY)
+}
+
+export function markSurveySent(applyId: string): void {
+  write(SENT_SURVEY_KEY, applyId)
+}
+
+export function sentSurveyId(): string | null {
+  const v = read(SENT_SURVEY_KEY)
+  return isSubmissionId(v) ? v : null
 }

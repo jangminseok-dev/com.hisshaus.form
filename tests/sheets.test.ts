@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { appendRow } from '../lib/sheets'
+import { appendRow, surveySubmitted } from '../lib/sheets'
 
 beforeEach(() => vi.stubEnv('GOOGLE_SHEET_ID', 'sheet123'))
 afterEach(() => vi.unstubAllEnvs())
@@ -114,6 +114,66 @@ describe('시트 추가', () => {
     const { calls, fetch } = setup()
     await appendRow('예약신청', ['가'], { fetch, token })
     expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer tok')
+  })
+})
+
+describe('검사지를 냈나', () => {
+  const ID = 'Ab3dE5gH7j'
+  const column = (...ids: string[]) => new Response(JSON.stringify({ range: "'검사지'!B1:B9", values: ids.map((v) => [v]) }))
+
+  it('검사지 탭의 B열(신청 ID)을 GET 으로 읽는다', async () => {
+    const { calls, fetch } = setup([column()])
+    await surveySubmitted(ID, { fetch, token })
+    expect(calls).toHaveLength(1)
+    const range = encodeURIComponent("'검사지'!B:B")
+    expect(calls[0].url).toBe(`https://sheets.googleapis.com/v4/spreadsheets/sheet123/values/${range}`)
+    expect(calls[0].init.method ?? 'GET').toBe('GET')
+    expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer tok')
+    expect(calls[0].init.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('B열에 그 신청 ID 가 있으면 true', async () => {
+    const { fetch } = setup([column('신청 ID', 'Zz9Yy8Xx7W', ID)])
+    expect(await surveySubmitted(ID, { fetch, token })).toBe(true)
+  })
+
+  it('없으면 false', async () => {
+    const { fetch } = setup([column('신청 ID', 'Zz9Yy8Xx7W')])
+    expect(await surveySubmitted(ID, { fetch, token })).toBe(false)
+  })
+
+  it('빈 탭이라 values 가 없으면 false', async () => {
+    const { fetch } = setup([new Response(JSON.stringify({ range: "'검사지'!B1:B1000" }))])
+    expect(await surveySubmitted(ID, { fetch, token })).toBe(false)
+  })
+
+  it('SHEETS_BASE_URL 이 있으면 그 주소의 같은 경로를 읽는다 (테스트용)', async () => {
+    vi.stubEnv('SHEETS_BASE_URL', 'http://127.0.0.1:3031')
+    const { calls, fetch } = setup([column()])
+    await surveySubmitted(ID, { fetch, token })
+    expect(calls[0].url).toBe(`http://127.0.0.1:3031/v4/spreadsheets/sheet123/values/${encodeURIComponent("'검사지'!B:B")}`)
+  })
+
+  it.each([
+    ['2xx 가 아닌 응답', () => [new Response('{"error":"SECRETDETAIL"}', { status: 403 })]],
+    ['fetch 거부', () => [new Error('ECONNREFUSED SECRETDETAIL')]],
+    ['JSON 이 아닌 응답', () => [new Response('SECRETDETAIL<html>')]],
+  ])('%s 이면 sheets 오류 하나로 던진다', async (_label, responses) => {
+    const { fetch } = setup(responses())
+    const err = await thrown(surveySubmitted(ID, { fetch, token }))
+    expect(err.message).toBe('sheets')
+    expect(err.cause).toBeUndefined()
+    expect(String(err)).not.toContain('SECRET')
+  })
+
+  it('토큰을 못 얻으면 요청을 보내지 않고 sheets 오류로 던진다', async () => {
+    const { calls, fetch } = setup()
+    const failing = async (): Promise<string> => {
+      throw new Error('invalid_grant SECRETKEY')
+    }
+    const err = await thrown(surveySubmitted(ID, { fetch, token: failing }))
+    expect(err.message).toBe('sheets')
+    expect(calls).toHaveLength(0)
   })
 })
 

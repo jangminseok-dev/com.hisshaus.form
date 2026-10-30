@@ -31,6 +31,15 @@ export function serviceAccount(): { clientEmail: string; privateKey: string } {
   }
 }
 
+/** 검사지 링크의 서명 비밀값(lib/survey-link.ts). 짧으면 추측당할 수 있어 32자 이상만 받는다. */
+export function surveyLinkSecret(): string {
+  const name = 'SURVEY_LINK_SECRET'
+  const value = required(name)
+  // 값은 메시지에 넣지 않는다.
+  if (value.length < 32) throw new Error(`환경 변수 ${name} 이 너무 짧다.`)
+  return value
+}
+
 /**
  * 알림 첫 줄에 붙일 멘션. 없으면 멘션 없이 보낸다. 값: `channel` · `here` · 슬랙 멤버 ID(U… / W…), 쉼표로 여러 개.
  * 멘션이 있어야 휴대폰 슬랙이 기본 설정(다이렉트 메시지·멘션만 알림)에서도 울린다.

@@ -998,6 +998,102 @@ describe('제출', () => {
   })
 })
 
+describe('제출 전 확인 창', () => {
+  const CONFIRM = '제출하면 답을 고칠 수 없어요. 제출할까요?'
+  const surveyLast = () => setup({ form: surveyForm, initial: draft(99, validAnswers(surveyForm)), submitLabel: '제출하기', confirmSubmit: CONFIRM })
+  const dialog = () => screen.queryByRole('alertdialog')
+
+  it('confirmSubmit 이 있으면 제출 버튼은 보내지 않고 확인 창을 연다 — 다시 볼게요에 포커스', () => {
+    const { onSubmit } = surveyLast()
+    fireEvent.click(action('submit'))
+    expect(onSubmit).not.toHaveBeenCalled()
+    const d = dialog()!
+    expect(d).toHaveAttribute('aria-modal', 'true')
+    expect(d).toHaveAccessibleName(CONFIRM)
+    expect(within(d).getByRole('button', { name: '다시 볼게요' })).toHaveFocus()
+    expect(within(d).getByRole('button', { name: '제출하기' })).toHaveAttribute('data-action', 'confirm-submit')
+  })
+
+  it('다시 볼게요는 창만 닫고 보내지 않으며 제출 버튼으로 포커스를 돌린다', () => {
+    const { onSubmit } = surveyLast()
+    fireEvent.click(action('submit'))
+    fireEvent.click(within(dialog()!).getByRole('button', { name: '다시 볼게요' }))
+    expect(dialog()).toBeNull()
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(action('submit')).toHaveFocus()
+    expect(groupId()).toBe('l')
+  })
+
+  it('Esc 는 다시 볼게요와 같다', () => {
+    const { onSubmit } = surveyLast()
+    fireEvent.click(action('submit'))
+    fireEvent.keyDown(dialog()!, { key: 'Escape' })
+    expect(dialog()).toBeNull()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('창의 제출하기를 누르면 창을 닫고 onSubmit 이 답 전체를 한 번 받는다', () => {
+    const answers = validAnswers(surveyForm)
+    const { onSubmit } = surveyLast()
+    fireEvent.click(action('submit'))
+    const confirm = within(dialog()!).getByRole('button', { name: '제출하기' })
+    act(() => {
+      confirm.click()
+      confirm.click()
+    })
+    expect(dialog()).toBeNull()
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect(onSubmit).toHaveBeenCalledWith(answers)
+    expect(action('submit')).toHaveTextContent('보내는 중…')
+  })
+
+  it('보내기에 실패하면 지금처럼 안내가 뜨고, 다시 누르면 창이 다시 열린다', async () => {
+    const { onSubmit } = surveyLast()
+    onSubmit.mockResolvedValue('failed')
+    fireEvent.click(action('submit'))
+    fireEvent.click(within(dialog()!).getByRole('button', { name: '제출하기' }))
+    expect(await screen.findByText(FAILED)).toBeInTheDocument()
+    fireEvent.click(action('submit'))
+    expect(dialog()).not.toBeNull()
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  it('오류가 있으면 창을 열지 않고 오류로 데려간다', () => {
+    // 마지막 묶음의 필수 문항(q98)을 비운다.
+    const { q98: _, ...answers } = validAnswers(surveyForm)
+    expect(question(surveyForm, 'q98').required).toBe(true)
+    const { onSubmit } = setup({ form: surveyForm, initial: draft(99, answers), submitLabel: '제출하기', confirmSubmit: CONFIRM })
+    fireEvent.click(action('submit'))
+    expect(dialog()).toBeNull()
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(within(box('q98')).getByRole('alert')).toBeInTheDocument()
+  })
+
+  it('다음 버튼은 창을 열지 않는다', () => {
+    setup({ form: surveyForm, initial: draft(0, validAnswers(surveyForm)), submitLabel: '제출하기', confirmSubmit: CONFIRM })
+    fireEvent.click(action('next'))
+    expect(dialog()).toBeNull()
+    expect(groupId()).toBe('b')
+  })
+
+  it('창이 열린 채 뒤로 가기(휴대폰 뒤로 버튼)로 묶음이 바뀌면 창을 닫는다', () => {
+    const { onSubmit } = surveyLast()
+    fireEvent.click(action('submit'))
+    const last = surveyForm.groups.length - 1
+    popstate(entry(last - 1, 0, { hhForm: 'survey' }))
+    expect(groupId()).toBe(surveyForm.groups[last - 1].id)
+    expect(dialog()).toBeNull()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('confirmSubmit 이 없으면(신청서) 창 없이 바로 보낸다', () => {
+    const { onSubmit } = setup({ initial: draft(LAST, validAnswers(applyForm)) })
+    fireEvent.click(action('submit'))
+    expect(dialog()).toBeNull()
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('조건 문항', () => {
   it('showIf 문항은 조건이 맞을 때만 그린다', () => {
     const q49 = question(surveyForm, 'q49')

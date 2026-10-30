@@ -1,20 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as applyRoute from '../app/api/apply/route'
-import * as cancelRoute from '../app/api/apply/cancel-training/route'
 import * as surveyRoute from '../app/api/survey/route'
-import { cancelTraining, submitApply, submitSurvey, type SubmitResult } from '../lib/submit'
+import { submitApply, submitSurvey, type SubmitResult } from '../lib/submit'
 
 // 제출 로직은 submit.test.ts 가 덮는다. 여기서는 경로가 본문을 읽어 넘기고 결과를 상태 코드로 바꾸는지만 본다.
 vi.mock('../lib/submit', () => ({
   submitApply: vi.fn(),
   submitSurvey: vi.fn(),
-  cancelTraining: vi.fn(),
 }))
 
 const ROUTES = [
   { name: '/api/apply', route: applyRoute, submit: submitApply },
   { name: '/api/survey', route: surveyRoute, submit: submitSurvey },
-  { name: '/api/apply/cancel-training', route: cancelRoute, submit: cancelTraining },
 ]
 
 const FIELD_ERRORS = [

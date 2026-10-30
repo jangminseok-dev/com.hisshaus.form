@@ -8,7 +8,8 @@
     "start": "next start -p 3020",
     "test": "vitest run",
     "e2e": "playwright test",
-    "sheet:header": "tsx scripts/sheet-header.mjs"
+    "sheet:header": "tsx scripts/sheet-header.mjs",
+    "survey:link": "tsx --env-file-if-exists=.env.local scripts/survey-link.mjs"
   },
   "dependencies": {
     "google-auth-library": "11.3.1",

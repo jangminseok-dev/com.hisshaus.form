@@ -1,11 +1,27 @@
 import { expect, type APIRequestContext } from '@playwright/test'
 
+import { newSubmissionId } from '../../lib/id'
 import type { SlackMessage } from '../../lib/slack-blocks'
+import { surveyToken } from '../../lib/survey-link'
 
 // e2e 전용 포트. 개발 서버(3020)와 겹치지 않게 따로 쓴다.
 export const WEB_PORT = 3030
 export const FAKE_PORT = 3031
 export const FAKE_URL = `http://127.0.0.1:${FAKE_PORT}`
+/** e2e 서버의 검사지 링크 비밀값(진짜가 아니다). 테스트가 같은 값으로 링크를 만든다. */
+export const E2E_SURVEY_SECRET = 'e2e-survey-link-secret-not-real-0123456789'
+
+/** 그 신청(기본은 새 신청 ID)의 검사지 링크 경로. 사장님이 슬랙에서 받아 보내는 주소의 경로 부분이다. */
+export function surveyPath(applyId: string = newSubmissionId()): string {
+  return `/hisshaus/survey/${surveyToken(applyId, E2E_SURVEY_SECRET)}`
+}
+
+/** 그 신청 ID 에 남의 서명을 붙인 링크 경로(위조). */
+export function forgedSurveyPath(applyId: string): string {
+  const path = `/hisshaus/survey/${applyId}-${'0'.repeat(32)}`
+  expect(path).not.toBe(surveyPath(applyId))
+  return path
+}
 
 /** 가짜 시트가 받은 append 한 번. */
 export interface SheetCall {
