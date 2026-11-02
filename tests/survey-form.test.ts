@@ -6,10 +6,29 @@ const qs = allQuestions(surveyForm)
 const q = (n: number) => qs.find((x) => x.id === `q${n}`)!
 
 describe('검사지 정의', () => {
-  it('검사지는 원문 98문항(q1~q98)에 나눈 문항의 짝 셋(q66_detail·q76_detail·q77_detail)을 더한 101문항이다', () => {
+  it('검사지는 원문 98문항(q1~q98)에 사료 브랜드(q33_brand)·나눈 문항의 짝 셋·공격성 질문을 더한 103문항이다', () => {
     const base = qs.filter((x) => /^q\d+$/.test(x.id))
     expect(base.map((x) => x.id)).toEqual(Array.from({ length: 98 }, (_, i) => `q${i + 1}`))
-    expect(qs.filter((x) => !/^q\d+$/.test(x.id)).map((x) => x.id)).toEqual(['q66_detail', 'q76_detail', 'q77_detail', 'q83_has'])
+    expect(qs.filter((x) => !/^q\d+$/.test(x.id)).map((x) => x.id)).toEqual(['q33_brand', 'q66_detail', 'q76_detail', 'q77_detail', 'q83_has'])
+  })
+
+  it('사료 브랜드 질문(q33_brand)은 q33 바로 뒤에 있고, q33 에서 사료를 골랐을 때만 보이는 필수 글 칸이다', () => {
+    const brand = qs.find((x) => x.id === 'q33_brand')!
+    expect(qs.indexOf(brand)).toBe(qs.indexOf(q(33)) + 1)
+    expect(brand).toMatchObject({
+      label: '먹이고 있는 사료의 브랜드와 제품 이름을 적어주세요',
+      hint: '두 가지 이상 먹이면 모두 적어주세요.',
+      type: 'long',
+      required: true,
+    })
+    for (const food of ['건조 사료', '반건조 사료', '습식 사료 (캔에 들은 것)', '건조 사료 + 습식 토핑']) {
+      expect(isVisible(brand, { q33: food })).toBe(true)
+      expect(isRequired(brand, { q33: food })).toBe(true)
+    }
+    // 사람 음식·기타(직접 입력)·아직 안 고름이면 숨는다.
+    expect(isVisible(brand, { q33: '사람 음식 (쌀, 고기, 생선 등...)' })).toBe(false)
+    expect(isVisible(brand, { q33: '화식' })).toBe(false)
+    expect(isVisible(brand, {})).toBe(false)
   })
 
   it('묶음은 12개다', () => {
@@ -41,7 +60,7 @@ describe('검사지 정의', () => {
   })
 
   it('검사지에는 출처(어글리독)가 적혀 있고 신청서에는 없다', () => {
-    expect(surveyForm.credit).toBe('출처: 어글리독')
+    expect(surveyForm.credit).toBe('ⓒ 어글리독 All rights reserved')
   })
 
   it('도입 안내에 없는 표시를 가리키는 "*표시는 필수 질문임" 줄이 없다', () => {

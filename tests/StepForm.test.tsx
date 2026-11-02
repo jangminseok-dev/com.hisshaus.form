@@ -130,10 +130,10 @@ describe('화면 틀', () => {
 
   it('출처는 검사지 첫 묶음에서만 보이고 다음 묶음과 신청서에는 없다', () => {
     const first = setup({ form: surveyForm, submitLabel: '제출하기' })
-    expect(screen.getByText('출처: 어글리독')).toBeInTheDocument()
+    expect(screen.getByText('ⓒ 어글리독 All rights reserved')).toBeInTheDocument()
     first.unmount()
     const second = setup({ form: surveyForm, initial: draft(1), submitLabel: '제출하기' })
-    expect(screen.queryByText('출처: 어글리독')).not.toBeInTheDocument()
+    expect(screen.queryByText('ⓒ 어글리독 All rights reserved')).not.toBeInTheDocument()
     second.unmount()
     setup()
     expect(screen.queryByText(/출처/)).not.toBeInTheDocument()

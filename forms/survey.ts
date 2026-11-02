@@ -242,6 +242,15 @@ export const surveyForm: FormDef = {
           options: ['건조 사료', '반건조 사료', '습식 사료 (캔에 들은 것)', '건조 사료 + 습식 토핑', '사람 음식 (쌀, 고기, 생선 등...)'],
           other: true,
         },
+        // 사료를 먹일 때 어떤 브랜드·제품인지(사장님 결정 2026-11-01). 원문에는 없는 문항이라 id 는 q33 뒤에 _brand 를 붙여 원문 번호와 구분한다.
+        {
+          id: 'q33_brand',
+          label: '먹이고 있는 사료의 브랜드와 제품 이름을 적어주세요',
+          type: 'long',
+          required: true,
+          hint: '두 가지 이상 먹이면 모두 적어주세요.',
+          showIf: { questionId: 'q33', equals: ['건조 사료', '반건조 사료', '습식 사료 (캔에 들은 것)', '건조 사료 + 습식 토핑'] },
+        },
         {
           id: 'q34',
           label: '반려견은 주로 어떤 방식으로 먹이를 먹습니까?',
@@ -273,6 +282,7 @@ export const surveyForm: FormDef = {
           label: '영양제를 급여 중인 경우, 어떤 목적으로 어떤 종류의 영양제를 급여하고 있는지 적어주세요',
           type: 'long',
           required: false,
+          hint: '브랜드와 제품 이름까지 적어주세요.',
           showIf: { questionId: 'q43', equals: '네' },
         },
       ],

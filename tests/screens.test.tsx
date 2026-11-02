@@ -215,7 +215,7 @@ describe('검사지 완료 화면', () => {
     expect(screen.getByText('상담 전에 꼼꼼히 읽어 볼게요. 고칠 내용이 있으면 카카오톡 채널로 알려 주세요.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '카카오톡 채널로 문의하기' })).toHaveAttribute('href', shop.kakaoChatUrl)
     expect(screen.getByRole('link', { name: '처음으로' })).toHaveAttribute('href', '/')
-    expect(screen.getByText('출처: 어글리독')).toBeInTheDocument()
+    expect(screen.getByText('ⓒ 어글리독 All rights reserved')).toBeInTheDocument()
     expect(container.textContent).not.toMatch(/예약금|계좌|553-910109-67607|예약 신청서 쓰기/)
     expect(container.textContent).not.toMatch(/입니다|됩니다|십시오/)
   })
