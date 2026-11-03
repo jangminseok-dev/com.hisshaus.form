@@ -5,6 +5,9 @@ import { redirect } from 'next/navigation'
 import { readSession, requireAdmin, writeSession } from '../../lib/admin-guard'
 import { checkPassword, checkPin, MAX_PIN_FAILS, SESSION_DAYS } from '../../lib/admin-session'
 import { mailAddress } from '../../lib/config'
+import { cancelConsent, createConsent } from '../../lib/consent-admin'
+import { newConsentId } from '../../lib/consent-link'
+import { isSubmissionId } from '../../lib/id'
 import { sendMail } from '../../lib/mail'
 
 export type ActionState = { error?: string }
@@ -58,5 +61,55 @@ export async function sendTestMail(): Promise<ActionState & { ok?: boolean }> {
   } catch {
     console.error('메일 전송 실패', 'test')
     return { error: '메일을 보내지 못했어요. 네이버 메일 설정을 확인해 주세요.' }
+  }
+}
+
+const SHEET_WRITE_ERROR = '지금은 시트에 쓸 수 없어요. 잠시 뒤 다시 눌러 주세요.'
+
+export type CreateState = ActionState & { errors?: Record<string, string>; id?: string; url?: string }
+
+const str = (form: FormData, key: string) => {
+  const v = form.get(key)
+  return typeof v === 'string' ? v : ''
+}
+
+/** 동의서를 만든다(시트에 준비 줄). 성공하면 보호자에게 보낼 링크를 돌려준다. */
+export async function createConsentAction(_prev: CreateState, form: FormData): Promise<CreateState> {
+  await requireAdmin()
+  const applyId = str(form, 'applyId')
+  const id = newConsentId()
+  try {
+    const out = await createConsent(
+      {
+        applyId: isSubmissionId(applyId) ? applyId : '',
+        bundle: str(form, 'bundle'),
+        programName: str(form, 'programName'),
+        goal: str(form, 'goal'),
+        classTime: str(form, 'classTime'),
+        groomingParts: form.getAll('groomingParts').filter((v): v is string => typeof v === 'string'),
+        shown: {
+          guardianName: str(form, 'guardianName'),
+          phone: str(form, 'phone'),
+          petName: str(form, 'petName'),
+          breed: str(form, 'breed'),
+        },
+      },
+      { id },
+    )
+    return out
+  } catch {
+    console.error('시트 저장 실패', id)
+    return { error: SHEET_WRITE_ERROR }
+  }
+}
+
+/** 서명 전인 동의서를 취소한다. */
+export async function cancelConsentAction(id: string): Promise<{ result?: 'ok' | 'not-found' | 'signed'; error?: string }> {
+  await requireAdmin()
+  try {
+    return { result: await cancelConsent(id) }
+  } catch {
+    console.error('시트 저장 실패', id)
+    return { error: SHEET_WRITE_ERROR }
   }
 }

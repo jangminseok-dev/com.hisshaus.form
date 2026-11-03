@@ -1,23 +1,51 @@
 import type { Metadata } from 'next'
 
+import { AdminHome, type ConsentItem } from '../../components/AdminHome'
 import { AdminLogin } from '../../components/AdminLogin'
 import { AdminTestMail } from '../../components/AdminTestMail'
 import { AdminUnlock } from '../../components/AdminUnlock'
 import styles from '../../components/Admin.module.css'
 import { readSession } from '../../lib/admin-guard'
+import { loadApplicants } from '../../lib/applicants'
+import { bundleOf } from '../../lib/consent-docs'
+import { consentUrl } from '../../lib/consent-link'
+import { type ConsentRecord, loadConsents } from '../../lib/consent-store'
 import { logout } from './actions'
 
 export const metadata: Metadata = { title: '사장님 화면' }
 export const dynamic = 'force-dynamic'
 
-// 세션 없음 → 로그인, 잠김 → PIN, 아니면 홈. 홈은 이후 작업에서 채운다.
+function toItem(r: ConsentRecord): ConsentItem {
+  const p = r.prepared
+  const waiting = !r.signed && !r.cancelled
+  return {
+    id: p.id,
+    bundleLabel: bundleOf(p.bundle)?.label ?? p.bundle,
+    guardianName: r.signed?.guardian.guardianName || p.shown?.guardianName || '신청서 없음',
+    status: r.signed ? '서명함' : r.cancelled ? '취소함' : '서명 대기',
+    mail: r.mail ? `보관 ${r.mail.archive ? '보냄' : '실패'} · 사본 ${r.mail.guardian ? '보냄' : '실패'}` : null,
+    createdAt: p.createdAt,
+    url: waiting ? consentUrl(p.id) : null,
+  }
+}
+
+// 세션 없음 → 로그인, 잠김 → PIN, 아니면 홈. 시트를 못 읽으면 그 목록만 null 로 넘긴다.
 export default async function Page() {
   const session = await readSession()
   if (!session) return <AdminLogin />
   if (session.locked) return <AdminUnlock />
+  const applicants = await loadApplicants().then(
+    (a) => a.slice(0, 100),
+    () => null,
+  )
+  const consents = await loadConsents().then(
+    (m) => [...m.values()].reverse().slice(0, 30).map(toItem),
+    () => null,
+  )
   return (
     <div className={styles.screen}>
       <h1 className={styles.title}>사장님 화면</h1>
+      <AdminHome applicants={applicants} consents={consents} />
       <AdminTestMail />
       <form action={logout}>
         <button className={styles.secondary} type="submit">

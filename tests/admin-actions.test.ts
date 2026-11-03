@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { readSession, writeSession, redirect, requireAdmin, sendMail } = vi.hoisted(() => ({
+const { readSession, writeSession, redirect, requireAdmin, sendMail, createConsent, cancelConsent } = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
+  createConsent: vi.fn(),
+  cancelConsent: vi.fn(),
   sendMail: vi.fn(),
   readSession: vi.fn(),
   writeSession: vi.fn(),
@@ -13,9 +15,10 @@ const { readSession, writeSession, redirect, requireAdmin, sendMail } = vi.hoist
 
 vi.mock('../lib/admin-guard', () => ({ readSession, writeSession, requireAdmin }))
 vi.mock('../lib/mail', () => ({ sendMail }))
+vi.mock('../lib/consent-admin', async (orig) => ({ ...(await orig<typeof import('../lib/consent-admin')>()), createConsent, cancelConsent }))
 vi.mock('next/navigation', () => ({ redirect }))
 
-import { sendTestMail, unlock } from '../app/admin/actions'
+import { cancelConsentAction, createConsentAction, sendTestMail, unlock } from '../app/admin/actions'
 
 const form = (pin: string) => {
   const f = new FormData()
@@ -114,6 +117,76 @@ describe('sendTestMail — 메일 시험 보내기', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(await sendTestMail()).toEqual({ error: '메일을 보내지 못했어요. 네이버 메일 설정을 확인해 주세요.' })
     expect(log.mock.calls).toEqual([['메일 전송 실패', 'test']])
+    log.mockRestore()
+  })
+})
+
+const createForm = (o: Record<string, string> = {}) => {
+  const f = new FormData()
+  const v = { applyId: 'AAAAAAAAAA', bundle: 'generalGrooming', guardianName: '김하나', phone: '010', petName: '보리', breed: '푸들', ...o }
+  for (const [k, val] of Object.entries(v)) f.set(k, val)
+  f.append('groomingParts', '등')
+  f.append('groomingParts', '배')
+  return f
+}
+
+describe('createConsentAction — 동의서 만들기', () => {
+  it('로그인(잠금 해제)을 먼저 확인한다', async () => {
+    requireAdmin.mockRejectedValue(new Error('REDIRECT:/admin'))
+    await expect(createConsentAction({}, createForm())).rejects.toThrow('REDIRECT:/admin')
+    expect(createConsent).not.toHaveBeenCalled()
+  })
+
+  it('폼 값을 입력으로 바꿔 만들고 id·url 을 돌려준다', async () => {
+    requireAdmin.mockResolvedValue({})
+    createConsent.mockResolvedValue({ id: 'NEWID12345', url: 'https://x/consent/NEWID12345-sig' })
+    expect(await createConsentAction({}, createForm())).toEqual({ id: 'NEWID12345', url: 'https://x/consent/NEWID12345-sig' })
+    expect(createConsent).toHaveBeenCalledWith({
+      applyId: 'AAAAAAAAAA',
+      bundle: 'generalGrooming',
+      programName: '',
+      goal: '',
+      classTime: '',
+      groomingParts: ['등', '배'],
+      shown: { guardianName: '김하나', phone: '010', petName: '보리', breed: '푸들' },
+    }, { id: expect.stringMatching(/^[A-Za-z0-9]{10}$/) })
+  })
+
+  it('검증 오류는 칸별 오류로 돌려준다', async () => {
+    requireAdmin.mockResolvedValue({})
+    createConsent.mockResolvedValue({ errors: { goal: '적어 주세요' } })
+    expect(await createConsentAction({}, createForm())).toEqual({ errors: { goal: '적어 주세요' } })
+  })
+
+  it('시트 실패는 안내 문구를 주고 로그에는 시트 저장 실패만 남긴다', async () => {
+    requireAdmin.mockResolvedValue({})
+    createConsent.mockRejectedValue(new Error('sheets'))
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(await createConsentAction({}, createForm())).toEqual({ error: '지금은 시트에 쓸 수 없어요. 잠시 뒤 다시 눌러 주세요.' })
+    expect(log.mock.calls).toEqual([['시트 저장 실패', expect.stringMatching(/^[A-Za-z0-9]{10}$/)]])
+    log.mockRestore()
+  })
+})
+
+describe('cancelConsentAction — 동의서 취소', () => {
+  it('로그인(잠금 해제)을 먼저 확인한다', async () => {
+    requireAdmin.mockRejectedValue(new Error('REDIRECT:/admin'))
+    await expect(cancelConsentAction('AAAAAAAAAA')).rejects.toThrow('REDIRECT:/admin')
+    expect(cancelConsent).not.toHaveBeenCalled()
+  })
+
+  it('결과를 돌려준다', async () => {
+    requireAdmin.mockResolvedValue({})
+    cancelConsent.mockResolvedValue('signed')
+    expect(await cancelConsentAction('AAAAAAAAAA')).toEqual({ result: 'signed' })
+  })
+
+  it('시트 실패는 안내 문구를 주고 로그에는 시트 저장 실패와 ID 만 남긴다', async () => {
+    requireAdmin.mockResolvedValue({})
+    cancelConsent.mockRejectedValue(new Error('sheets'))
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(await cancelConsentAction('AAAAAAAAAA')).toEqual({ error: '지금은 시트에 쓸 수 없어요. 잠시 뒤 다시 눌러 주세요.' })
+    expect(log.mock.calls).toEqual([['시트 저장 실패', 'AAAAAAAAAA']])
     log.mockRestore()
   })
 })
