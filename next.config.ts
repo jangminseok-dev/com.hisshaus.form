@@ -18,14 +18,15 @@ const config: NextConfig = {
   async headers() {
     return [
       ...['/apply/:path*', '/api/:path*'].map((source) => ({ source, headers: noStore })),
-      {
-        source: '/survey/:path*',
+      // 사장님 화면(/admin)과 보호자 동의서 링크(/consent)도 검사지처럼 숨긴다.
+      ...['/survey/:path*', '/admin/:path*', '/consent/:path*'].map((source) => ({
+        source,
         headers: [
           ...noStore,
           { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
           { key: 'Referrer-Policy', value: 'no-referrer' },
         ],
-      },
+      })),
     ]
   },
 }

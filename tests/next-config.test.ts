@@ -20,6 +20,19 @@ describe('응답 헤더', () => {
     for (const source of ['/apply/:path*', '/api/:path*']) {
       expect(rules.find((r) => r.source === source)?.headers).toEqual([{ key: 'Cache-Control', value: 'private, no-store' }])
     }
-    expect(rules.map((r) => r.source).sort()).toEqual(['/api/:path*', '/apply/:path*', '/survey/:path*'])
+    expect(rules.map((r) => r.source).sort()).toEqual(['/admin/:path*', '/api/:path*', '/apply/:path*', '/consent/:path*', '/survey/:path*'])
+  })
+
+  it('사장님 화면과 동의서 경로도 저장하지 않고, 검색에 잡히지 않고, 다른 사이트로 주소를 넘기지 않는다', async () => {
+    const rules = await config.headers!()
+    for (const source of ['/admin/:path*', '/consent/:path*']) {
+      expect(rules.find((r) => r.source === source)!.headers).toEqual(
+        expect.arrayContaining([
+          { key: 'Cache-Control', value: 'private, no-store' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+        ]),
+      )
+    }
   })
 })
