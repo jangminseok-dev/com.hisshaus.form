@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-import { E2E_SURVEY_SECRET, FAKE_PORT, FAKE_URL, WEB_PORT } from './tests/e2e/fake'
+import { E2E_ADMIN_PASSWORD, E2E_ADMIN_PIN, E2E_SURVEY_SECRET, FAKE_PORT, FAKE_URL, WEB_PORT } from './tests/e2e/fake'
 
 // 진짜 서비스 계정이 아니다. 앱은 시작할 때 모양만 읽고, 토큰은 SHEETS_FAKE_TOKEN 이 대신한다.
 const dummyAccount = Buffer.from(
@@ -46,6 +46,11 @@ export default defineConfig({
         GOOGLE_SHEET_ID: 'e2e-sheet',
         GOOGLE_SERVICE_ACCOUNT_JSON: dummyAccount,
         SURVEY_LINK_SECRET: E2E_SURVEY_SECRET,
+        MAIL_ADDRESS: 'archive@example.invalid',
+        MAIL_APP_PASSWORD: 'e2e-not-real',
+        MAIL_FAKE_URL: FAKE_URL,
+        ADMIN_PASSWORD: E2E_ADMIN_PASSWORD,
+        ADMIN_PIN: E2E_ADMIN_PIN,
       },
     },
   ],

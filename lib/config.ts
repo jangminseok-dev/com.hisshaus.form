@@ -60,6 +60,44 @@ function testOnly(name: string): string | undefined {
   return process.env[name] || undefined
 }
 
+/** 동의서 보관 메일을 보낼 네이버 주소(lib/mail.ts). */
+export function mailAddress(): string {
+  return required('MAIL_ADDRESS')
+}
+
+/** 네이버 SMTP 앱 비밀번호(lib/mail.ts). */
+export function mailAppPassword(): string {
+  return required('MAIL_APP_PASSWORD')
+}
+
+/** 사장님 화면 비밀번호. 짧으면 추측당할 수 있어 10자 이상만 받는다. */
+export function adminPassword(): string {
+  const name = 'ADMIN_PASSWORD'
+  const value = required(name)
+  // 값은 메시지에 넣지 않는다.
+  if (value.length < 10) throw new Error(`환경 변수 ${name} 이 너무 짧다.`)
+  return value
+}
+
+/** 아이패드 잠금 PIN. 4자리 숫자만 받는다. */
+export function adminPin(): string {
+  const name = 'ADMIN_PIN'
+  const value = required(name)
+  // 값은 메시지에 넣지 않는다.
+  if (!/^\d{4}$/.test(value)) throw new Error(`환경 변수 ${name} 이 4자리 숫자가 아니다.`)
+  return value
+}
+
+/** 운영(NODE_ENV=production)인지. */
+export function isProduction(): boolean {
+  return process.env.NODE_ENV === 'production'
+}
+
+/** 가짜 메일 서비스 주소(끝에 / 없이). 테스트용 MAIL_FAKE_URL 이 있을 때만 값이 있다. */
+export function mailFakeUrl(): string | undefined {
+  return testOnly('MAIL_FAKE_URL')
+}
+
 /** 구글 시트 API 주소의 앞부분(끝에 / 없이). 테스트용 SHEETS_BASE_URL 이 있으면 그것. */
 export function sheetsBaseUrl(): string {
   return testOnly('SHEETS_BASE_URL') ?? 'https://sheets.googleapis.com'

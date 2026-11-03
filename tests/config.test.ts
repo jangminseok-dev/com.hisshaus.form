@@ -1,6 +1,20 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { holidayApiKey, serviceAccount, sheetId, sheetsBaseUrl, sheetsFakeToken, slackWebhookUrl, surveyLinkSecret } from '../lib/config'
+import {
+  adminPassword,
+  adminPin,
+  holidayApiKey,
+  isProduction,
+  mailAddress,
+  mailAppPassword,
+  mailFakeUrl,
+  serviceAccount,
+  sheetId,
+  sheetsBaseUrl,
+  sheetsFakeToken,
+  slackWebhookUrl,
+  surveyLinkSecret,
+} from '../lib/config'
 
 afterEach(() => vi.unstubAllEnvs())
 
@@ -43,10 +57,39 @@ describe('설정', () => {
       ['GOOGLE_SHEET_ID', sheetId],
       ['GOOGLE_SERVICE_ACCOUNT_JSON', serviceAccount],
       ['SURVEY_LINK_SECRET', surveyLinkSecret],
+      ['MAIL_ADDRESS', mailAddress],
+      ['MAIL_APP_PASSWORD', mailAppPassword],
+      ['ADMIN_PASSWORD', adminPassword],
+      ['ADMIN_PIN', adminPin],
     ] as const) {
       vi.stubEnv(name, value)
       expect(fn).toThrow(name)
     }
+  })
+})
+
+test('메일·사장님 변수를 읽고, 사장님 비밀번호는 10자 이상·PIN 은 4자리 숫자만 받는다', () => {
+  vi.stubEnv('MAIL_ADDRESS', 'a@naver.com')
+  expect(mailAddress()).toBe('a@naver.com')
+  vi.stubEnv('MAIL_APP_PASSWORD', 'app-pass')
+  expect(mailAppPassword()).toBe('app-pass')
+  vi.stubEnv('ADMIN_PASSWORD', 'short')
+  expect(adminPassword).toThrow('환경 변수 ADMIN_PASSWORD 이 너무 짧다.')
+  expect(adminPassword).not.toThrow('short')
+  vi.stubEnv('ADMIN_PASSWORD', 'long-enough-pw')
+  expect(adminPassword()).toBe('long-enough-pw')
+  vi.stubEnv('ADMIN_PIN', '12a4')
+  expect(adminPin).toThrow('환경 변수 ADMIN_PIN 이 4자리 숫자가 아니다.')
+  vi.stubEnv('ADMIN_PIN', '0420')
+  expect(adminPin()).toBe('0420')
+})
+
+describe('운영 여부', () => {
+  test('NODE_ENV 가 production 일 때만 true 다', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    expect(isProduction()).toBe(true)
+    vi.stubEnv('NODE_ENV', 'development')
+    expect(isProduction()).toBe(false)
   })
 })
 
@@ -69,23 +112,29 @@ describe('테스트용 선택 변수', () => {
   ])('변수가 %s 던지지 않고 기본값을 돌려준다', (_label, value) => {
     vi.stubEnv('SHEETS_BASE_URL', value)
     vi.stubEnv('SHEETS_FAKE_TOKEN', value)
+    vi.stubEnv('MAIL_FAKE_URL', value)
     expect(sheetsBaseUrl()).toBe(GOOGLE)
     expect(sheetsFakeToken()).toBeUndefined()
+    expect(mailFakeUrl()).toBeUndefined()
   })
 
   test.each(['development', 'test'])('NODE_ENV 가 %s 이면 있는 값을 그대로 읽는다', (env) => {
     vi.stubEnv('NODE_ENV', env)
     vi.stubEnv('SHEETS_BASE_URL', 'http://127.0.0.1:3031')
     vi.stubEnv('SHEETS_FAKE_TOKEN', 'e2e-token')
+    vi.stubEnv('MAIL_FAKE_URL', 'http://127.0.0.1:3031')
     expect(sheetsBaseUrl()).toBe('http://127.0.0.1:3031')
     expect(sheetsFakeToken()).toBe('e2e-token')
+    expect(mailFakeUrl()).toBe('http://127.0.0.1:3031')
   })
 
   test('NODE_ENV 가 production 이면 있어도 둘 다 무시한다', () => {
     vi.stubEnv('NODE_ENV', 'production')
     vi.stubEnv('SHEETS_BASE_URL', 'http://127.0.0.1:3031')
     vi.stubEnv('SHEETS_FAKE_TOKEN', 'e2e-token')
+    vi.stubEnv('MAIL_FAKE_URL', 'http://127.0.0.1:3031')
     expect(sheetsBaseUrl()).toBe(GOOGLE)
     expect(sheetsFakeToken()).toBeUndefined()
+    expect(mailFakeUrl()).toBeUndefined()
   })
 })

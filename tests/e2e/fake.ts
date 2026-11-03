@@ -11,6 +11,10 @@ export const FAKE_URL = `http://127.0.0.1:${FAKE_PORT}`
 /** e2e 서버의 검사지 링크 비밀값(진짜가 아니다). 테스트가 같은 값으로 링크를 만든다. */
 export const E2E_SURVEY_SECRET = 'e2e-survey-link-secret-not-real-0123456789'
 
+/** e2e 서버의 사장님 비밀번호·아이패드 PIN(진짜가 아니다). */
+export const E2E_ADMIN_PASSWORD = 'e2e-admin-password'
+export const E2E_ADMIN_PIN = '1234'
+
 /** 그 신청(기본은 새 신청 ID)의 검사지 링크 경로. 사장님이 슬랙에서 받아 보내는 주소의 경로 부분이다. */
 export function surveyPath(applyId: string = newSubmissionId()): string {
   return `/hisshaus/survey/${surveyToken(applyId, E2E_SURVEY_SECRET)}`
@@ -33,9 +37,19 @@ export interface SheetCall {
   values: string[][]
 }
 
+/** 가짜 메일 서비스가 받은 메일 한 통. 첨부는 base64. */
+export interface FakeMail {
+  from: string
+  to: string
+  subject: string
+  text: string
+  attachment?: { filename: string; base64: string }
+}
+
 export interface FakeState {
   slack: SlackMessage[]
   sheets: SheetCall[]
+  mail: FakeMail[]
 }
 
 /** 가짜 서비스가 받은 것을 모두 비운다. 테스트마다 시작 전에 부른다. */
