@@ -6,3 +6,4 @@ test-results
 .superpowers/
 next-env.d.ts
 *.tsbuildinfo
+.claude/worktrees/
