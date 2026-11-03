@@ -103,8 +103,14 @@ export function consentMails(r: {
 }
 
 /**
- * 보관용·보호자 사본 두 통을 따로 보낸다: 한 통이 실패해도 다른 통은 간다. 메일 꼴 만들기(보관 주소 설정 읽기)가 실패해도
- * 그 통의 실패로 친다. 실패마다 '메일 전송 실패' 와 동의서 ID 만 남긴다. 메일 다시 보내기도 이것을 쓴다:
+ * 메일 한 통을 기다리는 시간. 네이버 SMTP 가 멈추면 nodemailer 는 한 통에 35초까지 걸릴 수 있는데 서명 제출(/api/consent)은
+ * 30초에 끊긴다. 끊기면 서명 줄만 남고 메일 줄·슬랙이 없어 사장님이 실패를 모른다. 그래서 두 통을 함께 보내고 통마다 12초에서 실패로 친다.
+ */
+const MAIL_TIMEOUT_MS = 12_000
+
+/**
+ * 보관용·보호자 사본 두 통을 따로, 함께 보낸다: 한 통이 실패해도 다른 통은 간다. 메일 꼴 만들기(보관 주소 설정 읽기)가 실패하거나
+ * 12초 안에 끝나지 않아도 그 통의 실패로 친다. 실패마다 '메일 전송 실패' 와 동의서 ID 만 남긴다. 메일 다시 보내기도 이것을 쓴다:
  * `already` 에 이미 보낸 통을 넘기면 그 통은 보내지 않고 보냄(true)으로 친다(돌려주는 값이 곧 합친 결과다).
  */
 export async function deliverConsentMails(
@@ -114,18 +120,25 @@ export async function deliverConsentMails(
   already: { archive: boolean; guardian: boolean } = { archive: false, guardian: false },
 ): Promise<{ archive: boolean; guardian: boolean }> {
   const deliver = async (pick: (mails: [Mail, Mail]) => Mail): Promise<boolean> => {
-    try {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    // 실패는 false 로 바꿔 둔다: 시간이 넘은 뒤에 실패해도 처리되지 않은 거부가 남지 않는다.
+    const sent = (async () => {
       await sendMail(pick(consentMails(input)))
       return true
-    } catch {
-      console.error('메일 전송 실패', id)
-      return false
-    }
+    })().catch(() => false)
+    const late = new Promise<false>((resolve) => {
+      timer = setTimeout(() => resolve(false), MAIL_TIMEOUT_MS)
+    })
+    const ok = await Promise.race([sent, late])
+    clearTimeout(timer)
+    if (!ok) console.error('메일 전송 실패', id)
+    return ok
   }
-  return {
-    archive: already.archive || (await deliver(([archive]) => archive)),
-    guardian: already.guardian || (await deliver(([, copy]) => copy)),
-  }
+  const [archive, guardian] = await Promise.all([
+    already.archive || deliver(([archive]) => archive),
+    already.guardian || deliver(([, copy]) => copy),
+  ])
+  return { archive, guardian }
 }
 
 /** 본문: `{ token, info: { guardianName, phone, petName, breed, email }, agreed: PageId[], esign: true, signature, website? }`. */

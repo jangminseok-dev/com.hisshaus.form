@@ -134,12 +134,13 @@ interface ResendDeps {
  * 서명된 동의서의 PDF 를 시트 기록으로 다시 만들어 실패한 통만 다시 보내고(메일 줄이 없으면 두 통), 합친 결과로 '메일' 줄을 붙인다.
  * 두 통 다 이미 보냈으면 아무것도 하지 않고 'already-sent'(다른 화면에서 먼저 다시 보낸 경우).
  * 입력은 제출 때와 같다(묶음·사장님 칸·신청 ID 는 기록, 보호자 값·서명 시각·기기·고친 값은 서명 줄, 사인은 T칸).
- * 그래서 서명 내용 고유값이 시트에 남은 값과 같다. 기록·사인 읽기 실패는 `Error('sheets')` 로, PDF 실패는 `Error('pdf')` 로 던진다.
+ * 그래서 서명 내용 고유값이 시트에 남은 값과 같아야 한다. 다르면(원본 PDF 를 바꿨거나 시트 값을 고쳤다) 보호자가 본 적 없는 내용이라
+ * 보내지도 줄을 붙이지도 않고 'changed'. 기록·사인 읽기 실패는 `Error('sheets')` 로, PDF 실패는 `Error('pdf')` 로 던진다.
  */
 export async function resendConsentMail(
   id: string,
   deps: ResendDeps = {},
-): Promise<{ archive: boolean; guardian: boolean } | 'not-signed' | 'already-sent'> {
+): Promise<{ archive: boolean; guardian: boolean } | 'not-signed' | 'already-sent' | 'changed'> {
   const record = (await (deps.loadConsents ?? storeLoadConsents)()).get(id)
   if (!record?.signed) return 'not-signed'
   // 메일 줄이 없으면 보냈는지 모르니 두 통 다, 있으면 실패한 통만 보낸다.
@@ -172,6 +173,7 @@ export async function resendConsentMail(
     console.error('PDF 만들기 실패', id)
     throw new Error('pdf')
   }
+  if (pdf.docHash !== signed.docHash) return 'changed'
 
   // 제출과 같은 메일(제목·첨부 이름)을 같은 방식(통마다 따로, 실패마다 로그)으로 보낸다. 이미 보낸 통은 보낸 것으로 합친다.
   const mail = await deliverConsentMails(

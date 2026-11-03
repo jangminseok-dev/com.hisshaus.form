@@ -226,7 +226,7 @@ describe('resendConsentMail — 메일 다시 보내기', () => {
 
   it('메일 줄이 없으면 서명된 기록의 사인으로 PDF 를 다시 만들어 두 통을 보내고 메일 줄을 붙인다', async () => {
     const { loadConsents, loadSignature } = sheet(signed, null)
-    const buildPdf = vi.fn(async (_input: ConsentPdfInput) => ({ bytes: PDF, docHash: 'x', fileHash: 'y' }))
+    const buildPdf = vi.fn(async (_input: ConsentPdfInput) => ({ bytes: PDF, docHash: signed.docHash, fileHash: 'y' }))
     const sendMail = vi.fn(async (_mail: Mail) => {})
     const appendRow = vi.fn(async () => {})
 
@@ -285,7 +285,7 @@ describe('resendConsentMail — 메일 다시 보내기', () => {
     })
     const out = await resendConsentMail(ID, {
       ...sheet(signed, null),
-      buildPdf: async () => ({ bytes: PDF, docHash: 'x', fileHash: 'y' }),
+      buildPdf: async () => ({ bytes: PDF, docHash: signed.docHash, fileHash: 'y' }),
       sendMail,
       appendRow,
       now,
@@ -302,7 +302,7 @@ describe('resendConsentMail — 메일 다시 보내기', () => {
     const appendRow = vi.fn(async () => {})
     const out = await resendConsentMail(ID, {
       ...sheet(signed, { archive: false, guardian: true }),
-      buildPdf: async () => ({ bytes: PDF, docHash: 'x', fileHash: 'y' }),
+      buildPdf: async () => ({ bytes: PDF, docHash: signed.docHash, fileHash: 'y' }),
       sendMail,
       appendRow,
       now,
@@ -317,7 +317,7 @@ describe('resendConsentMail — 메일 다시 보내기', () => {
     const appendRow = vi.fn(async () => {})
     const out = await resendConsentMail(ID, {
       ...sheet(signed, { archive: true, guardian: false }),
-      buildPdf: async () => ({ bytes: PDF, docHash: 'x', fileHash: 'y' }),
+      buildPdf: async () => ({ bytes: PDF, docHash: signed.docHash, fileHash: 'y' }),
       sendMail,
       appendRow,
       now,
@@ -332,7 +332,7 @@ describe('resendConsentMail — 메일 다시 보내기', () => {
     const appendRow = vi.fn(async () => {})
     const out = await resendConsentMail(ID, {
       ...sheet(signed, { archive: false, guardian: true }),
-      buildPdf: async () => ({ bytes: PDF, docHash: 'x', fileHash: 'y' }),
+      buildPdf: async () => ({ bytes: PDF, docHash: signed.docHash, fileHash: 'y' }),
       sendMail: async () => {
         throw new Error('smtp')
       },
@@ -343,6 +343,37 @@ describe('resendConsentMail — 메일 다시 보내기', () => {
     expect(log.mock.calls).toEqual([['메일 전송 실패', ID]])
     expect(appendRow).toHaveBeenCalledWith('동의서', mailRow(ID, '2026-11-04 09:00:00', { archive: false, guardian: true }))
     log.mockRestore()
+  })
+
+  it('다시 보낸 메일이 끝나지 않으면 12초에 실패로 치고 메일 줄을 붙여 결과를 돌려준다', async () => {
+    vi.useFakeTimers()
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const appendRow = vi.fn(async () => {})
+      const sendMail = vi.fn((_mail: Mail) => new Promise<void>(() => {}))
+      let settled = false
+      const out = resendConsentMail(ID, {
+        ...sheet(signed, null),
+        buildPdf: async () => ({ bytes: PDF, docHash: signed.docHash, fileHash: 'y' }),
+        sendMail,
+        appendRow,
+        now,
+      }).finally(() => (settled = true))
+      await vi.advanceTimersByTimeAsync(11_999)
+      expect(settled).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(await out).toEqual({ archive: false, guardian: false })
+      expect(sendMail).toHaveBeenCalledTimes(2)
+      expect(log.mock.calls).toEqual([
+        ['메일 전송 실패', ID],
+        ['메일 전송 실패', ID],
+      ])
+      expect(appendRow).toHaveBeenCalledWith('동의서', mailRow(ID, '2026-11-04 09:00:00', { archive: false, guardian: false }))
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+      log.mockRestore()
+    }
   })
 
   it('두 통 다 이미 보냈으면 already-sent 이고 사인을 읽지도, PDF 를 만들지도, 보내지도, 줄을 붙이지도 않는다', async () => {
@@ -361,7 +392,7 @@ describe('resendConsentMail — 메일 다시 보내기', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     const out = await resendConsentMail(ID, {
       ...sheet(),
-      buildPdf: async () => ({ bytes: PDF, docHash: 'x', fileHash: 'y' }),
+      buildPdf: async () => ({ bytes: PDF, docHash: signed.docHash, fileHash: 'y' }),
       sendMail: async () => {},
       appendRow: async () => {
         throw new Error('sheets')
@@ -426,5 +457,44 @@ describe('resendConsentMail — 메일 다시 보내기', () => {
     expect(rebuilt!.docHash).toBe(record.signed!.docHash)
     expect(rebuilt!.fileHash).toBe(record.signed!.fileHash)
     expect(Buffer.from(sendMail.mock.calls[0][0].attachment!.content).equals(Buffer.from(original.bytes))).toBe(true)
+  })
+
+  it('원본 PDF 를 바꿔 다시 만든 서명 내용 고유값이 시트와 다르면 보내지도 줄을 붙이지도 않고 changed 다', async () => {
+    const sendMail = vi.fn()
+    const appendRow = vi.fn()
+    // 원본 문서의 고유값이 서명 내용 고유값에 들어가므로, 원본이 바뀌면 같은 시트 기록으로도 고유값이 달라진다.
+    const buildPdf = vi.fn(async () => ({ bytes: PDF, docHash: 'e'.repeat(64), fileHash: 'y' }))
+    expect(await resendConsentMail(ID, { ...sheet(signed, null), buildPdf, sendMail, appendRow, now })).toBe('changed')
+    expect(buildPdf).toHaveBeenCalledTimes(1)
+    expect(sendMail).not.toHaveBeenCalled()
+    expect(appendRow).not.toHaveBeenCalled()
+  })
+
+  it('서명 뒤 시트의 값(견종)을 고쳤으면 다시 만든 고유값이 달라 changed 다', async () => {
+    const input = {
+      bundle: prepared.bundle,
+      consentId: ID,
+      applyId: prepared.applyId,
+      guardian: signed.guardian,
+      owner: { programName: prepared.programName, goal: prepared.goal, classTime: prepared.classTime, groomingParts: prepared.groomingParts },
+      signature: SIGNATURE,
+      signedAt: signed.signedAt,
+      device: signed.device,
+      agreed: agreedSentences(prepared.bundle),
+      changes: signed.changes,
+    }
+    const original = await buildConsentPdf(input)
+    // 서명 때 고유값은 그대로 두고 견종만 고친 시트.
+    const edited = sheet({
+      ...signed,
+      guardian: { ...signed.guardian, breed: '푸들' },
+      docHash: original.docHash,
+      fileHash: original.fileHash,
+    })
+    const sendMail = vi.fn()
+    const appendRow = vi.fn()
+    expect(await resendConsentMail(ID, { ...edited, sendMail, appendRow, now })).toBe('changed')
+    expect(sendMail).not.toHaveBeenCalled()
+    expect(appendRow).not.toHaveBeenCalled()
   })
 })

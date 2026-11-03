@@ -442,6 +442,43 @@ describe('동의서 서명 제출', () => {
     expect(JSON.stringify(sendSlack.mock.calls[0][0])).toContain('보관용 실패 · 보호자 사본 보냄')
   })
 
+  it('메일이 끝나지 않으면 두 통을 함께 기다리다 12초에 실패로 치고, 메일 줄·슬랙(실패 표시)을 남긴 뒤 ok 다', async () => {
+    vi.useFakeTimers()
+    try {
+      const { appendRow, sendMail, sendSlack, deps } = fakes()
+      sendMail.mockImplementation(() => new Promise<void>(() => {}))
+      let settled = false
+      const result = submitConsent(body(), UA, deps).finally(() => (settled = true))
+      await vi.advanceTimersByTimeAsync(11_999)
+      expect(settled).toBe(false)
+      // 두 통을 함께 보내므로 12초 한 번이면 끝난다(차례로 기다리면 24초다).
+      await vi.advanceTimersByTimeAsync(1)
+      expect(await result).toStrictEqual({ status: 'ok', pdf: PDF_BASE64, mailed: false })
+      expect(sendMail).toHaveBeenCalledTimes(2)
+      expect(appendRow.mock.calls[1][1]).toEqual(mailRow(ID, MAILED_AT, { archive: false, guardian: false }))
+      expect(JSON.stringify(sendSlack.mock.calls[0][0])).toContain('보관용 실패 · 보호자 사본 실패')
+      expect(errorSpy.mock.calls).toEqual([
+        ['메일 전송 실패', ID],
+        ['메일 전송 실패', ID],
+      ])
+      // 끝난 뒤 남은 타이머가 없다.
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('메일이 12초 안에 끝나면 남은 타이머를 지운다', async () => {
+    vi.useFakeTimers()
+    try {
+      const { deps } = fakes()
+      expect(await submitConsent(body(), UA, deps)).toStrictEqual({ status: 'ok', pdf: PDF_BASE64, mailed: true })
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('보관 주소 설정이 없으면 두 통 다 실패로 치고 서명은 ok 다', async () => {
     vi.stubEnv('MAIL_ADDRESS', '')
     const { appendRow, sendMail, deps } = fakes()
