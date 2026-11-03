@@ -44,7 +44,7 @@ function fakes() {
     events.push('시트 읽기')
     return false
   })
-  const deps: Deps = { appendRow, sendSlack, surveySubmitted, secret: LINK_SECRET, now: () => NOW, today: () => TODAY }
+  const deps: Deps = { appendRow, sendSlack, surveySubmitted, secret: LINK_SECRET, now: () => NOW, today: () => TODAY, holidays: async () => [] }
   return { events, appendRow, sendSlack, surveySubmitted, deps }
 }
 
@@ -87,6 +87,15 @@ describe('신청서 제출', () => {
     expect(JSON.stringify(sendSlack.mock.calls[0][0])).toContain(surveyUrl(ID, LINK_SECRET))
     // 시트에는 링크를 적지 않는다(열이 그대로다).
     expect(appendRow).toHaveBeenCalledWith('예약신청', sheetRow(applyForm, answers, meta))
+  })
+
+  it('희망 날짜가 공휴일이면 쉬는 날로 거부하고 시트·슬랙에 가지 않는다', async () => {
+    const { appendRow, sendSlack, deps } = fakes()
+    // validAnswers 의 희망 날짜(2099-01-01)를 공휴일로 받는다.
+    const result = await submitApply({ submissionId: ID, answers: validAnswers(applyForm) }, { ...deps, holidays: async () => ['2099-01-01'] })
+    expect(result).toEqual({ status: 'invalid', errors: [{ questionId: 'groom_date', message: '그날은 쉬는 날이에요. 다른 날을 골라 주세요' }] })
+    expect(appendRow).not.toHaveBeenCalled()
+    expect(sendSlack).not.toHaveBeenCalled()
   })
 
   it('교육미용이 없는 신청이면 링크를 싣지 않는다', async () => {
@@ -262,11 +271,11 @@ describe('공백뿐인 선택 답', () => {
       ['short', false],
       ['single', false],
     ])
-    // 2026-11-03 은 화요일(10:00~15:30), 2026-11-05 는 목요일이다.
+    // 2026-11-04 는 수요일, 2026-11-05 는 목요일이다.
     const base = {
       ...validAnswers(applyForm),
       services: [GROOMING_SERVICE, HOTEL_SERVICE],
-      hotel_checkin_date: '2026-11-03',
+      hotel_checkin_date: '2026-11-04',
       hotel_checkin_time: '15:00',
       hotel_checkout_date: '2026-11-05',
       hotel_checkout_time: '11:00',
@@ -284,7 +293,7 @@ describe('공백뿐인 선택 답', () => {
     expect(JSON.stringify(sent)).toContain(`*${question(applyForm, 'groom_sensitive').label}*\\n—`)
     expect(sent).toEqual(applyMessages(base, meta))
     // 고르지 않은 미용 시간은 알림 미리보기의 희망 일시에 붙지 않고, 호텔은 체크인 날짜·시간이 한국어로 붙는다.
-    expect(sent[0].text).toContain('· 미용 1월 1일 (목), 호텔 11월 3일 (화) 오후 3:00 체크인')
+    expect(sent[0].text).toContain('· 미용 1월 1일 (목), 호텔 11월 4일 (수) 오후 3:00 체크인')
   })
 
   it('고르지 않은 서비스 묶음의 답은 검증하지 않고 시트·슬랙에서 빠진다', async () => {

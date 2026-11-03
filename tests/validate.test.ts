@@ -94,14 +94,27 @@ describe('답변 검증', () => {
     expect(msg(errs, 'groom_date')).toBeUndefined()
   })
 
+  it('희망 날짜가 공휴일 목록에 있으면 쉬는 날로 거부하고, 목록을 안 주면 막지 않는다', () => {
+    // 2026-10-28 은 수요일이다.
+    expect(msg(validateGroup(grooming, { groom_date: '2026-10-28' }, TODAY, ['2026-10-28']), 'groom_date')).toBe('그날은 쉬는 날이에요. 다른 날을 골라 주세요')
+    expect(msg(validateGroup(grooming, { groom_date: '2026-10-28' }, TODAY), 'groom_date')).toBeUndefined()
+    expect(validateForm(applyForm, { ...validAnswers(applyForm), groom_date: '2026-10-28' }, TODAY, ['2026-10-28']).map((e) => e.questionId)).toEqual(['groom_date'])
+  })
+
+  it('희망 날짜가 쉬는 날(화요일)이면 거부한다', () => {
+    // 2026-11-03 은 화요일이다.
+    const errs = validateGroup(grooming, { groom_date: '2026-11-03' }, TODAY)
+    expect(msg(errs, 'groom_date')).toBe('그날은 쉬는 날이에요. 다른 날을 골라 주세요')
+  })
+
   it('서비스별 묶음은 날짜(호텔은 체크인·체크아웃 날짜와 시간)만 필수고 나머지는 비워도 된다', () => {
     expect(validateGroup(grooming, { groom_date: TODAY }, TODAY)).toEqual([])
     expect(validateGroup(groupOf('daycare'), { daycare_date: TODAY }, TODAY)).toEqual([])
     expect(validateGroup(groupOf('training'), { training_date: TODAY }, TODAY)).toEqual([])
-    // 2026-11-03 은 화요일(10:00~15:30), 2026-11-05 는 목요일이다.
-    const hotel = { hotel_checkin_date: '2026-11-03', hotel_checkin_time: '15:00', hotel_checkout_date: '2026-11-05', hotel_checkout_time: '11:00' }
+    // 2026-11-04 는 수요일, 2026-11-05 는 목요일이다.
+    const hotel = { hotel_checkin_date: '2026-11-04', hotel_checkin_time: '15:00', hotel_checkout_date: '2026-11-05', hotel_checkout_time: '11:00' }
     expect(validateGroup(groupOf('hotel'), hotel, TODAY)).toEqual([])
-    expect(validateGroup(groupOf('hotel'), { hotel_checkin_date: '2026-11-03', hotel_checkin_time: '15:00' }, TODAY).map((e) => e.questionId)).toEqual([
+    expect(validateGroup(groupOf('hotel'), { hotel_checkin_date: '2026-11-04', hotel_checkin_time: '15:00' }, TODAY).map((e) => e.questionId)).toEqual([
       'hotel_checkout_date',
       'hotel_checkout_time',
     ])
@@ -111,13 +124,14 @@ describe('답변 검증', () => {
   describe('시간', () => {
     const timeQ = allQuestions(applyForm).find((q) => q.id === 'hotel_checkin_time')!
     const optional = allQuestions(applyForm).find((q) => q.id === 'groom_time')!
-    // 2026-11-03 은 화요일(10:00~15:30), 2026-11-05 는 목요일(10:00~19:30)이다.
+    // 2026-11-03 은 화요일(쉬는 날), 2026-11-04 는 수요일, 2026-11-05 는 목요일(10:00~19:30)이다.
     const TUE = '2026-11-03'
+    const WED = '2026-11-04'
     const THU = '2026-11-05'
 
     it('필수 시간을 비우면 시간을 골라 달라 하고, 선택 시간은 비워도 된다', () => {
-      expect(msg(validateGroup(groupOf('hotel'), { hotel_checkin_date: TUE }, TODAY), timeQ.id)).toBe('시간을 골라 주세요')
-      expect(msg(validateGroup(grooming, { groom_date: TUE }, TODAY), optional.id)).toBeUndefined()
+      expect(msg(validateGroup(groupOf('hotel'), { hotel_checkin_date: WED }, TODAY), timeQ.id)).toBe('시간을 골라 주세요')
+      expect(msg(validateGroup(grooming, { groom_date: WED }, TODAY), optional.id)).toBeUndefined()
     })
 
     it('HH:MM 꼴이 아니거나 영업시간 밖이면 거부한다', () => {
@@ -127,12 +141,10 @@ describe('답변 검증', () => {
       expect(msg(validateGroup(grooming, { groom_date: THU, groom_time: ['10:00'] }, TODAY), 'groom_time')).toBe('시간을 골라 주세요')
     })
 
-    it('짝 날짜의 요일에는 닫는 시간이면 그날 영업시간 안의 시간을 골라 달라 한다', () => {
-      // 화요일은 15:30 까지라 18:00 은 안 된다. 목요일은 된다.
-      expect(msg(validateGroup(grooming, { groom_date: TUE, groom_time: '18:00' }, TODAY), 'groom_time')).toBe('그날 영업시간 안의 시간을 골라 주세요')
+    it('짝 날짜가 쉬는 날이면 시간은 막지 않는다 — 날짜 쪽 오류가 안내한다', () => {
+      const errs = validateGroup(grooming, { groom_date: TUE, groom_time: '18:00' }, TODAY)
+      expect(errs).toEqual([{ questionId: 'groom_date', message: '그날은 쉬는 날이에요. 다른 날을 골라 주세요' }])
       expect(validateGroup(grooming, { groom_date: THU, groom_time: '18:00' }, TODAY)).toEqual([])
-      expect(validateGroup(grooming, { groom_date: TUE, groom_time: '15:30' }, TODAY)).toEqual([])
-      expect(msg(validateGroup(grooming, { groom_date: TUE, groom_time: '16:00' }, TODAY), 'groom_time')).toBe('그날 영업시간 안의 시간을 골라 주세요')
     })
 
     it('짝 날짜가 없거나 틀렸으면 합집합 안이면 통과한다 — 날짜 쪽 오류가 안내한다', () => {
@@ -141,12 +153,12 @@ describe('답변 검증', () => {
       expect(msg(validateGroup(grooming, { groom_date: '11/3', groom_time: '18:00' }, TODAY), 'groom_date')).toBe('날짜를 골라 주세요')
     })
 
-    it('호텔 체크인·체크아웃 시간은 각자의 날짜를 본다', () => {
-      // 체크인(화)은 15:00 까지 되고 체크아웃(목)은 18:00 도 된다. 서로 바꾸면 체크인만 틀린다.
-      const ok = { hotel_checkin_date: TUE, hotel_checkin_time: '15:00', hotel_checkout_date: THU, hotel_checkout_time: '18:00' }
+    it('호텔 체크인·체크아웃은 각자의 날짜를 본다', () => {
+      const ok = { hotel_checkin_date: WED, hotel_checkin_time: '15:00', hotel_checkout_date: THU, hotel_checkout_time: '18:00' }
       expect(validateGroup(groupOf('hotel'), ok, TODAY)).toEqual([])
-      const errs = validateGroup(groupOf('hotel'), { ...ok, hotel_checkin_time: '18:00' }, TODAY)
-      expect(errs).toEqual([{ questionId: 'hotel_checkin_time', message: '그날 영업시간 안의 시간을 골라 주세요' }])
+      // 체크인만 쉬는 날로 바꾸면 체크인 날짜만 틀린다.
+      const errs = validateGroup(groupOf('hotel'), { ...ok, hotel_checkin_date: TUE }, TODAY)
+      expect(errs).toEqual([{ questionId: 'hotel_checkin_date', message: '그날은 쉬는 날이에요. 다른 날을 골라 주세요' }])
     })
   })
 

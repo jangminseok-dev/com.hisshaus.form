@@ -52,12 +52,16 @@ function Harness({
   initial,
   error,
   date,
+  today = TODAY,
+  holidays,
   onChange,
 }: {
   q: Question
   initial?: Answer
   error?: string
   date?: string
+  today?: string
+  holidays?: string[]
   onChange(v: Answer): void
 }) {
   const [value, setValue] = useState<Answer | undefined>(initial)
@@ -66,8 +70,9 @@ function Harness({
       q={q}
       value={value}
       error={error}
-      today={TODAY}
+      today={today}
       date={date}
+      holidays={holidays}
       onChange={(v) => {
         onChange(v)
         setValue(v)
@@ -76,7 +81,7 @@ function Harness({
   )
 }
 
-function renderField(q: Question, opts: { initial?: Answer; error?: string; date?: string } = {}) {
+function renderField(q: Question, opts: { initial?: Answer; error?: string; date?: string; today?: string; holidays?: string[] } = {}) {
   const onChange = vi.fn<(v: Answer) => void>()
   const view = render(<Harness q={q} onChange={onChange} {...opts} />)
   const last = () => onChange.mock.lastCall?.[0]
@@ -450,6 +455,46 @@ describe('날짜', () => {
     expect(field()).toHaveFocus()
   })
 
+  it('쉬는 날(화요일)은 누를 수 없고 보조 기기에 쉬는 날로 읽힌다', () => {
+    const { last } = renderField(dateQ)
+    fireEvent.click(field())
+    // 2026-10-27 은 화요일이다.
+    expect(dayOf('2026-10-27')).toBeDisabled()
+    expect(dayOf('2026-10-27')).toHaveAccessibleName('10월 27일 화요일 쉬는 날')
+    fireEvent.click(dayOf('2026-10-27'))
+    expect(last()).toBeUndefined()
+    expect(dayOf('2026-10-28')).not.toBeDisabled()
+  })
+
+  it('공휴일도 쉬는 날처럼 누를 수 없고, 화살표가 건너뛴다', () => {
+    // 2026-10-30(금)을 공휴일로 준다. 오늘(10-23 금)에서 한 주 아래는 공휴일이라 그다음 날(10-31 토)로 간다.
+    const { last } = renderField(dateQ, { holidays: ['2026-10-30'] })
+    fireEvent.keyDown(field(), { key: 'ArrowDown' })
+    expect(dayOf('2026-10-30')).toBeDisabled()
+    expect(dayOf('2026-10-30')).toHaveAccessibleName('10월 30일 금요일 쉬는 날')
+    fireEvent.keyDown(dayOf('2026-10-23'), { key: 'ArrowDown' })
+    expect(dayOf('2026-10-31')).toHaveFocus()
+    fireEvent.click(dayOf('2026-10-30'))
+    expect(last()).toBeUndefined()
+  })
+
+  it('화살표는 쉬는 날을 건너뛰고, 오늘이 쉬는 날이면 다음 여는 날에서 시작한다', () => {
+    // 오늘 2026-10-27 은 화요일이다. 달력을 열면 수요일(10-28)에 포커스가 간다.
+    renderField(dateQ, { today: '2026-10-27' })
+    fireEvent.keyDown(field(), { key: 'ArrowDown' })
+    expect(dayOf('2026-10-28')).toHaveFocus()
+    // 왼쪽은 쉬는 오늘 앞으로 갈 수 없어 그대로다.
+    fireEvent.keyDown(dayOf('2026-10-28'), { key: 'ArrowLeft' })
+    expect(dayOf('2026-10-28')).toHaveFocus()
+    // 한 주 뒤 수요일(11-04)에서 왼쪽은 화요일(11-03)을 건너 월요일(11-02)로, 다시 오른쪽은 수요일로.
+    fireEvent.keyDown(dayOf('2026-10-28'), { key: 'ArrowDown' })
+    expect(dayOf('2026-11-04')).toHaveFocus()
+    fireEvent.keyDown(dayOf('2026-11-04'), { key: 'ArrowLeft' })
+    expect(dayOf('2026-11-02')).toHaveFocus()
+    fireEvent.keyDown(dayOf('2026-11-02'), { key: 'ArrowRight' })
+    expect(dayOf('2026-11-04')).toHaveFocus()
+  })
+
   it('달력 밖을 누르면 닫힌다', () => {
     renderField(dateQ)
     fireEvent.click(field())
@@ -462,7 +507,7 @@ describe('날짜', () => {
 describe('시간', () => {
   const chips = () => screen.getAllByRole('radio')
   const chip = (name: string) => screen.getByRole('radio', { name })
-  // 2026-11-03 은 화요일(10:00~16:00), 2026-11-05 는 목요일(10:00~20:00)이다.
+  // 2026-11-03 은 화요일(쉬는 날)이다.
   const TUE = '2026-11-03'
 
   it('칩은 오전·오후 글자로 보이고 누르면 HH:MM 값을 돌려준다. 날짜가 없으면 모든 요일을 합친 범위다', () => {
@@ -480,19 +525,16 @@ describe('시간', () => {
     expect(last()).toBe('10:00')
   })
 
-  it('짝 날짜가 화요일이면 그 요일의 영업시간(15:30 까지)만 보인다', () => {
+  it('짝 날짜가 쉬는 날(화요일)이면 칩이 없다', () => {
     renderField(timeQ, { date: TUE })
-    expect(chips()).toHaveLength(12)
-    expect(chips().at(-1)).toHaveAccessibleName('오후 3:30')
-    expect(screen.queryByRole('radio', { name: '오후 4:00' })).not.toBeInTheDocument()
+    expect(screen.queryAllByRole('radio')).toHaveLength(0)
   })
 
   it('고른 값이 그 요일의 범위 밖이면 그 칩이 켜진 채 함께 보인다', () => {
+    // 예전 초안에 쉬는 날과 시간이 같이 남아 있는 경우다.
     renderField(timeQ, { initial: '18:00', date: TUE })
-    expect(chips()).toHaveLength(13)
+    expect(chips()).toHaveLength(1)
     expect(chip('오후 6:00')).toBeChecked()
-    // 시간 순서대로 맨 뒤에 붙는다.
-    expect(chips().at(-1)).toBe(chip('오후 6:00'))
   })
 
   it('칩 묶음은 라디오 그룹이고 이름이 문항 그대로며 필수면 aria-required 다', () => {

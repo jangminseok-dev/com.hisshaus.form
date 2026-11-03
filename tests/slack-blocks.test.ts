@@ -14,7 +14,7 @@ import {
 } from '../lib/slack-blocks'
 
 const meta = { submissionId: 'abcDEF1234', receivedAt: '2026-10-23 10:00:00' }
-// 2026-10-28 은 수요일(10:00~15:30), 2026-11-03 은 화요일, 2026-11-05 는 목요일이다.
+// 2026-10-28 은 수요일, 2026-11-03 은 화요일, 2026-11-05 는 목요일이다.
 const base = { guardian_name: '홍길동', pet_name: '초코', services: [GROOMING_SERVICE], groom_date: '2026-10-28', groom_time: '10:00' }
 const hotel = { hotel_checkin_date: '2026-11-03', hotel_checkin_time: '15:00', hotel_checkout_date: '2026-11-05', hotel_checkout_time: '11:00' }
 

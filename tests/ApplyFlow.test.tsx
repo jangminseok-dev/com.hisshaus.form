@@ -130,6 +130,16 @@ describe('신청서를 열 때', () => {
     expect(document.querySelector('[data-date="2026-12-25"]')).not.toBeDisabled()
   })
 
+  it('받은 공휴일로는 넘어가지 못하고 달력에서도 누를 수 없다', async () => {
+    // validAnswers 의 희망 날짜(2099-01-01)를 공휴일로 받는다.
+    draftAt('grooming')
+    render(<ApplyFlow holidays={['2099-01-01']} />)
+    const next = await screen.findByRole('button', { name: '다음' })
+    expect(next).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(screen.getByLabelText('희망 예약 날짜'))
+    expect(document.querySelector('[data-date="2099-01-01"]')).toBeDisabled()
+  })
+
   it('서버에서 그릴 때는 저장소를 읽지 않고 아무것도 그리지 않는다', () => {
     draftAtLastGroup()
     const read = vi.spyOn(Storage.prototype, 'getItem')

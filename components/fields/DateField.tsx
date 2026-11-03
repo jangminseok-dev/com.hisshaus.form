@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 
 import { dateKo } from '../../lib/format'
+import { isOpenDay } from '../../lib/slots'
 import styles from './Field.module.css'
 import { describedBy, fieldIds, type FieldProps, Frame } from './parts'
 
@@ -23,6 +24,12 @@ const shiftDay = (s: string, by: number) => {
   return ymd(d)
 }
 
+/** d 부터 dir(1 = 뒤, -1 = 앞) 쪽으로 가장 가까운 여는 날. 쉬는 날은 누를 수 없어 포커스도 갈 수 없다. 두 주 안에 반드시 있다. */
+const openFrom = (d: string, dir: 1 | -1, holidays: readonly string[]) => {
+  for (let i = 0; i < 14 && !isOpenDay(d, holidays); i++) d = shiftDay(d, dir)
+  return d
+}
+
 /** 그 달의 달력 칸(6주 × 7일)의 날짜. 앞뒤는 이웃 달 날짜로 채운다. */
 function monthCells(ym: string): string[] {
   const first = toDate(`${ym}-01`)
@@ -32,11 +39,11 @@ function monthCells(ym: string): string[] {
 
 /**
  * 날짜 고르기. 입력칸을 누르면 아래에 달력이 펼쳐진다(화면 안에 자리를 차지해서 아래 고정 버튼과 겹치지 않는다).
- * 오늘 이전은 누를 수 없다. 값은 YYYY-MM-DD 또는 ''. 입력칸에는 "2026년 11월 1일 (일)" 로 보인다.
+ * 오늘 이전과 쉬는 날(content/shop.ts 의 openHours 에 없는 요일, 받은 공휴일)은 누를 수 없다. 값은 YYYY-MM-DD 또는 ''. 입력칸에는 "2026년 11월 1일 (일)" 로 보인다.
  * 브라우저 기본 달력(type="date")은 기기마다 모양이 다르고 사이트 색과 맞지 않아 직접 그린다.
  * 키보드: 입력칸에서 Enter·Space·↓ 로 열고, 달력 안에서는 화살표로 날짜를 옮기고 Enter 로 고르고 Esc 로 닫는다.
  */
-export function DateField({ q, value, error, onChange, today }: FieldProps & { today: string }) {
+export function DateField({ q, value, error, onChange, today, holidays = [] }: FieldProps & { today: string; holidays?: readonly string[] }) {
   const ids = fieldIds(q)
   const dialogId = useId()
   const current = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''
@@ -50,7 +57,7 @@ export function DateField({ q, value, error, onChange, today }: FieldProps & { t
   const focusPending = useRef(false)
 
   function show() {
-    const start = current && current >= today ? current : today
+    const start = openFrom(current && current >= today ? current : today, 1, holidays)
     setMonth(monthOf(start))
     setCursor(start)
     focusPending.current = true
@@ -68,10 +75,12 @@ export function DateField({ q, value, error, onChange, today }: FieldProps & { t
     onChange('')
     hide(true)
   }
-  function moveCursor(next: string) {
-    const clamped = next < today ? today : next
-    setCursor(clamped)
-    setMonth(monthOf(clamped))
+  function moveCursor(next: string, dir: 1 | -1) {
+    // 쉬는 날은 같은 방향으로 건너뛴다. 그러다 오늘보다 앞이 되면 오늘부터 가장 가까운 여는 날로.
+    let d = openFrom(next < today ? today : next, dir, holidays)
+    if (d < today) d = openFrom(today, 1, holidays)
+    setCursor(d)
+    setMonth(monthOf(d))
     focusPending.current = true
   }
 
@@ -99,11 +108,11 @@ export function DateField({ q, value, error, onChange, today }: FieldProps & { t
     const step: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }
     if (e.key in step) {
       e.preventDefault()
-      moveCursor(shiftDay(cursor, step[e.key]))
+      moveCursor(shiftDay(cursor, step[e.key]), step[e.key] > 0 ? 1 : -1)
     } else if (e.key === 'PageUp' || e.key === 'PageDown') {
       e.preventDefault()
       const ym = shiftMonth(month, e.key === 'PageUp' ? -1 : 1)
-      moveCursor(`${ym}-${cursor.slice(8)}` <= `${ym}-31` ? `${ym}-${cursor.slice(8)}` : `${ym}-01`)
+      moveCursor(`${ym}-${cursor.slice(8)}` <= `${ym}-31` ? `${ym}-${cursor.slice(8)}` : `${ym}-01`, 1)
     } else if (e.key === 'Escape') {
       e.preventDefault()
       hide(true)
@@ -173,6 +182,7 @@ export function DateField({ q, value, error, onChange, today }: FieldProps & { t
               {monthCells(month).map((d) => {
                 const inMonth = monthOf(d) === month
                 const past = d < today
+                const closed = !isOpenDay(d, holidays)
                 const [, m, day] = d.split('-').map(Number)
                 return (
                   <button
@@ -180,11 +190,11 @@ export function DateField({ q, value, error, onChange, today }: FieldProps & { t
                     type="button"
                     data-date={d}
                     className={styles.day}
-                    disabled={past}
+                    disabled={past || closed}
                     tabIndex={d === cursor ? 0 : -1}
                     aria-pressed={d === current}
                     aria-current={d === today ? 'date' : undefined}
-                    aria-label={`${m}월 ${day}일 ${WEEKDAYS[toDate(d).getUTCDay()]}요일`}
+                    aria-label={`${m}월 ${day}일 ${WEEKDAYS[toDate(d).getUTCDay()]}요일${closed ? ' 쉬는 날' : ''}`}
                     data-outside={inMonth ? undefined : 'true'}
                     onClick={() => pick(d)}
                     onFocus={() => setCursor(d)}

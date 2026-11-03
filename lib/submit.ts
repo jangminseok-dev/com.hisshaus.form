@@ -4,6 +4,7 @@ import { surveyForm } from '../forms/survey'
 import type { Answers, FormDef } from '../forms/types'
 import { nowKst, todayKst } from './format'
 import { isAnswers, isObject } from './guards'
+import { holidays as defaultHolidays } from './holidays'
 import { isSubmissionId } from './id'
 import { sheetRow, type Meta } from './sheet-row'
 import { appendRow as defaultAppendRow, surveySubmitted as defaultSurveySubmitted, type SheetTab } from './sheets'
@@ -28,6 +29,8 @@ export interface Deps {
   now?: () => string
   /** 오늘 `YYYY-MM-DD` (KST). 기본은 오늘. */
   today?: () => string
+  /** 쉬는 날로 막을 공휴일 `YYYY-MM-DD` 목록. 기본은 공휴일 API(실패하면 빈 목록). */
+  holidays?: () => Promise<string[]>
 }
 
 const invalid = (): SubmitResult => ({ status: 'invalid', errors: [] })
@@ -64,7 +67,7 @@ async function submitForm(
   // 공백이 시트 칸에 들어가고, 날짜 칸은 슬랙에서 날짜로 읽혀 깨진다. 버리면 시트는 '', 슬랙은 '—' 다.
   const answers = withoutEmpty(visibleAnswers(form, given))
 
-  const errors = validateForm(form, answers, (deps.today ?? todayKst)())
+  const errors = validateForm(form, answers, (deps.today ?? todayKst)(), await (deps.holidays ?? defaultHolidays)())
   if (errors.length > 0) return { status: 'invalid', errors }
 
   const appendRow = deps.appendRow ?? defaultAppendRow

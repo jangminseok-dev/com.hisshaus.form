@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
 import { TRAINING_SERVICE } from '../../forms/apply'
+import { isOpenDay } from '../../lib/slots'
 
 // e2e 가 같이 쓰는 도우미. 화면의 표지(data-group·data-question·data-action)와 역할(role)로만 찾는다.
 
@@ -15,8 +16,11 @@ function kstDate(days: number): string {
   return date.toISOString().slice(0, 10)
 }
 
-/** 도우미가 날짜 문항에 넣는 값(오늘+7일). 한 번만 구해서, 실행 중 자정을 넘겨도 넣은 값과 단언하는 값이 같다. */
-export const WISH_DATE = kstDate(7)
+/**
+ * 도우미가 날짜 문항에 넣는 값(오늘+7일부터 첫 여는 날 — 쉬는 날은 달력에서 누를 수 없다).
+ * 한 번만 구해서, 실행 중 자정을 넘겨도 넣은 값과 단언하는 값이 같다.
+ */
+export const WISH_DATE = Array.from({ length: 7 }, (_, i) => kstDate(7 + i)).find((d) => isOpenDay(d))!
 
 const question = (page: Page, id: string) => page.locator(`[data-question="${id}"]`)
 

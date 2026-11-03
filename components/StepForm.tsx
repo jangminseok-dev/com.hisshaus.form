@@ -15,6 +15,8 @@ export interface StepFormProps {
   /** 처음 한 번만 읽는다. 다른 초안이나 다른 양식으로 바꾸려면 React 의 key 를 바꿔 다시 세운다. */
   initial: Draft
   today: string
+  /** 쉬는 날로 막을 공휴일(YYYY-MM-DD). 날짜 문항이 있는 신청서만 넘긴다(lib/holidays.ts). */
+  holidays?: readonly string[]
   /** 마지막 묶음 버튼 글자 */
   submitLabel: string
   /** 입력·묶음 이동마다 */
@@ -81,7 +83,7 @@ type Move = 'push' | 'replace' | 'pop'
  * 뒤로 가기는 양식을 떠나는 일이라 지난 초안의 칸은 더는 뜻이 없다. 하나씩 건너뛰어 양식 앞 페이지에서 멈춘다.
  * 다른 양식의 칸과 양식 앞 페이지의 칸은 이 화면의 일이 아니라 그대로 둔다.
  */
-export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit, onBackFromFirst, confirmSubmit }: StepFormProps) {
+export function StepForm({ form, initial, today, holidays = [], submitLabel, onDraft, onSubmit, onBackFromFirst, confirmSubmit }: StepFormProps) {
   const total = form.groups.length
   const sid = initial.submissionId
   const key = initial.key
@@ -121,7 +123,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   const shown = visibleGroups(form, answers)
   const paceText = pace(shown.indexOf(group) + 1, shown.length)
   const todayNow = freshToday > today ? freshToday : today
-  const errors = validateGroup(group, answers, todayNow)
+  const errors = validateGroup(group, answers, todayNow, holidays)
   const blocked = blockedBy(group, answers)
   // 필드 오류는 넘어가려 한 뒤에만 보인다. 막힘(blockIf) 안내는 곧바로 그 문항 아래에 보인다.
   const errorOf = (q: Question) =>
@@ -190,7 +192,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
   function recheck() {
     const now = todayKst()
     setFreshToday(now)
-    const first = validateForm(form, answersRef.current, now)[0]
+    const first = validateForm(form, answersRef.current, now, holidays)[0]
     if (!first) {
       setNotice(RECHECK)
       return
@@ -375,6 +377,7 @@ export function StepForm({ form, initial, today, submitLabel, onDraft, onSubmit,
             value={answers[q.id]}
             error={errorOf(q)}
             today={todayNow}
+            holidays={holidays}
             date={q.dateId ? (typeof answers[q.dateId] === 'string' ? (answers[q.dateId] as string) : undefined) : undefined}
             onChange={(value) => change(q, value)}
           />

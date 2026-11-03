@@ -1,5 +1,5 @@
 import { allQuestions, isEmpty, isRequired, isVisible, visibleGroups } from '../forms/rules'
-import { timeSlots } from './slots'
+import { isOpenDay, timeSlots } from './slots'
 import type { Answers, FormDef, Group, Question } from '../forms/types'
 
 export interface FieldError {
@@ -59,7 +59,7 @@ function emptyOther(q: Question, v: string): boolean {
 }
 
 /** 값이 있을 때의 오류 한 건. 없으면 null. */
-function checkValue(q: Question, v: string | string[], today: string, a: Answers): string | null {
+function checkValue(q: Question, v: string | string[], today: string, a: Answers, holidays: readonly string[]): string | null {
   const tooShort = `${SHORT_MAX}자까지 적을 수 있어요`
   switch (q.type) {
     case 'long':
@@ -96,12 +96,13 @@ function checkValue(q: Question, v: string | string[], today: string, a: Answers
       return v.some((x) => x.length > SHORT_MAX) ? tooShort : null
     case 'date':
       if (typeof v !== 'string' || !isRealDate(v)) return '날짜를 골라 주세요'
-      return v < today ? '오늘 이후 날짜를 골라 주세요' : null
+      if (v < today) return '오늘 이후 날짜를 골라 주세요'
+      return isOpenDay(v, holidays) ? null : '그날은 쉬는 날이에요. 다른 날을 골라 주세요'
     case 'time': {
       if (typeof v !== 'string' || !timeSlots().includes(v)) return '시간을 골라 주세요'
-      // 고른 날짜의 요일에 맞는 영업시간 안이어야 한다. 날짜가 아직 없거나 틀렸으면 날짜 쪽 오류가 안내한다.
+      // 고른 날짜의 요일에 맞는 영업시간 안이어야 한다. 날짜가 아직 없거나 틀렸거나 쉬는 날이면 날짜 쪽 오류가 안내한다.
       const date = q.dateId ? a[q.dateId] : undefined
-      if (typeof date === 'string' && isRealDate(date) && !timeSlots(date).includes(v)) return '그날 영업시간 안의 시간을 골라 주세요'
+      if (typeof date === 'string' && isRealDate(date) && isOpenDay(date, holidays) && !timeSlots(date).includes(v)) return '그날 영업시간 안의 시간을 골라 주세요'
       return null
     }
     case 'consent':
@@ -109,7 +110,7 @@ function checkValue(q: Question, v: string | string[], today: string, a: Answers
   }
 }
 
-export function validateGroup(group: Group, a: Answers, today: string): FieldError[] {
+export function validateGroup(group: Group, a: Answers, today: string, holidays: readonly string[] = []): FieldError[] {
   const errors: FieldError[] = []
   for (const q of group.questions) {
     if (!isVisible(q, a)) continue
@@ -123,13 +124,13 @@ export function validateGroup(group: Group, a: Answers, today: string): FieldErr
       if (isRequired(q, a)) errors.push({ questionId: q.id, message: emptyMessage(q) })
       continue
     }
-    const message = checkValue(q, v!, today, a)
+    const message = checkValue(q, v!, today, a, holidays)
     if (message) errors.push({ questionId: q.id, message })
   }
   return errors
 }
 
 /** 양식 전체. 숨은 묶음은 검증하지 않는다(그 답은 보내지도 않는다). */
-export function validateForm(form: FormDef, a: Answers, today: string): FieldError[] {
-  return visibleGroups(form, a).flatMap((g) => validateGroup(g, a, today))
+export function validateForm(form: FormDef, a: Answers, today: string, holidays: readonly string[] = []): FieldError[] {
+  return visibleGroups(form, a).flatMap((g) => validateGroup(g, a, today, holidays))
 }

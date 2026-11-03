@@ -10,6 +10,11 @@ const hm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${
 /** 'YYYY-MM-DD' 의 요일(0 = 일). 시간대에 안 끌리게 UTC 로 센다. */
 const weekdayOf = (ymd: string) => new Date(`${ymd}T00:00:00Z`).getUTCDay()
 
+/** 'YYYY-MM-DD' 가 여는 날인지. 영업시간 표(shop.openHours)에 없는 요일과 공휴일(holidays, lib/holidays.ts)은 쉬는 날이다. */
+export function isOpenDay(date: string, holidays: readonly string[] = []): boolean {
+  return !holidays.includes(date) && shop.openHours.some((h) => (h.days as readonly number[]).includes(weekdayOf(date)))
+}
+
 /**
  * 고를 수 있는 시간(30분 단위, 'HH:MM'). 날짜를 주면 그 요일의 영업시간 안에서, 안 주면 모든 요일을 합친 범위에서.
  * 마지막 칸은 문 닫는 시각 30분 전이다(닫을 때 시작하는 예약은 없다).

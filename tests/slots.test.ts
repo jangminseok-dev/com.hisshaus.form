@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { shop } from '../content/shop'
-import { timeKo, timeSlots } from '../lib/slots'
+import { isOpenDay, timeKo, timeSlots } from '../lib/slots'
 
 /** 'HH:MM' 에서 'HH:MM' 까지 30분 간격(마지막 포함). */
 const every30 = (from: string, to: string): string[] => {
@@ -10,14 +10,11 @@ const every30 = (from: string, to: string): string[] => {
   return out
 }
 
-// 영업시간은 월~수 10:00~16:00, 목~일 10:00~20:00 이다(content/shop.ts). 2026-11-01 은 일요일, 11-03 은 화요일, 11-05 는 목요일이다.
+// 영업시간은 화요일(쉬는 날)을 뺀 매일 10:00~20:00 이다(content/shop.ts). 2026-11-01 은 일요일, 11-03 은 화요일, 11-05 는 목요일이다.
 describe('시간 칸', () => {
   it('영업시간 표가 첫 화면 문구와 같은 값이다 — 둘 중 하나만 바꾸면 알아챈다', () => {
-    expect(shop.openHours).toEqual([
-      { days: [1, 2, 3], open: '10:00', close: '16:00' },
-      { days: [4, 5, 6, 0], open: '10:00', close: '20:00' },
-    ])
-    expect(shop.hours).toBe('월~수 10:00~16:00\n목~일 10:00~20:00')
+    expect(shop.openHours).toEqual([{ days: [0, 1, 3, 4, 5, 6], open: '10:00', close: '20:00' }])
+    expect(shop.hours).toBe('매일 10:00~20:00\n화요일·공휴일 휴무')
   })
 
   it('날짜가 없으면 모든 요일을 합친 범위 10:00~19:30, 30분 단위 20개다', () => {
@@ -26,18 +23,28 @@ describe('시간 칸', () => {
     expect(slots).toEqual(every30('10:00', '19:30'))
   })
 
-  it('화요일은 10:00~15:30 12개 — 문 닫는 16:00 은 없다', () => {
-    const slots = timeSlots('2026-11-03')
-    expect(slots).toHaveLength(12)
-    expect(slots).toEqual(every30('10:00', '15:30'))
-    expect(slots).not.toContain('16:00')
+  it('화요일은 쉬는 날이라 칸이 없다', () => {
+    expect(timeSlots('2026-11-03')).toEqual([])
   })
 
-  it('월·수요일도 화요일과 같고, 목·금·토·일요일은 10:00~19:30 20개다', () => {
+  it('화요일 밖의 모든 요일은 10:00~19:30 20개다 — 문 닫는 20:00 은 없다', () => {
     // 2026-11-02 월, 11-04 수, 11-05 목, 11-06 금, 11-07 토, 11-01 일.
-    for (const d of ['2026-11-02', '2026-11-04']) expect(timeSlots(d)).toEqual(every30('10:00', '15:30'))
-    for (const d of ['2026-11-05', '2026-11-06', '2026-11-07', '2026-11-01']) expect(timeSlots(d)).toEqual(every30('10:00', '19:30'))
+    for (const d of ['2026-11-02', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-01']) {
+      expect(timeSlots(d)).toEqual(every30('10:00', '19:30'))
+    }
     expect(timeSlots('2026-11-01')).not.toContain('20:00')
+  })
+
+  it('isOpenDay 는 영업시간 표에 없는 요일(화요일)만 거짓이다', () => {
+    for (const d of ['2026-11-03', '2026-11-10']) expect(isOpenDay(d)).toBe(false)
+    for (const d of ['2026-11-01', '2026-11-02', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07']) expect(isOpenDay(d)).toBe(true)
+  })
+
+  it('isOpenDay 는 공휴일 목록에 든 날도 거짓이다', () => {
+    // 2026-12-25 는 금요일(여는 요일)이지만 공휴일이다.
+    expect(isOpenDay('2026-12-25', ['2026-12-25'])).toBe(false)
+    expect(isOpenDay('2026-12-24', ['2026-12-25'])).toBe(true)
+    expect(isOpenDay('2026-12-25')).toBe(true)
   })
 
   it('날짜 꼴이 아니면 합집합이다', () => {

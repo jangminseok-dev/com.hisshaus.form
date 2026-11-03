@@ -31,7 +31,7 @@ function list(a: Answers, id: string): string[] {
  * 열 때 지난 세션을 지우지 않는다: 완료 화면에서 뒤로 가기로 이 화면이 다시 열려도, 앞으로 가기로 돌아온 완료 화면이
  * 세션을 읽을 수 있어야 한다. 세션은 다음 신청이 접수될 때 덮어쓴다.
  */
-export function ApplyFlow() {
+export function ApplyFlow({ holidays = [] }: { holidays?: readonly string[] }) {
   const router = useRouter()
   const website = useRef<HTMLInputElement>(null)
   // 제출이 접수됐다. 다음 화면이 그려지기 전에도 이 화면은 입력·뒤로 가기를 받는데, 그때 초안을 다시 저장하면 다음에 열 때
@@ -86,6 +86,7 @@ export function ApplyFlow() {
         form={applyForm}
         initial={initial}
         today={today}
+        holidays={holidays}
         submitLabel="신청하기"
         onDraft={(d) => {
           if (!submitted.current) saveDraft('apply', d)

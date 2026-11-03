@@ -48,6 +48,11 @@ export function slackMention(): string | undefined {
   return process.env.SLACK_MENTION || undefined
 }
 
+/** 공휴일 API(공공데이터포털 한국천문연구원 특일 정보)의 일반 인증키(Decoding). 없으면 공휴일을 막지 않는다(lib/holidays.ts). */
+export function holidayApiKey(): string | undefined {
+  return process.env.HOLIDAY_API_KEY || undefined
+}
+
 // 아래 둘은 e2e 가 진짜 시트 대신 가짜 서비스를 부를 때만 쓰는 테스트용 선택 변수다. 없어도 던지지 않는다.
 // 운영(NODE_ENV=production)에서는 있어도 읽지 않는다: 운영 환경 변수에 잘못 남아도 보호자 정보가 다른 주소로 가지 않게 한다.
 function testOnly(name: string): string | undefined {

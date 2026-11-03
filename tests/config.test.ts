@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { serviceAccount, sheetId, sheetsBaseUrl, sheetsFakeToken, slackWebhookUrl, surveyLinkSecret } from '../lib/config'
+import { holidayApiKey, serviceAccount, sheetId, sheetsBaseUrl, sheetsFakeToken, slackWebhookUrl, surveyLinkSecret } from '../lib/config'
 
 afterEach(() => vi.unstubAllEnvs())
 
@@ -47,6 +47,15 @@ describe('설정', () => {
       vi.stubEnv(name, value)
       expect(fn).toThrow(name)
     }
+  })
+})
+
+describe('공휴일 API 키', () => {
+  test('HOLIDAY_API_KEY 를 읽고, 없거나 비어 있으면 undefined 다 — 던지지 않고 공휴일을 막지 않을 뿐이다', () => {
+    vi.stubEnv('HOLIDAY_API_KEY', 'key')
+    expect(holidayApiKey()).toBe('key')
+    vi.stubEnv('HOLIDAY_API_KEY', '')
+    expect(holidayApiKey()).toBeUndefined()
   })
 })
 

@@ -299,8 +299,8 @@ describe('서비스별 묶음', () => {
 
     fireEvent.click(action('next'))
     expect(groupId()).toBe('hotel')
-    // 2026-11-03 은 화요일(10:00~15:30), 2026-11-05 는 목요일이다.
-    pickDate('체크인 날짜', '2026-11-03')
+    // 2026-11-04 는 수요일, 2026-11-05 는 목요일이다.
+    pickDate('체크인 날짜', '2026-11-04')
     chooseOne('체크인 시간', '오후 3:00')
     pickDate('체크아웃 날짜', '2026-11-05')
     chooseOne('체크아웃 시간', '오전 11:00')
@@ -379,7 +379,7 @@ describe('서비스별 묶음', () => {
     const answers: Answers = {
       ...validAnswers(applyForm),
       services: [GROOMING_SERVICE, HOTEL_SERVICE],
-      hotel_checkin_date: '2026-11-03',
+      hotel_checkin_date: '2026-11-04',
       hotel_checkin_time: '15:00',
       hotel_checkout_date: '2026-11-05',
       hotel_checkout_time: '11:00',
@@ -1193,35 +1193,42 @@ describe('조건 문항', () => {
     expect(screen.getByLabelText('희망 예약 날짜')).toHaveAccessibleName('희망 예약 날짜')
   })
 
-  it('시간 칩은 짝 날짜의 요일에 맞는 영업시간만 보인다 — 날짜를 바꾸면 칩이 바뀐다', () => {
+  it('시간 칩은 짝 날짜의 요일에 맞는 영업시간만 보이고, 쉬는 날(화요일)은 달력에서 고를 수 없다', () => {
     setup({ initial: draft(GROOMING, { services: [GROOMING_SERVICE] }) })
     const chips = () => within(box('groom_time')).getAllByRole('radio')
     // 날짜를 고르기 전에는 모든 요일을 합친 범위(10:00~19:30, 20개)다.
     expect(chips()).toHaveLength(20)
-
-    // 2026-11-03 은 화요일(10:00~16:00) — 15:30 까지 12개.
-    pickDate('희망 예약 날짜', '2026-11-03')
-    expect(chips()).toHaveLength(12)
-    expect(within(box('groom_time')).queryByRole('radio', { name: '오후 4:00' })).not.toBeInTheDocument()
 
     // 2026-11-05 는 목요일(10:00~20:00) — 19:30 까지 20개.
     pickDate('희망 예약 날짜', '2026-11-05')
     expect(chips()).toHaveLength(20)
     expect(within(box('groom_time')).getByRole('radio', { name: '오후 7:30' })).toBeInTheDocument()
 
-    // 목요일에 18:00 을 고른 채 화요일로 되돌리면 그 칩은 켜진 채 남고, 다음으로 넘어가지 못한다(그날 영업시간 안의 시간을 골라 달라 한다).
-    chooseOne('희망 시간', '오후 6:00')
+    // 2026-11-03 은 화요일(쉬는 날) — 눌러도 고르지 않는다.
     pickDate('희망 예약 날짜', '2026-11-03')
-    expect(chips()).toHaveLength(13)
-    expect(within(box('groom_time')).getByRole('radio', { name: '오후 6:00' })).toBeChecked()
+    expect(screen.getByLabelText('희망 예약 날짜')).toHaveAttribute('data-value', '2026-11-05')
+  })
+
+  it('공휴일 목록을 받으면 그날도 쉬는 날로 막는다', () => {
+    // 2026-11-05(목)를 공휴일로 준다.
+    setup({ initial: draft(GROOMING, { services: [GROOMING_SERVICE], groom_date: '2026-11-05' }), holidays: ['2026-11-05'] })
     expect(isBlocked(action('next'))).toBe(true)
     fireEvent.click(action('next'))
-    expect(within(box('groom_time')).getByRole('alert')).toHaveTextContent('그날 영업시간 안의 시간을 골라 주세요')
+    expect(within(box('groom_date')).getByRole('alert')).toHaveTextContent('그날은 쉬는 날이에요. 다른 날을 골라 주세요')
+    pickDate('희망 예약 날짜', '2026-11-06')
+    expect(isBlocked(action('next'))).toBe(false)
+  })
+
+  it('예전 초안에 쉬는 날(화요일)이 남아 있으면 다음으로 넘어가지 못하고 날짜에서 쉬는 날이라고 알린다', () => {
+    setup({ initial: draft(GROOMING, { services: [GROOMING_SERVICE], groom_date: '2026-11-03', groom_time: '18:00' }) })
+    expect(isBlocked(action('next'))).toBe(true)
+    fireEvent.click(action('next'))
+    expect(within(box('groom_date')).getByRole('alert')).toHaveTextContent('그날은 쉬는 날이에요. 다른 날을 골라 주세요')
+    expect(within(box('groom_time')).queryByRole('alert')).toBeNull()
     expect(groupId()).toBe('grooming')
 
-    // 범위 안 칩을 고르면 풀린다.
-    chooseOne('희망 시간', '오후 3:00')
-    expect(chips()).toHaveLength(12)
+    // 여는 날로 바꾸면 풀린다.
+    pickDate('희망 예약 날짜', '2026-11-05')
     expect(isBlocked(action('next'))).toBe(false)
   })
 
