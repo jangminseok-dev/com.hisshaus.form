@@ -7,6 +7,7 @@ import {
   MESSAGE_BYTES_LIMIT,
   SECTION_LIMIT,
   applyMessages,
+  consentMessages,
   escapeMrkdwn,
   surveyMessages,
   type Block,
@@ -168,5 +169,44 @@ describe('슬랙 메시지', () => {
   it('검사지는 첫 통에 늘 그 신청(신청 ID)의 검사지라고 적는다', () => {
     const ms = surveyMessages({ q3: '홍길동', q7: '초코' }, meta)
     expect(JSON.stringify(ms[0].blocks)).toContain('예약 신청 abcDEF1234의 검사지예요')
+  })
+})
+
+describe('동의서 알림', () => {
+  const base = {
+    bundleLabel: '행동수정 트레이닝',
+    guardianName: '김하나',
+    petName: '보리',
+    changes: ['견종 말티 → 말티즈', '연락처 010-1111-2222 → 010-1234-5678'],
+    mail: { archive: true, guardian: false },
+    consentId: 'Cn5t9Qw2Er',
+    applyId: 'Ab3dE5gH9k',
+  }
+
+  it('동의서 알림은 머리글·고친 값·메일 결과·ID 를 담고, 고친 값이 없으면 그 칸을 뺀다', () => {
+    const ms = consentMessages(base)
+    expect(ms).toHaveLength(1)
+    expect(ms[0].blocks).toEqual([
+      { type: 'header', text: { type: 'plain_text', text: '동의서 서명: 김하나 · 보리 · 행동수정 트레이닝' } },
+      { type: 'section', text: { type: 'mrkdwn', text: '*보호자가 고친 값*\n견종 말티 → 말티즈\n연락처 010-1111-2222 → 010-1234-5678' } },
+      { type: 'section', text: { type: 'mrkdwn', text: '*메일*\n보관용 보냄 · 보호자 사본 실패' } },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: '동의서 ID Cn5t9Qw2Er · 신청 ID Ab3dE5gH9k' }] },
+    ])
+    // 알림 미리보기는 머리글과 같다.
+    expect(ms[0].text).toBe('동의서 서명: 김하나 · 보리 · 행동수정 트레이닝')
+
+    const plain = consentMessages({ ...base, changes: [], mail: { archive: false, guardian: true }, applyId: '' })
+    expect(plain[0].blocks).toEqual([
+      { type: 'header', text: { type: 'plain_text', text: '동의서 서명: 김하나 · 보리 · 행동수정 트레이닝' } },
+      { type: 'section', text: { type: 'mrkdwn', text: '*메일*\n보관용 실패 · 보호자 사본 보냄' } },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: '동의서 ID Cn5t9Qw2Er · 신청서 없이 만듦' } ] },
+    ])
+    expect(JSON.stringify(plain)).not.toContain('보호자가 고친 값')
+  })
+
+  it('동의서 알림의 보호자 글은 이스케이프한다', () => {
+    const ms = consentMessages({ ...base, guardianName: '<김&하나>', changes: ['견종 <b> → a&b'] })
+    expect(ms[0].text).toBe('동의서 서명: &lt;김&amp;하나&gt; · 보리 · 행동수정 트레이닝')
+    expect(sections(ms)[0]).toBe('*보호자가 고친 값*\n견종 &lt;b&gt; → a&amp;b')
   })
 })

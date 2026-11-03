@@ -1,12 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as applyRoute from '../app/api/apply/route'
+import * as consentRoute from '../app/api/consent/route'
 import * as surveyRoute from '../app/api/survey/route'
+import { submitConsent, type ConsentResult } from '../lib/consent-submit'
 import { submitApply, submitSurvey, type SubmitResult } from '../lib/submit'
 
 // 제출 로직은 submit.test.ts 가 덮는다. 여기서는 경로가 본문을 읽어 넘기고 결과를 상태 코드로 바꾸는지만 본다.
 vi.mock('../lib/submit', () => ({
   submitApply: vi.fn(),
   submitSurvey: vi.fn(),
+}))
+vi.mock('../lib/consent-submit', () => ({
+  submitConsent: vi.fn(),
 }))
 
 const ROUTES = [
@@ -133,6 +138,59 @@ describe.each(ROUTES)('POST $name', ({ route, submit }) => {
       await post(route, body)
     }
     await post(route, 'not json')
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/consent', () => {
+  const submitMock = vi.mocked(submitConsent)
+  const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'
+  const send = (body: string, headers: Record<string, string> = { 'User-Agent': UA }) =>
+    consentRoute.POST(new Request('http://x/api/consent', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body }))
+
+  it.each(NOT_JSON)('JSON 이 아니면 400 이고 제출 함수를 부르지 않는다 (%s)', async (_label, raw) => {
+    const res = await send(raw)
+    expect(res.status).toBe(400)
+    expect(await res.json()).toStrictEqual({ ok: false, errors: [] })
+    expect(submitMock).not.toHaveBeenCalled()
+  })
+
+  it.each<[ConsentResult, number, object]>([
+    [{ status: 'ok', pdf: 'JVBERi0=', mailed: true }, 200, { ok: true, pdf: 'JVBERi0=', mailed: true }],
+    [{ status: 'ok', mailed: false }, 200, { ok: true, mailed: false }],
+    [{ status: 'invalid', errors: [{ questionId: 'signature', message: '사인해 주세요' }] }, 400, { ok: false, errors: [{ questionId: 'signature', message: '사인해 주세요' }] }],
+    [{ status: 'closed' }, 409, { ok: false }],
+    [{ status: 'failed' }, 503, { ok: false }],
+  ])('결과 %j 는 %i 와 정해진 본문, Cache-Control: no-store 다', async (result, status, json) => {
+    submitMock.mockResolvedValue(result)
+    const res = await send('{}')
+    expect(res.status).toBe(status)
+    expect(await res.json()).toStrictEqual(json)
+    expect(res.headers.get('Cache-Control')).toBe('no-store')
+  })
+
+  it('본문과 User-Agent 를 그대로 넘기고, User-Agent 가 없으면 빈 글을 넘긴다', async () => {
+    submitMock.mockResolvedValue({ status: 'ok', mailed: false })
+    const body = { token: 'x', info: { guardianName: '김하나' } }
+    await send(JSON.stringify(body))
+    expect(submitMock).toHaveBeenLastCalledWith(body, UA)
+    await send('{}', {})
+    expect(submitMock).toHaveBeenLastCalledWith({}, '')
+  })
+
+  it('maxDuration 이 30 이고 runtime 이 nodejs 다', () => {
+    expect(consentRoute.maxDuration).toBe(30)
+    expect(consentRoute.runtime).toBe('nodejs')
+  })
+
+  it('JSON 이 아닌 본문의 400 에도 Cache-Control: no-store 가 붙고, 본문·결과를 로그에 찍지 않는다', async () => {
+    const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((method) =>
+      vi.spyOn(console, method).mockImplementation(() => {}),
+    )
+    const bad = await send('not json')
+    expect(bad.headers.get('Cache-Control')).toBe('no-store')
+    submitMock.mockResolvedValue({ status: 'failed' })
+    await send(JSON.stringify({ info: { guardianName: '비밀 답변' } }))
     for (const spy of spies) expect(spy).not.toHaveBeenCalled()
   })
 })

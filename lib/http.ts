@@ -1,6 +1,6 @@
 import type { SubmitResult } from './submit'
 
-const json = (body: object, status: number) =>
+export const json = (body: object, status: number) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
 
 /**

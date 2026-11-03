@@ -5,10 +5,12 @@ import { CONSENT_TEXT } from '../content/consent-text'
 import { BASE_PATH } from '../lib/base-path'
 import {
   BUNDLES,
+  ESIGN_LABEL,
   GROOMING_PARTS,
   LAYOUT,
   PAGE_SIZE,
   PAGES,
+  agreedSentences,
   bundleOf,
   type PageId,
 } from '../lib/consent-docs'
@@ -75,6 +77,23 @@ describe('동의서 묶음과 장', () => {
       // 장 그림과 글은 scripts/consent-pages.mjs 가 원본에서 만든 것이다
       expect(existsSync(join(process.cwd(), 'public', `consent-v1-${id}.png`))).toBe(true)
       expect(CONSENT_TEXT[id]).toContain(page.title)
+    }
+  })
+
+  it('동의 문구는 묶음의 장마다 "제목 — 체크 문구" 이고 끝에 전자 서명 동의가 붙는다', () => {
+    // 이 문구는 서명 내용 고유값(v1)에 들어간다. 바꾸면 옛 서명의 고유값을 다시 계산할 수 없다.
+    expect(agreedSentences('behavior')).toEqual([
+      '반려견 교육 서약서 — 읽고 동의해요',
+      '히스하우스 행동수정 프로그램 계약서 — 읽고 동의해요',
+      '교육미용 안내사항 — 확인했어요',
+      '전자 방식으로 서명하는 데 동의해요',
+    ])
+    expect(agreedSentences('generalGrooming')).toEqual([
+      '교육을 하지 않은 상태의 반려견의 미용 동의서 — 읽고 동의해요',
+      '전자 방식으로 서명하는 데 동의해요',
+    ])
+    for (const b of BUNDLES) {
+      expect(agreedSentences(b.id)).toEqual([...b.pages.map((id) => `${PAGES[id].title} — ${PAGES[id].agreeLabel}`), ESIGN_LABEL])
     }
   })
 })

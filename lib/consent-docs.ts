@@ -71,6 +71,19 @@ export const PAGES: Record<PageId, DocPage> = {
   guidelines: page('guidelines', '교육미용 안내사항', 'guidelines', 0),
 }
 
+/** 서명 화면의 전자 서명 동의 체크 문구. 기록 페이지의 동의 문구 끝에도 그대로 찍힌다. */
+export const ESIGN_LABEL = '전자 방식으로 서명하는 데 동의해요'
+
+/**
+ * 기록 페이지에 찍는 동의 문구: 묶음의 장마다 '{제목} — {체크 문구}', 끝에 전자 서명 동의(통제자 결정 R1·R8).
+ * 제출 검증이 모든 장의 동의를 요구하므로 묶음마다 하나로 정해져 시트에 따로 적지 않는다. 메일 다시 보내기도 이것을 쓴다.
+ * 서명 내용 고유값(v1)에 들어가므로 문구 규칙을 바꾸면 옛 서명의 고유값을 다시 계산할 수 없다.
+ */
+export function agreedSentences(bundle: BundleId): string[] {
+  const pages = bundleOf(bundle)!.pages
+  return [...pages.map((id) => `${PAGES[id].title} — ${PAGES[id].agreeLabel}`), ESIGN_LABEL]
+}
+
 // '금일 진행하는 미용' 15칸, PDF 순서(왼쪽에서 오른쪽, 위에서 아래)
 export const GROOMING_PARTS: string[] = [
   '등', '배', '앞다리', '뒷다리',

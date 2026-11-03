@@ -150,3 +150,27 @@ export function surveyMessages(a: Answers, meta: Meta): SlackMessage[] {
   const link = `예약 신청 ${meta.submissionId}의 검사지예요`
   return buildMessages(surveyForm, a, meta, `📋 행동 분석 검사지 — ${pet} (${guardian})`, notice, link)
 }
+
+const sentText = (ok: boolean) => (ok ? '보냄' : '실패')
+
+/**
+ * 동의서 서명 알림 한 통. 머리글(성함·반려견·묶음), 보호자가 고친 값(있을 때만, 한 줄에 하나), 메일 결과, 동의서·신청 ID.
+ * 칸이 짧아서(보호자 칸 50자, 고친 값 넷까지) 한 통·섹션 하나에 들어간다. 알림 미리보기는 머리글과 같다.
+ */
+export function consentMessages(r: {
+  bundleLabel: string
+  guardianName: string
+  petName: string
+  changes: string[]
+  mail: { archive: boolean; guardian: boolean }
+  consentId: string
+  applyId: string
+}): SlackMessage[] {
+  const title = `동의서 서명: ${r.guardianName} · ${r.petName} · ${r.bundleLabel}`
+  const blocks: Block[] = [headerBlock(title, '')]
+  if (r.changes.length > 0) blocks.push(section(lineText('보호자가 고친 값', r.changes.join('\n'))))
+  blocks.push(section(lineText('메일', `보관용 ${sentText(r.mail.archive)} · 보호자 사본 ${sentText(r.mail.guardian)}`)))
+  const apply = r.applyId ? `신청 ID ${r.applyId}` : '신청서 없이 만듦'
+  blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: escapeMrkdwn(`동의서 ID ${r.consentId} · ${apply}`) }] })
+  return [{ text: escapeMrkdwn(title), blocks }]
+}
