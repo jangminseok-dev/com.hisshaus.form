@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { CONSENT_TEXT } from '../content/consent-text'
@@ -10,12 +10,26 @@ import {
   PAGE_SIZE,
   PAGES,
   bundleOf,
-  type FieldBox,
   type PageId,
 } from '../lib/consent-docs'
 
 const PAGE_IDS = Object.keys(PAGES) as PageId[]
 const keysOf = (id: PageId) => LAYOUT[id].map((b) => b.key)
+
+// 원본 PDF 의 인쇄 글자 상자(scripts/consent-pages.mjs 가 pdftotext -bbox 로 뽑음, PDF 좌표)
+interface Word { text: string; x: number; y: number; w: number; h: number }
+const WORDS = JSON.parse(readFileSync(join(process.cwd(), 'tests', 'consent-words.json'), 'utf8')) as Record<PageId, Word[]>
+type Rect = { x: number; y: number; w: number; h: number }
+const overlap = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+const boxOf = (id: PageId, key: string) => {
+  const b = LAYOUT[id].find((f) => f.key === key)
+  if (!b) throw new Error(`${id} 에 ${key} 칸이 없다`)
+  return b
+}
+// 칸과 같은 줄(세로로 칸 가운데를 지나는)에 인쇄된 그 글자들, 왼쪽부터
+const sameLine = (id: PageId, box: Rect, text: string) =>
+  WORDS[id].filter((w) => w.text === text && w.y < box.y + box.h / 2 && box.y + box.h / 2 < w.y + w.h).sort((a, b) => a.x - b.x)
+const right = (r: Rect) => r.x + r.w
 
 describe('동의서 묶음과 장', () => {
   it('묶음 다섯은 사장님이 정한 장과 순서다', () => {
@@ -96,8 +110,6 @@ describe('칸 좌표', () => {
   })
 
   it('모든 칸은 페이지 안에 있고 같은 장의 칸끼리 겹치지 않는다', () => {
-    const overlap = (a: FieldBox, b: FieldBox) =>
-      a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
     for (const id of PAGE_IDS) {
       const boxes = LAYOUT[id]
       for (const b of boxes) {
@@ -112,6 +124,58 @@ describe('칸 좌표', () => {
           expect(overlap(boxes[i], boxes[j]), `${id} ${boxes[i].key} ↔ ${boxes[j].key}`).toBe(false)
         }
       }
+    }
+  })
+
+  it('글자·사인 칸은 그 장의 인쇄 글자와 겹치지 않는다', () => {
+    for (const id of PAGE_IDS) {
+      expect(WORDS[id].length, id).toBeGreaterThan(0)
+      // 미용 부위 칸은 인쇄된 '□' 위에 체크를 찍는 자리라 '□' 와는 겹치는 게 맞다
+      const printed = WORDS[id].filter((w) => w.text !== '□')
+      for (const b of LAYOUT[id]) {
+        const hit = printed.filter((w) => overlap(b, w)).map((w) => w.text)
+        expect(hit, `${id} ${b.key}`).toEqual([])
+      }
+    }
+    for (const id of ['unfinishedGrooming', 'generalGrooming'] as const) {
+      for (const part of GROOMING_PARTS) {
+        const box = boxOf(id, `part:${part}`)
+        expect(WORDS[id].filter((w) => w.text === '□' && overlap(box, w)).length, `${id} ${part}`).toBe(1)
+      }
+    }
+  })
+
+  it('연락처는 두 - 사이와 뒤, 작성일은 20·년·월·일 사이, 사인은 (인) 오른쪽의 3:1 상자다', () => {
+    for (const id of PAGE_IDS.filter((p) => PAGES[p].signed)) {
+      if (id !== 'agreement') {
+        const mid = boxOf(id, 'phoneMid')
+        const last = boxOf(id, 'phoneLast')
+        const dashes = sameLine(id, mid, '-')
+        expect(dashes.length, id).toBe(2)
+        expect(right(dashes[0]) <= mid.x && right(mid) <= dashes[1].x, `${id} phoneMid`).toBe(true)
+        expect(right(dashes[1]) <= last.x, `${id} phoneLast`).toBe(true)
+      }
+
+      const year = boxOf(id, 'yearSuffix')
+      const [w20] = sameLine(id, year, '20')
+      const [wy] = sameLine(id, year, '년')
+      const [wm] = sameLine(id, year, '월')
+      const [wd] = sameLine(id, year, '일')
+      expect(right(w20) <= year.x && right(year) <= wy.x, `${id} yearSuffix`).toBe(true)
+      const month = boxOf(id, 'month')
+      const day = boxOf(id, 'day')
+      expect(right(wy) <= month.x && right(month) <= wm.x, `${id} month`).toBe(true)
+      expect(right(wm) <= day.x && right(day) <= wd.x, `${id} day`).toBe(true)
+
+      const sig = boxOf(id, 'signature')
+      const seals = WORDS[id].filter((w) => w.text === '(인)')
+      expect(seals.length, `${id} (인)`).toBe(1)
+      const [seal] = seals
+      // (인) 바로 오른쪽에서 시작하고, 세로로 (인) 글자를 다 덮는다(윗선에서 시작해 아래로 넘친다)
+      expect(sig.x >= right(seal) && sig.x - right(seal) < 5, `${id} signature x`).toBe(true)
+      expect(sig.y <= seal.y && sig.y + sig.h >= seal.y + seal.h, `${id} signature y`).toBe(true)
+      expect(sig.h, `${id} signature h`).toBeGreaterThanOrEqual(28)
+      expect(sig.w / sig.h, `${id} signature 3:1`).toBeCloseTo(3, 5)
     }
   })
 

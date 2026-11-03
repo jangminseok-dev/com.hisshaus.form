@@ -124,14 +124,16 @@ function partBoxes(cols: number[], rows: number[]): FieldBox[] {
 // pdftotext -bbox 로 찾았다(bbox 는 위가 0 이라 y = 841.89 - yMax). 글자 칸은 칸선 안쪽의 빈 곳이고, 왼쪽 끝은 같은 열에
 // 인쇄된 글자의 여백에 맞췄다(값을 왼쪽 정렬로 쓰면 위아래 글자와 줄이 맞는다). 연락처는 '010 - -' 의 두 '-' 사이와 뒤,
 // 작성일은 '20 년 월 일' 의 '20' 바로 뒤(두 자리)·'년'과 '월' 사이·'월'과 '일' 사이다. 연락처 칸은 '8888' 이 들어가게 8pt.
-// 서명 칸은 '(인)' 바로 오른쪽, 사인 그림(600×200)과 같은 3:1 비율이다. 원본 칸 위치가 바뀌면 다시 잰다.
+// 서명 칸은 '(인)' 바로 오른쪽, 사인 그림(600×200)과 같은 3:1 비율로 90×30pt 다. 행 윗선 바로 아래에서 시작하고
+// 아래로는 표 밖으로 넘친다(손 사인처럼 표 선에 걸친다. 행 높이에 맞추면 50×16pt 로 너무 작다). 원본 칸 위치가 바뀌면 다시 잰다.
+// tests/consent-docs.test.ts 가 칸을 원본 글자 상자(tests/consent-words.json)와 견준다.
 export const LAYOUT: Record<PageId, FieldBox[]> = {
   agreement: [
     { key: 'yearSuffix', x: 139.17, y: 85.67, w: 14.45, h: 15.74, size: 8.5 },
     { key: 'month', x: 162.97, y: 85.67, w: 11.41, h: 15.74, size: 8.5 },
     { key: 'day', x: 183.74, y: 85.67, w: 11.41, h: 15.74, size: 8.5 },
     { key: 'signerName', x: 129.13, y: 67.68, w: 167.01, h: 15.49, size: 8.5 },
-    { key: 'signature', x: 405.51, y: 67.18, w: 49.48, h: 16.49, size: 8.5 },
+    { key: 'signature', x: 405.51, y: 53.67, w: 90, h: 30, size: 8.5 },
   ],
   behavior: [
     { key: 'guardianName', x: 126.53, y: 672.2, w: 169.61, h: 11.25, size: 9 },
@@ -146,7 +148,7 @@ export const LAYOUT: Record<PageId, FieldBox[]> = {
     { key: 'day', x: 183.74, y: 84.93, w: 11.41, h: 15.74, size: 8.5 },
     { key: 'manager', x: 390.77, y: 84.93, w: 166.77, h: 15.74, size: 8.5 },
     { key: 'signerName', x: 129.13, y: 66.93, w: 167.01, h: 15.49, size: 8.5 },
-    { key: 'signature', x: 405.51, y: 66.43, w: 49.48, h: 16.49, size: 8.5 },
+    { key: 'signature', x: 405.51, y: 52.92, w: 90, h: 30, size: 8.5 },
   ],
   trust: [
     { key: 'guardianName', x: 126.03, y: 666.46, w: 169.61, h: 11.25, size: 9 },
@@ -160,7 +162,7 @@ export const LAYOUT: Record<PageId, FieldBox[]> = {
     { key: 'day', x: 182.74, y: 109.92, w: 11.41, h: 15.49, size: 8.5 },
     { key: 'manager', x: 389.77, y: 109.92, w: 166.77, h: 15.49, size: 8.5 },
     { key: 'signerName', x: 128.13, y: 91.67, w: 167.01, h: 15.74, size: 8.5 },
-    { key: 'signature', x: 404.51, y: 91.17, w: 50.23, h: 16.74, size: 8.5 },
+    { key: 'signature', x: 404.51, y: 77.91, w: 90, h: 30, size: 8.5 },
   ],
   groomingTraining: [
     { key: 'guardianName', x: 126.03, y: 664.96, w: 169.61, h: 11.5, size: 9 },
@@ -172,7 +174,7 @@ export const LAYOUT: Record<PageId, FieldBox[]> = {
     { key: 'month', x: 162.47, y: 94.17, w: 11.41, h: 15.49, size: 8.5 },
     { key: 'day', x: 183.24, y: 94.17, w: 11.41, h: 15.49, size: 8.5 },
     { key: 'signerName', x: 128.63, y: 75.93, w: 167.01, h: 15.74, size: 8.5 },
-    { key: 'signature', x: 405.01, y: 75.43, w: 50.23, h: 16.74, size: 8.5 },
+    { key: 'signature', x: 405.01, y: 62.17, w: 90, h: 30, size: 8.5 },
   ],
   unfinishedGrooming: [
     { key: 'guardianName', x: 126.03, y: 654.71, w: 169.61, h: 11.25, size: 9 },
@@ -185,7 +187,7 @@ export const LAYOUT: Record<PageId, FieldBox[]> = {
     { key: 'day', x: 183.24, y: 117.66, w: 11.41, h: 15.49, size: 8.5 },
     { key: 'manager', x: 390.27, y: 117.66, w: 166.77, h: 15.49, size: 8.5 },
     { key: 'signerName', x: 128.63, y: 99.42, w: 167.01, h: 15.74, size: 8.5 },
-    { key: 'signature', x: 405.01, y: 98.92, w: 50.23, h: 16.74, size: 8.5 },
+    { key: 'signature', x: 405.01, y: 85.66, w: 90, h: 30, size: 8.5 },
     ...partBoxes([42.37, 172.76, 303.16, 433.55], [455.78, 437.09, 418.39, 399.7]),
   ],
   generalGrooming: [
@@ -199,7 +201,7 @@ export const LAYOUT: Record<PageId, FieldBox[]> = {
     { key: 'day', x: 184.24, y: 106.67, w: 11.41, h: 15.49, size: 8.5 },
     { key: 'manager', x: 391.27, y: 106.67, w: 166.77, h: 15.49, size: 8.5 },
     { key: 'signerName', x: 129.63, y: 88.42, w: 167.01, h: 15.74, size: 8.5 },
-    { key: 'signature', x: 406.01, y: 87.92, w: 50.23, h: 16.74, size: 8.5 },
+    { key: 'signature', x: 406.01, y: 74.66, w: 90, h: 30, size: 8.5 },
     ...partBoxes([43.37, 173.76, 304.16, 434.55], [444.68, 425.99, 407.29, 388.6]),
   ],
   guidelines: [],
