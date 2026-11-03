@@ -36,3 +36,17 @@ describe('응답 헤더', () => {
     }
   })
 })
+
+describe('배포 묶음', () => {
+  it('동의서 PDF 를 만드는 서명 API 와 사장님 화면은 원본 PDF 둘과 글꼴을 함께 싣는다', () => {
+    // lib/consent-pdf.ts 가 읽는 파일 셋
+    const files = [
+      './content/consent-agreement.pdf',
+      './content/consent-guidelines.pdf',
+      './node_modules/pretendard/dist/public/static/Pretendard-Regular.otf',
+    ]
+    for (const route of ['/api/consent', '/admin']) {
+      expect([...(config.outputFileTracingIncludes?.[route] ?? [])].sort(), route).toEqual(files)
+    }
+  })
+})
