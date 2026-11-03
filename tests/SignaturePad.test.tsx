@@ -82,6 +82,45 @@ describe('SignaturePad', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  it('취소된 손짓은 끝점을 더하지 않고 그때까지 그린 점으로 획을 확정한다', () => {
+    const onChange = vi.fn()
+    render(<SignaturePad value="" onChange={onChange} />)
+    const canvas = screen.getByLabelText('서명 칸')
+    mockRect(canvas)
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10, pointerId: 1 })
+    fireEvent.pointerMove(canvas, { clientX: 50, clientY: 30, pointerId: 1 })
+    // 취소 이벤트의 좌표는 보통 0,0 이다
+    fireEvent.pointerCancel(canvas, { clientX: 0, clientY: 0, pointerId: 1 })
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(decodeSignature(onChange.mock.calls[0][0])).toEqual([[[20, 20], [100, 60]]])
+  })
+
+  it('점 하나만 그리고 취소되면 버린다', () => {
+    const onChange = vi.fn()
+    render(<SignaturePad value="" onChange={onChange} />)
+    const canvas = screen.getByLabelText('서명 칸')
+    mockRect(canvas)
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10, pointerId: 1 })
+    fireEvent.pointerCancel(canvas, { clientX: 0, clientY: 0, pointerId: 1 })
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('획이 진행 중일 때 다른 pointerId 의 입력은 무시한다', () => {
+    const onChange = vi.fn()
+    render(<SignaturePad value="" onChange={onChange} />)
+    const canvas = screen.getByLabelText('서명 칸')
+    mockRect(canvas)
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10, pointerId: 1 })
+    fireEvent.pointerDown(canvas, { clientX: 200, clientY: 90, pointerId: 2 })
+    fireEvent.pointerMove(canvas, { clientX: 250, clientY: 90, pointerId: 2 })
+    fireEvent.pointerUp(canvas, { clientX: 250, clientY: 90, pointerId: 2 })
+    fireEvent.pointerCancel(canvas, { clientX: 0, clientY: 0, pointerId: 2 })
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.pointerMove(canvas, { clientX: 50, clientY: 30, pointerId: 1 })
+    fireEvent.pointerUp(canvas, { clientX: 50, clientY: 30, pointerId: 1 })
+    expect(decodeSignature(onChange.mock.calls[0][0])).toEqual([[[20, 20], [100, 60]]])
+  })
+
   it('다시 그리기는 빈 값으로 바꾼다', () => {
     const onChange = vi.fn()
     render(<SignaturePad value="1,1 9,9" onChange={onChange} />)

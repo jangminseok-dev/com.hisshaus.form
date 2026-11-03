@@ -26,7 +26,8 @@ function drawStrokes(canvas: HTMLCanvasElement | null, strokes: Stroke[]) {
 
 export function SignaturePad({ value, onChange }: { value: string; onChange(v: string): void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const current = useRef<Stroke | null>(null)
+  /** 진행 중인 획과 그것을 그리는 포인터. 다른 손가락·손바닥의 입력은 섞이지 않게 pointerId 로 가른다. */
+  const current = useRef<{ id: number; stroke: Stroke } | null>(null)
 
   const saved = useCallback((): Stroke[] => decodeSignature(value) ?? [], [value])
 
@@ -43,25 +44,30 @@ export function SignaturePad({ value, onChange }: { value: string; onChange(v: s
   }
 
   function down(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (current.current) return
     e.currentTarget.setPointerCapture?.(e.pointerId)
-    current.current = [toPoint(e)]
+    current.current = { id: e.pointerId, stroke: [toPoint(e)] }
   }
 
   function move(e: React.PointerEvent<HTMLCanvasElement>) {
-    const stroke = current.current
-    if (!stroke) return
-    stroke.push(toPoint(e))
-    drawStrokes(canvasRef.current, [...saved(), stroke])
+    const cur = current.current
+    if (!cur || cur.id !== e.pointerId) return
+    cur.stroke.push(toPoint(e))
+    drawStrokes(canvasRef.current, [...saved(), cur.stroke])
   }
 
-  function up(e: React.PointerEvent<HTMLCanvasElement>) {
-    const stroke = current.current
-    if (!stroke) return
+  /** 획을 확정한다. 취소(cancel)는 좌표가 믿을 수 없으니(보통 0,0) 끝점을 더하지 않는다. */
+  function finish(e: React.PointerEvent<HTMLCanvasElement>, canceled: boolean) {
+    const cur = current.current
+    if (!cur || cur.id !== e.pointerId) return
     current.current = null
-    // 손을 뗀 자리가 마지막 점과 같으면 겹쳐 더하지 않는다.
-    const end = toPoint(e)
-    const last = stroke[stroke.length - 1]
-    if (end[0] !== last[0] || end[1] !== last[1]) stroke.push(end)
+    const stroke = cur.stroke
+    if (!canceled) {
+      // 손을 뗀 자리가 마지막 점과 같으면 겹쳐 더하지 않는다.
+      const end = toPoint(e)
+      const last = stroke[stroke.length - 1]
+      if (end[0] !== last[0] || end[1] !== last[1]) stroke.push(end)
+    }
     const done = simplify(stroke)
     // 한 점짜리(콕 찍기)는 선이 아니다. 4000자를 넘기면 이 획을 버려 값이 늘 올바르게 남게 한다.
     const next = done.length >= 2 ? encodeSignature([...saved(), done]) : ''
@@ -81,8 +87,8 @@ export function SignaturePad({ value, onChange }: { value: string; onChange(v: s
           aria-label="서명 칸"
           onPointerDown={down}
           onPointerMove={move}
-          onPointerUp={up}
-          onPointerCancel={up}
+          onPointerUp={(e) => finish(e, false)}
+          onPointerCancel={(e) => finish(e, true)}
         />
         {value === '' && (
           <span className={styles.hint} aria-hidden="true">
