@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 
 import { AdminLogin } from '../../components/AdminLogin'
+import { AdminTestMail } from '../../components/AdminTestMail'
 import { AdminUnlock } from '../../components/AdminUnlock'
 import styles from '../../components/Admin.module.css'
 import { readSession } from '../../lib/admin-guard'
@@ -17,6 +18,7 @@ export default async function Page() {
   return (
     <div className={styles.screen}>
       <h1 className={styles.title}>사장님 화면</h1>
+      <AdminTestMail />
       <form action={logout}>
         <button className={styles.secondary} type="submit">
           로그아웃

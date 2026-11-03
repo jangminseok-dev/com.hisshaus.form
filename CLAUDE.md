@@ -8,8 +8,8 @@
 - 화면 문구는 해요체다. "~입니다/~됩니다/~십시오" 를 쓰지 않는다. 단 검사지(`forms/survey.ts`)의 질문·선택지·안내문은 구글폼 원문 그대로 둔다. 원문과 달라지는 곳은 `tests/survey-verbatim.test.ts` 의 RULINGS·FIXES·OPTION_FIXES·INSTRUCTION_HINT 에 전부 적혀 있고(사장님 결정으로 고친 오타·틀린 숫자·설명, 구글폼용 선택 안내 삭제) 설계 문서 5절이 그 근거다. 거기 없는 글자는 바꾸지 않는다. `tests/survey-verbatim.test.ts` 가 원본 덤프(`tests/survey-original.txt`)와 문항마다 대조한다.
 - 화면 어디에도 전체 문항 수·소요 시간("98문항", "약 3분")·묶음 진행 표시(`2 / 4`, 진행 막대)를 적지 않는다(사용자 결정 2026-10-24). 대신 뒤쪽 묶음에서 '절반 넘게 왔어요'·'✨ 거의 다 왔어요, 한 화면만 더!'·'🎉 마지막 화면이에요' 배지 한 줄로 알린다(`StepForm` 의 `pace`).
 - 예약금은 교육미용 상담 50,000원, 그 밖 10,000원이다(`lib/deposit.ts`). 금액 글은 `content/shop.ts`·`forms/apply.ts` 예약금 안내문에도 있다.
-- `process.env` 는 `lib/config.ts` 에서만 읽는다. `NEXT_PUBLIC_` 변수를 만들지 않는다. 필수 변수는 `SLACK_WEBHOOK_URL`·`GOOGLE_SERVICE_ACCOUNT_JSON`·`GOOGLE_SHEET_ID`·`SURVEY_LINK_SECRET`(32자 이상) 넷이다. `SLACK_MENTION` 은 선택(알림 멘션), `HOLIDAY_API_KEY` 도 선택(공휴일, 없으면 화요일만 막는다). `SHEETS_BASE_URL`·`SHEETS_FAKE_TOKEN` 은 e2e 전용이고 production 에서는 읽지 않는다.
-- 로그(`console.*`)에는 `시트 저장 실패` / `슬랙 전송 실패` 와 신청 ID 만 남긴다. 답변·요청 본문·웹훅 주소·키·오류 객체는 넣지 않는다(오류 객체에 주소가 들어 있을 수 있다).
+- `process.env` 는 `lib/config.ts` 에서만 읽는다. `NEXT_PUBLIC_` 변수를 만들지 않는다. 필수 변수는 `SLACK_WEBHOOK_URL`·`GOOGLE_SERVICE_ACCOUNT_JSON`·`GOOGLE_SHEET_ID`·`SURVEY_LINK_SECRET`(32자 이상) 넷이다. `MAIL_ADDRESS`·`MAIL_APP_PASSWORD`·`ADMIN_PASSWORD`(10자 이상)·`ADMIN_PIN`(4자리)은 동의서 기능에만 필요하다(없으면 사장님 화면·서명만 500). `SLACK_MENTION` 은 선택(알림 멘션), `HOLIDAY_API_KEY` 도 선택(공휴일, 없으면 화요일만 막는다). `SHEETS_BASE_URL`·`SHEETS_FAKE_TOKEN` 은 e2e 전용이고 production 에서는 읽지 않는다.
+- 로그(`console.*`)에는 `시트 저장 실패` / `슬랙 전송 실패` / `메일 전송 실패` 와 신청 ID 만 남긴다. 답변·요청 본문·웹훅 주소·키·오류 객체는 넣지 않는다(오류 객체에 주소가 들어 있을 수 있다).
 - 비밀값(웹훅 주소·서비스 계정 키·검사지 링크 비밀값)을 코드·로그·문서·커밋에 남기지 않고, `.env*` 파일 내용을 그대로 출력하지 않는다.
 - 시트는 `valueInputOption=RAW` 로만 쓴다(`lib/sheets.ts`). 보호자가 적은 `=...` 가 수식이 되지 않게 `USER_ENTERED` 로 바꾸지 않는다.
 - 제출 순서는 검증 → 시트 → 슬랙이다. 시트 실패는 실패로 답하고, 슬랙 실패는 기록이 남았으므로 성공으로 답한다. 검사지는 시트 단계에서 이미 냈는지 먼저 읽고, 냈으면 쓰지도 보내지도 않고 성공으로 답한다.

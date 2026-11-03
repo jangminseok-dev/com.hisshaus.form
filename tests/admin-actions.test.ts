@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { readSession, writeSession, redirect } = vi.hoisted(() => ({
+const { readSession, writeSession, redirect, requireAdmin, sendMail } = vi.hoisted(() => ({
+  requireAdmin: vi.fn(),
+  sendMail: vi.fn(),
   readSession: vi.fn(),
   writeSession: vi.fn(),
   // 진짜 redirect 처럼 던져서 이어지는 코드가 실행되지 않게 한다.
@@ -9,10 +11,11 @@ const { readSession, writeSession, redirect } = vi.hoisted(() => ({
   }),
 }))
 
-vi.mock('../lib/admin-guard', () => ({ readSession, writeSession }))
+vi.mock('../lib/admin-guard', () => ({ readSession, writeSession, requireAdmin }))
+vi.mock('../lib/mail', () => ({ sendMail }))
 vi.mock('next/navigation', () => ({ redirect }))
 
-import { unlock } from '../app/admin/actions'
+import { sendTestMail, unlock } from '../app/admin/actions'
 
 const form = (pin: string) => {
   const f = new FormData()
@@ -26,6 +29,7 @@ beforeEach(() => {
   vi.stubEnv('SURVEY_LINK_SECRET', 'test-survey-link-secret-0123456789abcdef')
   vi.stubEnv('ADMIN_PASSWORD', 'correct-password-1')
   vi.stubEnv('ADMIN_PIN', '4321')
+  vi.stubEnv('MAIL_ADDRESS', 'shop@naver.com')
 })
 afterEach(() => {
   vi.useRealTimers()
@@ -83,5 +87,33 @@ describe('unlock — PIN 5번 틀리면 로그아웃', () => {
       await expect(unlock({}, form('0000'))).rejects.toThrow('REDIRECT:/admin')
     }
     expect(writeSession).not.toHaveBeenCalled()
+  })
+})
+
+describe('sendTestMail — 메일 시험 보내기', () => {
+  it('로그인(잠금 해제)을 먼저 확인한다', async () => {
+    requireAdmin.mockRejectedValue(new Error('REDIRECT:/admin'))
+    await expect(sendTestMail()).rejects.toThrow('REDIRECT:/admin')
+    expect(sendMail).not.toHaveBeenCalled()
+  })
+
+  it('성공하면 자기 주소로 보내고 { ok: true } 를 돌려준다', async () => {
+    requireAdmin.mockResolvedValue({})
+    sendMail.mockResolvedValue(undefined)
+    expect(await sendTestMail()).toEqual({ ok: true })
+    expect(sendMail).toHaveBeenCalledWith({
+      to: 'shop@naver.com',
+      subject: '[히스하우스] 메일 설정 시험',
+      text: '이 메일이 보이면 동의서 사본을 보낼 수 있어요.',
+    })
+  })
+
+  it('실패하면 안내 문구를 돌려주고 로그에는 메일 전송 실패와 test 만 남긴다', async () => {
+    requireAdmin.mockResolvedValue({})
+    sendMail.mockRejectedValue(new Error('mail'))
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(await sendTestMail()).toEqual({ error: '메일을 보내지 못했어요. 네이버 메일 설정을 확인해 주세요.' })
+    expect(log.mock.calls).toEqual([['메일 전송 실패', 'test']])
+    log.mockRestore()
   })
 })

@@ -2,8 +2,10 @@
 
 import { redirect } from 'next/navigation'
 
-import { readSession, writeSession } from '../../lib/admin-guard'
+import { readSession, requireAdmin, writeSession } from '../../lib/admin-guard'
 import { checkPassword, checkPin, MAX_PIN_FAILS, SESSION_DAYS } from '../../lib/admin-session'
+import { mailAddress } from '../../lib/config'
+import { sendMail } from '../../lib/mail'
 
 export type ActionState = { error?: string }
 
@@ -41,4 +43,20 @@ export async function unlock(_prev: ActionState, form: FormData): Promise<Action
   }
   await writeSession({ ...session, fails })
   return { error: 'PIN 이 맞지 않아요' }
+}
+
+/** 운영에서 네이버 발송이 되는지 확인하는 시험 메일. 사장님 자기 주소로 보낸다. */
+export async function sendTestMail(): Promise<ActionState & { ok?: boolean }> {
+  await requireAdmin()
+  try {
+    await sendMail({
+      to: mailAddress(),
+      subject: '[히스하우스] 메일 설정 시험',
+      text: '이 메일이 보이면 동의서 사본을 보낼 수 있어요.',
+    })
+    return { ok: true }
+  } catch {
+    console.error('메일 전송 실패', 'test')
+    return { error: '메일을 보내지 못했어요. 네이버 메일 설정을 확인해 주세요.' }
+  }
 }
