@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { appendRow, surveySubmitted } from '../lib/sheets'
+import { appendRow, readRange, surveySubmitted } from '../lib/sheets'
 
 beforeEach(() => vi.stubEnv('GOOGLE_SHEET_ID', 'sheet123'))
 afterEach(() => vi.unstubAllEnvs())
@@ -253,5 +253,32 @@ describe('시트 추가: 실제 토큰', () => {
       expect(calls[0].url.startsWith('https://sheets.googleapis.com/v4/spreadsheets/sheet123/values/')).toBe(true)
       expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer jwt-tok')
     })
+  })
+})
+
+describe('시트 범위 읽기', () => {
+  it('readRange 는 범위를 인코딩해 GET 하고 values 를 돌려주며, 실패는 Error("sheets") 다', async () => {
+    const values = [['a', 'b'], ['c']]
+    const { calls, fetch } = setup([new Response(JSON.stringify({ values }))])
+    expect(await readRange("'동의서'!A:S", { fetch, token })).toEqual(values)
+    expect(calls[0].url).toBe(`https://sheets.googleapis.com/v4/spreadsheets/sheet123/values/${encodeURIComponent("'동의서'!A:S")}`)
+    expect(new Headers(calls[0].init.headers).get('authorization')).toBe('Bearer tok')
+
+    const empty = setup([new Response('{}')])
+    expect(await readRange("'동의서'!T3", { fetch: empty.fetch, token })).toEqual([])
+
+    for (const r of [new Response('', { status: 500 }), new Response('{"values":"x"}'), new Error('boom')]) {
+      const e = await thrown(readRange("'동의서'!A:S", { fetch: setup([r]).fetch, token }))
+      expect(e.message).toBe('sheets')
+    }
+    const noToken = await thrown(
+      readRange("'동의서'!A:S", {
+        fetch,
+        token: async () => {
+          throw new Error('키')
+        },
+      }),
+    )
+    expect(noToken.message).toBe('sheets')
   })
 })

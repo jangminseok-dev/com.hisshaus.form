@@ -3,7 +3,8 @@
 //
 //   POST /slack                                     슬랙 웹훅. JSON 본문을 쌓고 200
 //   POST /v4/spreadsheets/:id/values/:range:append  시트 append. 행을 쌓고 200
-//   GET  /v4/spreadsheets/:id/values/'탭'!X:X        시트 읽기. 그 탭에 쌓인 행들의 X열을 { values: [[값], …] } 로
+//   GET  /v4/spreadsheets/:id/values/'탭'!X:Y        시트 읽기. 그 탭에 쌓인 행들의 X..Y열을 { values: [[값, …], …] } 로(머리글 줄 없음)
+//   GET  /v4/spreadsheets/:id/values/'탭'!X<n>       한 칸. 그 탭에 쌓인 n 번째(1부터) 행의 X열을 { values: [[값]] } 로
 //   POST /mail                                      메일. JSON { from, to, subject, text, attachment? } 을 쌓고 200
 //   GET  /__state                                   쌓인 것을 { slack, sheets, mail } 로
 //   POST /__reset                                   비운다
@@ -18,8 +19,8 @@ const state = { slack: [], sheets: [], mail: [] }
 
 const APPEND = /^\/v4\/spreadsheets\/([^/]+)\/values\/(.+):append$/
 const READ = /^\/v4\/spreadsheets\/[^/]+\/values\/([^/]+)$/
-/** '탭'!X:X 꼴의 범위. 한 열만 읽는다. */
-const COLUMN = /^'(.+)'!([A-Z]):\2$/
+/** '탭'!X:Y(열 범위, X:X 는 한 열) 또는 '탭'!X<n>(한 칸) 꼴의 범위. */
+const RANGE = /^'(.+)'!([A-Z])(?::([A-Z])|(\d+))$/
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -67,12 +68,18 @@ const server = createServer(async (req, res) => {
       return send(res, 200)
     }
     const read = req.method === 'GET' ? READ.exec(url.pathname) : null
-    const column = read ? COLUMN.exec(decodeURIComponent(read[1])) : null
-    if (column) {
-      const [, tab, letter] = column
-      const index = letter.charCodeAt(0) - 'A'.charCodeAt(0)
-      const values = state.sheets.filter((s) => s.range.startsWith(`'${tab}'!`)).flatMap((s) => s.values.map((row) => [row[index] ?? '']))
-      return send(res, 200, { values })
+    const target = read ? RANGE.exec(decodeURIComponent(read[1])) : null
+    if (target) {
+      const [, tab, from, to, cell] = target
+      const col = (letter) => letter.charCodeAt(0) - 'A'.charCodeAt(0)
+      const rows = state.sheets.filter((s) => s.range.startsWith(`'${tab}'!`)).flatMap((s) => s.values)
+      if (cell) {
+        // 한 칸: 그 탭에 쌓인 줄의 n 번째(1부터, 가짜에는 머리글 줄이 없다). 없거나 빈 칸이면 values 가 없다.
+        const value = rows[Number(cell) - 1]?.[col(from)]
+        return send(res, 200, value ? { values: [[value]] } : {})
+      }
+      const [a, b] = [col(from), col(to)]
+      return send(res, 200, { values: rows.map((row) => Array.from({ length: b - a + 1 }, (_, i) => row[a + i] ?? '')) })
     }
     send(res, 404)
   } catch {

@@ -1,7 +1,7 @@
 import { JWT } from 'google-auth-library'
 import { serviceAccount, sheetId, sheetsBaseUrl, sheetsFakeToken } from './config'
 
-export type SheetTab = '예약신청' | '검사지'
+export type SheetTab = '예약신청' | '검사지' | '동의서'
 
 export interface SheetsDeps {
   fetch?: typeof fetch
@@ -86,4 +86,26 @@ export async function surveySubmitted(applyId: string, deps: SheetsDeps = {}): P
   }
   if (!Array.isArray(values)) throw new Error('sheets')
   return values.some((row) => Array.isArray(row) && row[0] === applyId)
+}
+
+/**
+ * 범위(예: `'동의서'!A:S`)를 읽어 API 가 준 `values` 를 그대로 돌려준다(빈 칸을 채우지 않고, 없으면 `[]`).
+ * 실패하면 appendRow 와 같이 `Error('sheets')` 만 던진다.
+ */
+export async function readRange(range: string, deps: SheetsDeps = {}): Promise<string[][]> {
+  const get = deps.fetch ?? fetch
+  const getToken = tokenOf(deps)
+  let values: unknown
+  try {
+    const token = await getToken()
+    const res = await get(`${sheetsBaseUrl()}/v4/spreadsheets/${sheetId()}/values/${encodeURIComponent(range)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    })
+    if (res.ok) values = ((await res.json()) as { values?: unknown }).values ?? []
+  } catch {
+    // 토큰·설정·네트워크·타임아웃·깨진 응답은 버린다.
+  }
+  if (!Array.isArray(values)) throw new Error('sheets')
+  return values as string[][]
 }
