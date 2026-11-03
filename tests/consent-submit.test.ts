@@ -324,6 +324,59 @@ describe('동의서 서명 제출', () => {
     expect(spaced.sendMail.mock.calls[1][0].to).toBe('hana@example.com')
   })
 
+  it('이메일은 주소 하나만 받는다: 여러 주소·개행·꺾쇠·따옴표·@ 두 개·점 없는 도메인은 이메일 오류다', async () => {
+    const emailError = { status: 'invalid', errors: [{ questionId: 'email', message: '이메일을 다시 확인해 주세요' }] }
+    for (const email of [
+      'a@x.com, b@y.com',
+      'a@x.com,b@y.com',
+      'a@x.com;b@y.com',
+      'a@x.com b@y.com',
+      'a@x.com\nBcc: c@z.com',
+      'a@x.com\r\nb@y.com',
+      '김하나 <a@x.com>',
+      '<a@x.com>',
+      '"a"@x.com',
+      "a'b@x.com",
+      'a\u0000@x.com',
+      'a\u007f@x.com',
+      'a@@x.com',
+      'a@b@x.com',
+      '@x.com',
+      'a@',
+      'a@localhost',
+    ]) {
+      const { appendRow, sendMail, deps } = fakes()
+      expect(await submitConsent(body({ info: { ...info, email } }), UA, deps)).toStrictEqual(emailError)
+      expect(appendRow).not.toHaveBeenCalled()
+      expect(sendMail).not.toHaveBeenCalled()
+    }
+    const ok = fakes()
+    expect(await submitConsent(body({ info: { ...info, email: 'hana.kim+bori@mail.example.co.kr' } }), UA, ok.deps)).toMatchObject({
+      status: 'ok',
+    })
+    expect(ok.sendMail.mock.calls[1][0].to).toBe('hana.kim+bori@mail.example.co.kr')
+  })
+
+  it('보호자 네 칸 안에 개행·제어문자가 있으면 그 칸을 다시 확인해 달라 한다', async () => {
+    const { appendRow, deps } = fakes()
+    const result = await submitConsent(
+      body({ info: { ...info, guardianName: '김\n하나', phone: '010-1234\t-5678', petName: '보\u0000리', breed: '말티\u007f즈' } }),
+      UA,
+      deps,
+    )
+    expect(result).toStrictEqual({
+      status: 'invalid',
+      errors: [
+        // 연락처는 문항 검증이 먼저 모양 오류로 잡는다.
+        { questionId: 'phone', message: '연락처를 다시 확인해 주세요' },
+        { questionId: 'guardianName', message: '보호자 성함을 다시 확인해 주세요' },
+        { questionId: 'petName', message: '반려견 이름을 다시 확인해 주세요' },
+        { questionId: 'breed', message: '견종을 다시 확인해 주세요' },
+      ],
+    })
+    expect(appendRow).not.toHaveBeenCalled()
+  })
+
   it('미리 보여 준 값과 달라진 칸만 "견종 말티 → 말티즈" 꼴로 시트·슬랙에 실리고, 신청서 없이 만든 동의서는 고친 값이 없다', async () => {
     const shown = { guardianName: '김하나', phone: '01012345678', petName: '보리', breed: '말티' }
     const { buildPdf, appendRow, sendSlack, deps } = fakes(record({ prepared: { ...prepared, shown } }))
@@ -455,5 +508,14 @@ describe('동의서 메일', () => {
       text: '서명해 주셔서 고마워요. 서명한 동의서를 첨부해 드려요. 궁금한 점은 카카오톡 채널로 알려 주세요.',
       attachment,
     })
+  })
+
+  it('첨부 파일 이름의 금지 문자(/ \\ : * ? " < > |)와 제어문자는 _ 로 바꾼다', () => {
+    const [archive, copy] = mailsFor('김하나', 'a/b\\c:d*e?f"g<h>i|j\tk\u0000l\u007fm')
+    const filename = '히스하우스_동의서_행동수정 트레이닝_a_b_c_d_e_f_g_h_i_j_k_l_m_20261103.pdf'
+    expect(archive.attachment?.filename).toBe(filename)
+    expect(copy.attachment?.filename).toBe(filename)
+    // 제목은 검증이 제어문자를 막으므로 그대로 둔다.
+    expect(archive.subject).toBe('[동의서] 김하나 · a/b\\c:d*e?f"g<h>i|j\tk\u0000l\u007fm · 행동수정 트레이닝 · 2026-11-03')
   })
 })

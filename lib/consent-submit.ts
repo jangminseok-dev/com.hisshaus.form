@@ -43,8 +43,29 @@ const DEVICE_MAX = 300
 const MOBILE = /^010-\d{4}-\d{4}$/
 /** 미리 보여 주고 보호자가 고칠 수 있는 칸. 이메일은 미리 보여 주지 않으므로 견주지 않는다. */
 const GUARDIAN_KEYS = ['guardianName', 'phone', 'petName', 'breed'] as const
+// 개행·탭 같은 제어문자. 보호자 칸 값은 메일 제목·첨부 이름·PDF 칸에 들어가므로 받지 않는다.
+const CONTROL = /[\u0000-\u001f\u007f]/
+const RECHECK: Record<(typeof GUARDIAN_KEYS)[number], string> = {
+  guardianName: '보호자 성함을 다시 확인해 주세요',
+  phone: '연락처를 다시 확인해 주세요',
+  petName: '반려견 이름을 다시 확인해 주세요',
+  breed: '견종을 다시 확인해 주세요',
+}
+// 이메일 주소에 쓰이면 주소가 여럿이 되거나(쉼표·세미콜론·공백·개행) 이름·주소 꼴(꺾쇠·따옴표)로 읽히는 글자
+const EMAIL_FORBIDDEN = /[\s,;<>"'\u0000-\u001f\u007f]/
+// 첨부 파일 이름에 쓸 수 없는 글자(윈도우 기준)와 제어문자
+const FILENAME_FORBIDDEN = /[/\\:*?"<>|\u0000-\u001f\u007f]/g
 
 type Info = { guardianName: string; phone: string; petName: string; breed: string; email: string }
+
+/**
+ * 메일 `to` 에 그대로 들어가므로 주소 하나만 받는다(lib/validate.ts 의 공용 규칙은 `@` 만 본다).
+ * 금지 글자가 없고, `@` 가 정확히 하나, 그 앞이 비지 않고, 도메인에 점이 있어야 한다.
+ */
+function isSingleEmail(v: string): boolean {
+  const parts = v.split('@')
+  return !EMAIL_FORBIDDEN.test(v) && parts.length === 2 && parts[0] !== '' && parts[1].includes('.')
+}
 
 const labelOf = (id: string) => consentInfoGroup.questions.find((q) => q.id === id)!.label
 
@@ -64,16 +85,18 @@ function normalizeInfo(raw: unknown): Info {
   }
 }
 
-/** 칸마다 오류 하나. 문항 검증(빈칸·모양)이 먼저고, 그 칸에 오류가 없을 때만 길이·휴대폰 꼴을 본다. */
+/** 칸마다 오류 하나. 문항 검증(빈칸·모양)이 먼저고, 그 칸에 오류가 없을 때만 제어문자·길이·휴대폰·이메일 꼴을 본다. */
 function validate(info: Info, body: Record<string, unknown>, pages: PageId[], today: string): FieldError[] {
   const errors = validateGroup(consentInfoGroup, info, today)
   const add = (questionId: string, message: string) => {
     if (!errors.some((e) => e.questionId === questionId)) errors.push({ questionId, message })
   }
   for (const key of GUARDIAN_KEYS) {
+    if (CONTROL.test(info[key])) add(key, RECHECK[key])
     if (info[key].length > GUARDIAN_TEXT_MAX) add(key, `${GUARDIAN_TEXT_MAX}자까지 적을 수 있어요`)
   }
   if (!MOBILE.test(info.phone)) add('phone', '휴대폰 번호(010)로 적어 주세요')
+  if (!isSingleEmail(info.email)) add('email', '이메일을 다시 확인해 주세요')
   // 묶음의 장과 정확히 같은 집합이어야 한다(빠뜨림·더함·겹침 모두 거부). 순서는 보지 않는다.
   const agreed = body.agreed
   const allPages =
@@ -96,7 +119,10 @@ function changesOf(shown: GuardianInfo | null, info: Info): string[] {
   })
 }
 
-/** [보관용, 보호자 사본]. 메일 다시 보내기도 이것을 써서 제목·첨부 이름이 제출 때와 같다. */
+/**
+ * [보관용, 보호자 사본]. 메일 다시 보내기도 이것을 써서 제목·첨부 이름이 제출 때와 같다.
+ * 첨부 이름의 금지 문자·제어문자는 `_` 로 바꾼다(반려견 이름의 '/' 등). 제목은 제출 검증이 제어문자를 막는다.
+ */
 export function consentMails(r: {
   bundleLabel: string
   guardianName: string
@@ -106,7 +132,8 @@ export function consentMails(r: {
   pdf: Uint8Array
 }): [Mail, Mail] {
   const date = r.signedAt.slice(0, 10)
-  const attachment = { filename: `히스하우스_동의서_${r.bundleLabel}_${r.petName}_${date.replace(/-/g, '')}.pdf`, content: r.pdf }
+  const filename = `히스하우스_동의서_${r.bundleLabel}_${r.petName}_${date.replace(/-/g, '')}.pdf`.replace(FILENAME_FORBIDDEN, '_')
+  const attachment = { filename, content: r.pdf }
   return [
     {
       to: mailAddress(),
