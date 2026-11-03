@@ -23,8 +23,19 @@ export interface ConsentItem {
   url: string | null
 }
 
-/** 사장님 홈: 신청서에서 만들기, 신청서 없이 만들기, 최근 동의서. 시트를 못 읽은 목록은 null. */
-export function AdminHome({ applicants, consents }: { applicants: Applicant[] | null; consents: ConsentItem[] | null }) {
+/**
+ * 사장님 홈: 신청서에서 만들기, 신청서 없이 만들기, 최근 동의서(30건), 메일을 다시 보내야 하는 서명(30건 밖까지 모두).
+ * 시트를 못 읽은 목록은 null. 최근 30건 안의 실패는 두 목록에 다 보이고 어느 쪽 버튼으로도 다시 보낸다(결과 줄도 양쪽에 같다).
+ */
+export function AdminHome({
+  applicants,
+  consents,
+  resends = [],
+}: {
+  applicants: Applicant[] | null
+  consents: ConsentItem[] | null
+  resends?: ConsentItem[]
+}) {
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [confirming, setConfirming] = useState<string | null>(null)
@@ -58,6 +69,7 @@ export function AdminHome({ applicants, consents }: { applicants: Applicant[] | 
       const out = await resendConsentMailAction(id)
       if (out.error) setError(out.error)
       else if (out.result === 'not-signed') setError('서명한 동의서만 다시 보낼 수 있어요.')
+      else if (out.result === 'changed') setError('원본 문서나 시트 기록이 서명 때와 달라 다시 만들 수 없어요.')
       else if (out.result === 'already-sent') {
         setError('')
         setResent((cur) => ({ ...cur, [id]: '이미 두 통 다 보냈어요.' }))
@@ -70,6 +82,24 @@ export function AdminHome({ applicants, consents }: { applicants: Applicant[] | 
       router.refresh()
     })
   }
+
+  /** '메일 다시 보내기' 버튼과 다시 보낸 결과 한 줄. 최근 동의서와 다시 보낼 서명 목록이 같이 쓴다. */
+  const resendControls = (c: ConsentItem) => (
+    <>
+      {c.resend && (
+        <div className={styles.row}>
+          <button className={styles.small} type="button" disabled={pending} onClick={() => resend(c.id)}>
+            메일 다시 보내기
+          </button>
+        </div>
+      )}
+      {resent[c.id] && (
+        <p className={styles.muted} role="status">
+          {resent[c.id]}
+        </p>
+      )}
+    </>
+  )
 
   return (
     <>
@@ -141,18 +171,7 @@ export function AdminHome({ applicants, consents }: { applicants: Applicant[] | 
                     </button>
                   </div>
                 )}
-                {c.resend && (
-                  <div className={styles.row}>
-                    <button className={styles.small} type="button" disabled={pending} onClick={() => resend(c.id)}>
-                      메일 다시 보내기
-                    </button>
-                  </div>
-                )}
-                {resent[c.id] && (
-                  <p className={styles.muted} role="status">
-                    {resent[c.id]}
-                  </p>
-                )}
+                {resendControls(c)}
               </li>
             ))}
           </ul>
@@ -163,6 +182,26 @@ export function AdminHome({ applicants, consents }: { applicants: Applicant[] | 
           </p>
         )}
       </section>
+
+      {resends.length > 0 && (
+        <section className={styles.section}>
+          <h2 className={styles.heading}>메일을 다시 보내야 하는 서명</h2>
+          <ul className={styles.list}>
+            {resends.map((c) => (
+              <li key={c.id} className={styles.item} data-resend={c.id}>
+                <span className={styles.itemTitle}>
+                  {c.bundleLabel} · {c.guardianName}
+                </span>
+                <span className={styles.muted}>
+                  {c.createdAt.slice(0, 10)}
+                  {c.mail ? ` · 메일: ${c.mail}` : ''}
+                </span>
+                {resendControls(c)}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {confirming && (
         <div className={styles.backdrop}>
