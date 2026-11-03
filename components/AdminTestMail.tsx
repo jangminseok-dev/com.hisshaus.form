@@ -11,9 +11,13 @@ export function AdminTestMail() {
   return (
     <form className={styles.form} action={action}>
       <button className={styles.secondary} type="submit" disabled={pending}>
-        메일 시험 보내기
+        {pending ? '보내는 중…' : '메일 시험 보내기'}
       </button>
-      {state.ok && <p className={styles.text}>보냈어요. hisshaus 메일함을 확인해 주세요.</p>}
+      {state.ok && (
+        <p className={styles.text} role="status">
+          보냈어요. hisshaus 메일함을 확인해 주세요.
+        </p>
+      )}
       {state.error && (
         <p className={styles.error} role="alert">
           {state.error}
