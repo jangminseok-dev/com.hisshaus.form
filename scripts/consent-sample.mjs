@@ -41,5 +41,5 @@ for (const bundle of BUNDLES) {
   })
   const file = join(tmpdir(), `consent-sample-${bundle.id}.pdf`)
   writeFileSync(file, bytes)
-  console.log(`${file}  ${(bytes.length / 1024).toFixed(1)}KB  doc ${docHash.slice(0, 12)}…  file ${fileHash.slice(0, 12)}…`)
+  console.log(`${file}  ${(bytes.length / 1024).toFixed(1)}KB  내용 ${docHash.slice(0, 12)}…  파일 ${fileHash.slice(0, 12)}…`)
 }

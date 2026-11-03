@@ -1,9 +1,14 @@
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { PDFDocument } from 'pdf-lib'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { delimiter, join } from 'node:path'
+import { decodePDFRawStream, PDFArray, PDFDocument, type PDFRawStream } from 'pdf-lib'
 import { describe, expect, it } from 'vitest'
 import { BUNDLES, LAYOUT, type BundleId, type PageId } from '../lib/consent-docs'
 import {
   buildConsentPdf,
+  consentContentHash,
   embedKoreanFont,
   fieldValues,
   fitText,
@@ -33,8 +38,35 @@ function input(bundle: BundleId, over: Partial<ConsentPdfInput> = {}): ConsentPd
   }
 }
 
-const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex')
+const sha256 = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex')
 const boxOf = (page: PageId, key: string) => LAYOUT[page].find((b) => b.key === key)!
+
+// poppler 의 pdftotext 가 있으면 PDF 에 실제로 찍힌 글을 쪽마다 뽑는다(없으면 그 테스트는 건너뛴다).
+const PDFTOTEXT = [...(process.env.PATH ?? '').split(delimiter), '/opt/homebrew/bin']
+  .map((dir) => join(dir, 'pdftotext'))
+  .find((file) => existsSync(file))
+
+function pagesText(bytes: Uint8Array, count: number): string[] {
+  const dir = mkdtempSync(join(tmpdir(), 'consent-pdf-'))
+  try {
+    const file = join(dir, 'sample.pdf')
+    writeFileSync(file, bytes)
+    return Array.from({ length: count }, (_, i) =>
+      execFileSync(PDFTOTEXT!, ['-f', String(i + 1), '-l', String(i + 1), file, '-'], { encoding: 'utf8' }),
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+// 한 쪽의 콘텐츠 스트림(원본 + pdf-lib 가 덧붙인 것)을 풀어 이은 글
+function pageContent(doc: PDFDocument, index: number): string {
+  const contents = doc.getPage(index).node.Contents()
+  const streams = contents instanceof PDFArray ? contents.asArray().map((ref) => doc.context.lookup(ref)) : [contents]
+  return streams.map((s) => Buffer.from(decodePDFRawStream(s as PDFRawStream).decode()).toString('latin1')).join('\n')
+}
+// 선 긋기 연산자(l) 수
+const lineOps = (content: string) => content.split(/\s+/).filter((token) => token === 'l').length
 
 describe('동의서 PDF', () => {
   it('묶음마다 고른 장 수 + 기록 페이지 한 장이다', async () => {
@@ -87,12 +119,97 @@ describe('동의서 PDF', () => {
     await expect(buildConsentPdf(input('generalGrooming', { signedAt: '2026-11-03T14:05:09' }))).rejects.toThrow()
   })
 
+  it.skipIf(!PDFTOTEXT)('찍힌 글: 값은 문서 장에, 출처 문구는 서명 기록 쪽에만 있고, 서명 기록에 서명 내용 고유값이 있다', async () => {
+    // 행동수정: 1 서약서, 2 계약서(보호자 정보 표·사장님 칸), 3 안내사항, 4 서명 기록
+    const behavior = await buildConsentPdf(input('behavior'))
+    const pages = pagesText(behavior.bytes, 4)
+    for (const word of ['김하나', '보리', '말티즈', '1234', '5678', '짖음 줄이기', '초인종 소리에 짖지 않기']) {
+      expect(pages[1], word).toContain(word)
+    }
+    expect(pages[0]).toContain('김하나') // 서약서 아래의 보호자 성함
+    for (const page of pages.slice(0, 3)) expect(page).not.toContain('어글리독')
+    expect(pages[3]).toContain('어글리독 All rights reserved')
+    expect(pages[3]).toContain('서명 내용 고유값(SHA-256):')
+    expect(pages[3].replace(/\s/g, '')).toContain(behavior.docHash)
+    expect(pages[3]).toContain('시트에 남은 서명 기록과 원본 문서로 다시 계산할 수 있어요.')
+
+    // 일반 미용: 1 동의서, 2 서명 기록
+    const general = pagesText((await buildConsentPdf(input('generalGrooming'))).bytes, 2)
+    for (const word of ['김하나', '보리', '말티즈', '1234', '5678', '히스하우스']) expect(general[0], word).toContain(word)
+    expect(general[0]).not.toContain('어글리독')
+    expect(general[1]).toContain('어글리독 All rights reserved')
+  })
+
+  it('체크한 부위가 늘면 그 장의 선이 체크마다 둘씩 늘고, 사인이 다르면 그 장의 그림이 다르다', async () => {
+    const owner = input('generalGrooming').owner
+    const load = async (over: Partial<ConsentPdfInput>) =>
+      PDFDocument.load((await buildConsentPdf(input('generalGrooming', over))).bytes)
+    const one = pageContent(await load({ owner: { ...owner, groomingParts: ['등'] } }), 0)
+    const three = pageContent(await load({ owner: { ...owner, groomingParts: ['등', '배', '앞다리'] } }), 0)
+    expect(lineOps(three)).toBe(lineOps(one) + 4)
+    // SIGNATURE 는 선 다섯(세 점·네 점 획), 아래 사인은 선 하나
+    const otherSig = pageContent(
+      await load({ owner: { ...owner, groomingParts: ['등'] }, signature: encodeSignature([[[10, 10], [590, 190]]]) }),
+      0,
+    )
+    expect(otherSig).not.toBe(one)
+    expect(lineOps(one) - lineOps(otherSig)).toBe(4)
+  })
+
   it('PDF 만든 날짜는 서명 시각이다', async () => {
     // load 는 기본으로 날짜를 지금으로 바꾸므로 끈다
     const doc = await PDFDocument.load((await buildConsentPdf(input('generalGrooming'))).bytes, { updateMetadata: false })
     // 2026-11-03 14:05:09 한국 시각 = 05:05:09 UTC
     expect(doc.getCreationDate()?.toISOString()).toBe('2026-11-03T05:05:09.000Z')
     expect(doc.getModificationDate()?.toISOString()).toBe('2026-11-03T05:05:09.000Z')
+  })
+})
+
+describe('서명 내용 고유값', () => {
+  const fileHash = (name: string) => sha256(readFileSync(join(process.cwd(), 'content', name)))
+
+  it('원본 문서 고유값과 서명 값을 정해진 키 순서로 적은 JSON(v1) 의 sha256 이다', () => {
+    const json =
+      '{"v":1,' +
+      `"templates":{"agreement":"${fileHash('consent-agreement.pdf')}","guidelines":"${fileHash('consent-guidelines.pdf')}"},` +
+      '"bundle":"behavior","pages":["agreement","behavior","guidelines"],' +
+      '"guardian":{"guardianName":"김하나","phone":"010-1234-5678","petName":"보리","breed":"말티즈","email":"hana@example.com"},' +
+      '"owner":{"programName":"짖음 줄이기","goal":"초인종 소리에 짖지 않기","classTime":"토요일 오전 10시","groomingParts":["등","발톱깎기","귀청소"]},' +
+      `"signature":"${SIGNATURE}",` +
+      '"signedAt":"2026-11-03 14:05:09","consentId":"CnSt12345678","applyId":"Ab3dE5gH9k",' +
+      '"device":"Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",' +
+      '"agreed":["교육을 하지 않은 상태의 반려견의 미용 동의서 — 읽고 동의해요","전자 방식으로 서명하는 데 동의해요"],' +
+      '"changes":[]}'
+    expect(consentContentHash(input('behavior'))).toBe(sha256(json))
+  })
+
+  it('같은 입력이면 같고, PDF 를 두 번 만들어도 돌려주는 docHash 가 그 값이다', async () => {
+    const expected = consentContentHash(input('generalGrooming'))
+    expect(consentContentHash(input('generalGrooming'))).toBe(expected)
+    expect((await buildConsentPdf(input('generalGrooming'))).docHash).toBe(expected)
+    expect((await buildConsentPdf(input('generalGrooming'))).docHash).toBe(expected)
+  })
+
+  it('값 하나만 바뀌어도 바뀐다', () => {
+    const base = input('generalGrooming')
+    const variants: Partial<ConsentPdfInput>[] = [
+      { guardian: { ...base.guardian, breed: '말티' } },
+      { signature: encodeSignature([[[40, 150], [90, 40], [151, 150]]]) },
+      { signedAt: '2026-11-03 14:05:10' },
+      { owner: { ...base.owner, groomingParts: ['등'] } },
+      { bundle: 'unfinishedGrooming' },
+      { consentId: 'CnSt12345679' },
+      { applyId: '' },
+      { device: 'other' },
+      { agreed: ['전자 방식으로 서명하는 데 동의해요'] },
+      { changes: ['견종 말티 → 말티즈'] },
+    ]
+    const hashes = new Set([consentContentHash(base), ...variants.map((v) => consentContentHash({ ...base, ...v }))])
+    expect(hashes.size).toBe(variants.length + 1)
+  })
+
+  it('모르는 묶음이면 던진다', () => {
+    expect(() => consentContentHash(input('nope' as BundleId))).toThrow()
   })
 })
 
@@ -201,8 +318,11 @@ describe('서명 기록 페이지', () => {
     expect(valueOf(changed, '보호자가 고친 값')).toEqual(['견종 말티 → 말티즈'])
   })
 
-  it('마지막 줄은 앞 장들의 고유값이다', () => {
+  it('끝은 서명 내용 고유값과, 작은 글씨로 다시 계산하는 법이다', () => {
     const rows = recordRows(input('generalGrooming'), HASH)
-    expect(rows.at(-1)).toEqual({ label: '', values: [`문서 고유값(SHA-256, 이 페이지 앞 장들): ${HASH}`] })
+    expect(rows.slice(-2)).toEqual([
+      { label: '', values: [`서명 내용 고유값(SHA-256): ${HASH}`] },
+      { label: '', values: ['시트에 남은 서명 기록과 원본 문서로 다시 계산할 수 있어요.'], small: true },
+    ])
   })
 })

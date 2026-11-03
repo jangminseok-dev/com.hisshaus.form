@@ -1,6 +1,9 @@
 // 서명한 동의서 PDF: 고른 장을 원본에서 복사해 칸 값·체크·사인을 찍고, 맨 끝에 '서명 기록' 페이지를 붙인다.
-// 이 PDF 가 보관 메일과 보호자 사본에 붙는 증거다. 같은 값이면 같은 바이트가 나와서(만든 날짜·글꼴 이름 고정)
-// 메일 다시 보내기로 다시 만들어도 고유값이 그대로다.
+// 이 PDF 가 보관 메일과 보호자 사본에 붙는 증거다. 고유값은 둘이다.
+// - docHash(서명 내용 고유값): 원본 문서와 서명 값으로 정해지는 값(consentContentHash). PDF 바이트와 무관해서
+//   시트의 서명 기록과 원본 문서로 언제든 다시 계산할 수 있다. 기록 페이지에 찍힌다.
+// - fileHash: 완성 PDF 전체의 sha256. 같은 값이면 같은 바이트가 나오게(만든 날짜·글꼴 이름 고정) 해 두어서
+//   같은 라이브러리 판에서는 메일 다시 보내기로 다시 만들어도 그대로다.
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -64,6 +67,37 @@ const fontkitForPdfLib = {
 export async function embedKoreanFont(doc: PDFDocument, tag: string): Promise<PDFFont> {
   doc.registerFontkit(fontkitForPdfLib)
   return doc.embedFont(files().font, { subset: true, customName: `${tag}+Pretendard-Regular` })
+}
+
+const sha256 = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex')
+
+/**
+ * 서명 내용 고유값(R6): 원본 문서 두 파일의 sha256 과 서명 값을 정해진 키 순서의 JSON(v1)으로 묶은 글의 sha256 hex.
+ * 키 순서는 아래 목록 그대로다(객체 키 순서에 기대지 않는다). 순서·키를 바꾸면 v 를 올린다 — 이미 남은 기록을 다시 계산할 수 없게 된다.
+ */
+export function consentContentHash(input: ConsentPdfInput): string {
+  const bundle = bundleOf(input.bundle)
+  if (!bundle) throw new Error('모르는 묶음이에요')
+  const j = JSON.stringify
+  const obj = (entries: [string, string][]) => `{${entries.map(([k, v]) => `${j(k)}:${v}`).join(',')}}`
+  const { guardian: g, owner: o } = input
+  return sha256(
+    obj([
+      ['v', j(1)],
+      ['templates', obj([['agreement', j(sha256(files().agreement))], ['guidelines', j(sha256(files().guidelines))]])],
+      ['bundle', j(bundle.id)],
+      ['pages', j(bundle.pages)],
+      ['guardian', obj([['guardianName', j(g.guardianName)], ['phone', j(g.phone)], ['petName', j(g.petName)], ['breed', j(g.breed)], ['email', j(g.email)]])],
+      ['owner', obj([['programName', j(o.programName)], ['goal', j(o.goal)], ['classTime', j(o.classTime)], ['groomingParts', j(o.groomingParts)]])],
+      ['signature', j(input.signature)],
+      ['signedAt', j(input.signedAt)],
+      ['consentId', j(input.consentId)],
+      ['applyId', j(input.applyId)],
+      ['device', j(input.device)],
+      ['agreed', j(input.agreed)],
+      ['changes', j(input.changes)],
+    ]),
+  )
 }
 
 /** 'YYYY-MM-DD HH:mm:ss'(한국 시각)를 나눈다. 꼴이 틀리면 던진다. */
@@ -188,8 +222,10 @@ function drawSignature(page: PDFPage, strokes: Stroke[], box: FieldBox) {
   })
 }
 
-/** 기록 페이지의 줄들. 마지막 줄은 앞 장들의 고유값이다(이 페이지는 자기 고유값을 담을 수 없다). */
-export function recordRows(input: ConsentPdfInput, docHash: string): { label: string; values: string[] }[] {
+type RecordRow = { label: string; values: string[]; small?: boolean }
+
+/** 기록 페이지의 줄들. 끝은 서명 내용 고유값과 그 값을 다시 계산하는 법(작은 글씨)이다. */
+export function recordRows(input: ConsentPdfInput, docHash: string): RecordRow[] {
   const bundle = bundleOf(input.bundle)
   if (!bundle) throw new Error('모르는 묶음이에요')
   return [
@@ -205,7 +241,8 @@ export function recordRows(input: ConsentPdfInput, docHash: string): { label: st
     { label: '신청 ID', values: [input.applyId || '없음'] },
     { label: '동의한 내용', values: input.agreed.length > 0 ? input.agreed : ['없음'] },
     { label: '보호자가 고친 값', values: input.changes.length > 0 ? input.changes : ['없음'] },
-    { label: '', values: [`문서 고유값(SHA-256, 이 페이지 앞 장들): ${docHash}`] },
+    { label: '', values: [`서명 내용 고유값(SHA-256): ${docHash}`] },
+    { label: '', values: ['시트에 남은 서명 기록과 원본 문서로 다시 계산할 수 있어요.'], small: true },
   ]
 }
 
@@ -225,35 +262,34 @@ function drawCredit(page: PDFPage, font: PDFFont) {
   page.drawText(rest, { x: x + mark, y, size, font, color: GRAY })
 }
 
-function drawRecordPage(doc: PDFDocument, font: PDFFont, rows: { label: string; values: string[] }[]) {
+function drawRecordPage(doc: PDFDocument, font: PDFFont, rows: RecordRow[]) {
   const page = doc.addPage([PAGE_SIZE.w, PAGE_SIZE.h])
   const left = 56
   const valueX = 150
   const right = PAGE_SIZE.w - 56
-  const size = 9.5
-  const pitch = size * 1.5
+  const pitch = 9.5 * 1.5
   let y = PAGE_SIZE.h - 80
   page.drawText('서명 기록', { x: left, y, size: 18, font, color: INK })
   y -= 40
-  for (const { label, values } of rows) {
+  rows.forEach(({ label, values, small }, i) => {
+    // 줄 사이 틈: 이름 붙은 줄 앞은 반 줄, 이름 없는 줄(고유값) 앞은 한 줄, 작은 글씨는 바로 위 줄에 붙인다
+    if (i > 0 && !small) y -= label ? pitch / 2 : pitch
+    const size = small ? 8 : 9.5
     const x = label ? valueX : left
     if (label) page.drawText(label, { x: left, y, size, font, color: GRAY })
-    else y -= pitch / 2
     for (const value of values) {
       // 한 값은 최대 넉 줄(서명 기기 글이 아주 길어도 출처 문구를 덮지 않게)
       const lines = wrap(value.replace(/\s+/g, ' ').trim(), font, size, right - x)
       for (const line of lines.length > 4 ? clip(lines, 4, font, size, right - x) : lines) {
-        page.drawText(line, { x, y, size, font, color: INK })
-        y -= pitch
+        page.drawText(line, { x, y, size, font, color: small ? GRAY : INK })
+        y -= size * 1.5
       }
     }
-    y -= pitch / 2
-  }
+  })
   drawCredit(page, font)
 }
 
-const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex')
-
+/** docHash 는 서명 내용 고유값(consentContentHash), fileHash 는 완성 PDF(bytes) 전체의 sha256 이다. */
 export async function buildConsentPdf(input: ConsentPdfInput): Promise<{ bytes: Uint8Array; docHash: string; fileHash: string }> {
   const bundle = bundleOf(input.bundle)
   if (!bundle) throw new Error('모르는 묶음이에요')
@@ -262,11 +298,12 @@ export async function buildConsentPdf(input: ConsentPdfInput): Promise<{ bytes: 
   const { date } = parseSignedAt(input.signedAt)
   const values = fieldValues(input)
   const parts = new Set(input.owner.groomingParts)
+  const docHash = consentContentHash(input)
 
   const doc = await PDFDocument.create()
   doc.setCreationDate(date)
   doc.setModificationDate(date)
-  const font = await embedKoreanFont(doc, 'HHDOCA')
+  const font = await embedKoreanFont(doc, 'HHFONT')
   const sources = {
     agreement: await PDFDocument.load(files().agreement),
     guidelines: await PDFDocument.load(files().guidelines),
@@ -285,12 +322,7 @@ export async function buildConsentPdf(input: ConsentPdfInput): Promise<{ bytes: 
       }
     }
   }
-  const docHash = sha256(await doc.save())
-
-  // 앞 장들의 부분 글꼴은 첫 저장 때 이미 들어갔다. 같은 글꼴에 글자를 더하면 다음 저장 때 부분 글꼴을 새로 만들어 넣고
-  // 앞 것은 쓰이지 않은 채 파일에 남으므로, 기록 페이지는 같은 글꼴을 따로 부분 넣기한다.
-  const recordFont = await embedKoreanFont(doc, 'HHDOCB')
-  drawRecordPage(doc, recordFont, recordRows(input, docHash))
+  drawRecordPage(doc, font, recordRows(input, docHash))
   const bytes = await doc.save()
   return { bytes, docHash, fileHash: sha256(bytes) }
 }
