@@ -140,7 +140,7 @@ test('신청서로 만든 링크에서 정보를 고치고 세 장에 동의해 
   // 같은 링크를 다시 열면 닫혀 있다.
   await page.goto(path)
   await expect(page.getByRole('heading', { level: 1, name: '이미 서명한 동의서예요' })).toBeVisible()
-  await expect(page.getByText('사본은 메일로 보내 드렸어요.')).toBeVisible()
+  await expect(page.getByText('사본은 메일로 보내 드려요. 받지 못했다면 카카오톡 채널로 알려 주세요.')).toBeVisible()
 })
 
 test('취소한 링크는 열 수 없다고 한다', async ({ page, context }) => {

@@ -109,7 +109,7 @@ describe('동의서 링크 페이지', () => {
 describe('ConsentNotice', () => {
   it.each([
     ['closed', '열 수 없는 동의서예요', '링크가 바뀌었을 수 있어요. 카카오톡 채널로 알려 주세요.'],
-    ['signed', '이미 서명한 동의서예요', '사본은 메일로 보내 드렸어요.'],
+    ['signed', '이미 서명한 동의서예요', '사본은 메일로 보내 드려요. 받지 못했다면 카카오톡 채널로 알려 주세요.'],
     ['error', '지금은 동의서를 열 수 없어요', '잠시 뒤 다시 열어 주세요.'],
   ] as const)('%s 안내', (kind, title, text) => {
     render(<ConsentNotice kind={kind} />)

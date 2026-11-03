@@ -222,7 +222,7 @@ describe('ConsentFlow', () => {
     expect(clicked[0].download).toBe(`히스하우스_동의서_행동수정 트레이닝_보리_${todayKst().replace(/-/g, '')}.pdf`)
   })
 
-  it('사본 메일이 실패했으면 곧 다시 보낸다고 하고, 이미 서명된 재시도면 내려받기 없이 메일로 보냈다고 한다', async () => {
+  it('사본 메일이 실패했으면 곧 다시 보낸다고 하고, 이미 서명된 재시도면 내려받기 없이 메일로 보내 드린다고 한다', async () => {
     postForResult.mockResolvedValue({ result: 'ok', data: { pdf: PDF_BASE64, mailed: false } })
     const first = open()
     goToSign()
@@ -237,9 +237,43 @@ describe('ConsentFlow', () => {
     goToSign()
     await signAndSubmit()
     expect(screen.getByRole('heading', { name: '서명이 끝났어요' })).toBeInTheDocument()
-    expect(screen.getByText('사본은 메일로 보내 드렸어요.')).toBeInTheDocument()
+    expect(screen.getByText('사본은 메일로 보내 드려요. 받지 못했다면 카카오톡 채널로 알려 주세요.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'PDF 내려받기' })).toBeNull()
     expect(screen.queryByText('사본 메일은 곧 다시 보내 드릴게요')).toBeNull()
+  })
+
+  it('카카오톡 인앱 브라우저면 내려받기 버튼은 두고 그 아래에 내려받기가 안 될 수 있다고 알린다', async () => {
+    const KAKAO_NOTE = '카카오톡 안에서는 내려받기가 안 될 수 있어요. 메일로 받은 사본을 확인해 주세요.'
+    const ua = vi.spyOn(navigator, 'userAgent', 'get')
+    // 사본을 보냈으면 메일로 받은 사본을 보라고 한다. 대소문자는 가리지 않는다.
+    ua.mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 KAKAOTALK 25.9.0')
+    const first = open()
+    goToSign()
+    await signAndSubmit()
+    expect(button('PDF 내려받기')).toBeInTheDocument()
+    expect(screen.getByText(KAKAO_NOTE)).toBeInTheDocument()
+    first.unmount()
+
+    // 사본 메일이 실패했으면 실패 줄을 그대로 두고, 메일로 받았다고 하지 않는다.
+    ua.mockReturnValue('Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36 kakaotalk/25.9.0')
+    postForResult.mockResolvedValue({ result: 'ok', data: { pdf: PDF_BASE64, mailed: false } })
+    const second = open()
+    goToSign()
+    await signAndSubmit()
+    expect(button('PDF 내려받기')).toBeInTheDocument()
+    expect(screen.getByText('사본 메일은 곧 다시 보내 드릴게요')).toBeInTheDocument()
+    expect(screen.getByText('카카오톡 안에서는 내려받기가 안 될 수 있어요.')).toBeInTheDocument()
+    expect(screen.queryByText(KAKAO_NOTE)).toBeNull()
+    second.unmount()
+
+    // 다른 브라우저에는 이 안내가 없다.
+    ua.mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1')
+    postForResult.mockResolvedValue({ result: 'ok', data: { pdf: PDF_BASE64, mailed: true } })
+    open()
+    goToSign()
+    await signAndSubmit()
+    expect(button('PDF 내려받기')).toBeInTheDocument()
+    expect(screen.queryByText(/카카오톡 안에서는/)).toBeNull()
   })
 
   it('아이패드(device)면 완료 화면에 내려받기 대신 기기를 돌려 달라고 한다', async () => {

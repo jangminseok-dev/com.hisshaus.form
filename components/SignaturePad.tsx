@@ -56,7 +56,19 @@ export function SignaturePad({ value, onChange }: { value: string; onChange(v: s
     drawStrokes(canvasRef.current, [...saved(), cur.stroke])
   }
 
-  /** 획을 확정한다. 취소(cancel)는 좌표가 믿을 수 없으니(보통 0,0) 끝점을 더하지 않는다. */
+  /** 그리던 획까지 모두 버린다. 손 떼기 소식이 오지 않아 남은 획이 있어도 바로 새로 그릴 수 있다. */
+  function reset() {
+    current.current = null
+    // 값이 이미 비어 있으면 다시 그려지지 않으니 그리던 선을 직접 지운다.
+    drawStrokes(canvasRef.current, [])
+    onChange('')
+  }
+
+  /**
+   * 획을 확정한다. 취소(cancel)는 좌표가 믿을 수 없으니(보통 0,0) 끝점을 더하지 않는다.
+   * 포인터 잡기를 잃었을 때(lostpointercapture)도 취소처럼 끝낸다: 손 떼기·취소 소식이 끝내 오지 않으면 획이 남아 그리기가 막힌다.
+   * 보통은 손 떼기 다음에 오므로 그때는 이미 끝난 획이라 아무 일도 없다.
+   */
   function finish(e: React.PointerEvent<HTMLCanvasElement>, canceled: boolean) {
     const cur = current.current
     if (!cur || cur.id !== e.pointerId) return
@@ -89,6 +101,7 @@ export function SignaturePad({ value, onChange }: { value: string; onChange(v: s
           onPointerMove={move}
           onPointerUp={(e) => finish(e, false)}
           onPointerCancel={(e) => finish(e, true)}
+          onLostPointerCapture={(e) => finish(e, true)}
         />
         {value === '' && (
           <span className={styles.hint} aria-hidden="true">
@@ -96,7 +109,7 @@ export function SignaturePad({ value, onChange }: { value: string; onChange(v: s
           </span>
         )}
       </div>
-      <button type="button" className={styles.reset} onClick={() => onChange('')}>
+      <button type="button" className={styles.reset} onClick={reset}>
         다시 그리기
       </button>
     </div>

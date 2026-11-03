@@ -128,6 +128,44 @@ describe('SignaturePad', () => {
     expect(onChange).toHaveBeenCalledWith('')
   })
 
+  it('손을 떼거나 취소한 소식 없이 포인터 잡기를 잃으면 취소처럼 끝점 없이 획을 확정하고, 다음 획을 그릴 수 있다', () => {
+    const onChange = vi.fn()
+    render(<SignaturePad value="" onChange={onChange} />)
+    const canvas = screen.getByLabelText('서명 칸')
+    mockRect(canvas)
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10, pointerId: 1 })
+    fireEvent.pointerMove(canvas, { clientX: 50, clientY: 30, pointerId: 1 })
+    // 다른 포인터의 잡기 잃음은 무시한다.
+    fireEvent.lostPointerCapture(canvas, { clientX: 0, clientY: 0, pointerId: 2 })
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.lostPointerCapture(canvas, { clientX: 0, clientY: 0, pointerId: 1 })
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(decodeSignature(onChange.mock.calls[0][0])).toEqual([[[20, 20], [100, 60]]])
+    // 갇히지 않는다: 새 포인터로 다음 획을 그린다.
+    onChange.mockClear()
+    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 50, pointerId: 3 })
+    fireEvent.pointerUp(canvas, { clientX: 150, clientY: 50, pointerId: 3 })
+    expect(onChange.mock.calls[0][0]).toBe('200,100 300,100')
+  })
+
+  it('다시 그리기는 그리던 획도 버려서, 끝나지 않은 획이 있어도 바로 새로 그릴 수 있다', () => {
+    const onChange = vi.fn()
+    render(<SignaturePad value="" onChange={onChange} />)
+    const canvas = screen.getByLabelText('서명 칸')
+    mockRect(canvas)
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10, pointerId: 1 })
+    fireEvent.pointerMove(canvas, { clientX: 50, clientY: 30, pointerId: 1 })
+    fireEvent.click(screen.getByRole('button', { name: '다시 그리기' }))
+    expect(onChange.mock.calls).toEqual([['']])
+    onChange.mockClear()
+    // 버린 획의 늦은 손 떼기는 아무것도 더하지 않는다.
+    fireEvent.pointerUp(canvas, { clientX: 60, clientY: 40, pointerId: 1 })
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.pointerDown(canvas, { clientX: 100, clientY: 50, pointerId: 2 })
+    fireEvent.pointerUp(canvas, { clientX: 150, clientY: 50, pointerId: 2 })
+    expect(onChange.mock.calls).toEqual([['200,100 300,100']])
+  })
+
   it('값이 없을 때만 안내 글이 보인다', () => {
     const { rerender, container } = render(<SignaturePad value="" onChange={() => {}} />)
     expect(screen.getByText('여기에 사인해 주세요')).toBeTruthy()

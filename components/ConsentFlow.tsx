@@ -303,9 +303,20 @@ export function ConsentFlow({ token, prepared, device }: { token: string; prepar
   )
 }
 
-/** 완료 화면. 내려받기는 보호자 기기에서만, 매장 아이패드면 기기를 돌려 달라고 하고 사장님 화면(PIN)으로 가는 길만 둔다. */
+/**
+ * 완료 화면. 내려받기는 보호자 기기에서만, 매장 아이패드면 기기를 돌려 달라고 하고 사장님 화면(PIN)으로 가는 길만 둔다.
+ * 카카오톡 인앱 브라우저(특히 iOS)는 Blob 내려받기가 자주 안 돼서 버튼 아래에 알린다. 사본 메일이 실패했으면 메일로 받았다고 하지 않는다.
+ * 완료 화면은 제출 뒤 브라우저에서만 그려져서 그릴 때 navigator 를 읽어도 된다.
+ */
 function Finished({ done, device, titleRef }: { done: Done; device: boolean; titleRef: React.Ref<HTMLHeadingElement> }) {
-  const mail = done.pdf === undefined ? '사본은 메일로 보내 드렸어요.' : done.mailed ? '메일로 사본을 보냈어요' : '사본 메일은 곧 다시 보내 드릴게요'
+  // 이미 서명된 재시도는 그때 메일이 갔는지 모른다. 갔다고 단정하지 않는다.
+  const mail =
+    done.pdf === undefined
+      ? '사본은 메일로 보내 드려요. 받지 못했다면 카카오톡 채널로 알려 주세요.'
+      : done.mailed
+        ? '메일로 사본을 보냈어요'
+        : '사본 메일은 곧 다시 보내 드릴게요'
+  const kakao = /kakaotalk/i.test(navigator.userAgent)
   return (
     <div className={screenStyles.screen} data-step="done">
       <CheckMark />
@@ -321,9 +332,18 @@ function Finished({ done, device, titleRef }: { done: Done; device: boolean; tit
           </Link>
         ) : (
           done.pdf !== undefined && (
-            <button type="button" className={screenStyles.primary} onClick={() => download(done.pdf!, done.filename)}>
-              PDF 내려받기
-            </button>
+            <>
+              <button type="button" className={screenStyles.primary} onClick={() => download(done.pdf!, done.filename)}>
+                PDF 내려받기
+              </button>
+              {kakao && (
+                <p className={screenStyles.text}>
+                  {done.mailed
+                    ? '카카오톡 안에서는 내려받기가 안 될 수 있어요. 메일로 받은 사본을 확인해 주세요.'
+                    : '카카오톡 안에서는 내려받기가 안 될 수 있어요.'}
+                </p>
+              )}
+            </>
           )
         )}
       </div>
