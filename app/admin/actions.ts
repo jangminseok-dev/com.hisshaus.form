@@ -32,6 +32,8 @@ export async function unlock(_prev: ActionState, form: FormData): Promise<Action
     await writeSession({ ...session, locked: false, fails: 0 })
     redirect('/admin')
   }
+  // PIN 도 비밀번호처럼 연달아 시도하는 속도를 늦춘다.
+  await wait(1000)
   const fails = session.fails + 1
   if (fails >= MAX_PIN_FAILS) {
     await writeSession(null)
