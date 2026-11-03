@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { readSession, writeSession, redirect, requireAdmin, sendMail, createConsent, cancelConsent } = vi.hoisted(() => ({
+const { readSession, writeSession, redirect, requireAdmin, sendMail, createConsent, cancelConsent, resendConsentMail } = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
   createConsent: vi.fn(),
   cancelConsent: vi.fn(),
+  resendConsentMail: vi.fn(),
   sendMail: vi.fn(),
   readSession: vi.fn(),
   writeSession: vi.fn(),
@@ -15,10 +16,23 @@ const { readSession, writeSession, redirect, requireAdmin, sendMail, createConse
 
 vi.mock('../lib/admin-guard', () => ({ readSession, writeSession, requireAdmin }))
 vi.mock('../lib/mail', () => ({ sendMail }))
-vi.mock('../lib/consent-admin', async (orig) => ({ ...(await orig<typeof import('../lib/consent-admin')>()), createConsent, cancelConsent }))
+vi.mock('../lib/consent-admin', async (orig) => ({
+  ...(await orig<typeof import('../lib/consent-admin')>()),
+  createConsent,
+  cancelConsent,
+  resendConsentMail,
+}))
 vi.mock('next/navigation', () => ({ redirect }))
 
-import { cancelConsentAction, createConsentAction, sendTestMail, unlock } from '../app/admin/actions'
+import {
+  cancelConsentAction,
+  createConsentAction,
+  resendConsentMailAction,
+  sendTestMail,
+  startDeviceSign,
+  unlock,
+} from '../app/admin/actions'
+import { consentToken } from '../lib/consent-link'
 
 const form = (pin: string) => {
   const f = new FormData()
@@ -205,5 +219,64 @@ describe('cancelConsentAction — 동의서 취소', () => {
     expect(await cancelConsentAction('AAAAAAAAAA')).toEqual({ error: '지금은 시트에 쓸 수 없어요. 잠시 뒤 다시 눌러 주세요.' })
     expect(log.mock.calls).toEqual([['시트 저장 실패', 'AAAAAAAAAA']])
     log.mockRestore()
+  })
+})
+
+describe('startDeviceSign — 이 기기에서 바로 서명', () => {
+  const token = () => consentToken('CCCCCCCCCC')
+  const open = { exp: 123_456, locked: false, fails: 2 }
+
+  it('로그인(잠금 해제)을 먼저 확인하고, 아니면 잠그지 않는다', async () => {
+    requireAdmin.mockRejectedValue(new Error('REDIRECT:/admin'))
+    await expect(startDeviceSign(token())).rejects.toThrow('REDIRECT:/admin')
+    expect(writeSession).not.toHaveBeenCalled()
+  })
+
+  it('세션을 잠그고(실패 횟수 0, 만료는 그대로) 그 동의서의 서명 화면으로 보낸다', async () => {
+    requireAdmin.mockResolvedValue(open)
+    await expect(startDeviceSign(token())).rejects.toThrow(`REDIRECT:/consent/${token()}`)
+    expect(writeSession).toHaveBeenCalledWith({ exp: 123_456, locked: true, fails: 0 })
+    expect(writeSession.mock.invocationCallOrder[0]).toBeLessThan(redirect.mock.invocationCallOrder[0])
+  })
+
+  it('틀린 링크는 잠그지도 보내지도 않고 오류를 돌려준다', async () => {
+    requireAdmin.mockResolvedValue(open)
+    for (const bad of [`CCCCCCCCCC-${'0'.repeat(32)}`, 'CCCCCCCCCC', '../admin']) {
+      expect(await startDeviceSign(bad)).toEqual({ error: '링크가 올바르지 않아요.' })
+    }
+    expect(writeSession).not.toHaveBeenCalled()
+    expect(redirect).not.toHaveBeenCalled()
+  })
+})
+
+describe('resendConsentMailAction — 메일 다시 보내기', () => {
+  it('로그인(잠금 해제)을 먼저 확인한다', async () => {
+    requireAdmin.mockRejectedValue(new Error('REDIRECT:/admin'))
+    await expect(resendConsentMailAction('AAAAAAAAAA')).rejects.toThrow('REDIRECT:/admin')
+    expect(resendConsentMail).not.toHaveBeenCalled()
+  })
+
+  it('보낸 결과(또는 not-signed)를 돌려준다', async () => {
+    requireAdmin.mockResolvedValue({})
+    resendConsentMail.mockResolvedValue({ archive: true, guardian: false })
+    expect(await resendConsentMailAction('AAAAAAAAAA')).toEqual({ result: { archive: true, guardian: false } })
+    expect(resendConsentMail).toHaveBeenCalledWith('AAAAAAAAAA')
+    resendConsentMail.mockResolvedValue('not-signed')
+    expect(await resendConsentMailAction('AAAAAAAAAA')).toEqual({ result: 'not-signed' })
+  })
+
+  it('시트를 못 읽으면 안내 문구를 주고 로그는 남기지 않는다', async () => {
+    requireAdmin.mockResolvedValue({})
+    resendConsentMail.mockRejectedValue(new Error('sheets'))
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(await resendConsentMailAction('AAAAAAAAAA')).toEqual({ error: '지금은 시트를 읽을 수 없어요. 잠시 뒤 다시 눌러 주세요.' })
+    expect(log).not.toHaveBeenCalled()
+    log.mockRestore()
+  })
+
+  it('다른 예외(PDF 실패 등)는 그대로 던진다', async () => {
+    requireAdmin.mockResolvedValue({})
+    resendConsentMail.mockRejectedValue(new Error('pdf'))
+    await expect(resendConsentMailAction('AAAAAAAAAA')).rejects.toThrow('pdf')
   })
 })

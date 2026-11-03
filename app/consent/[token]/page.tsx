@@ -33,18 +33,20 @@ async function isDevice(): Promise<boolean> {
 /**
  * 동의서 서명 링크(`/consent/{동의서 ID}-{서명}`). 링크가 틀렸거나 취소됐거나 모르는 동의서면 닫힌 안내, 이미 서명했으면 서명함 안내,
  * 기록을 못 읽으면 오류 안내(묶음·사장님 칸이 시트에 있어서 화면을 그릴 수 없다). 아니면 서명 화면에 이 동의서의 준비 기록만 넘긴다.
+ * 잠긴 아이패드면 안내에도 사장님 화면으로 가는 길이 붙는다(device).
  */
 export default async function Page({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
+  const device = await isDevice()
   const id = consentIdOf(token)
-  if (!id) return <ConsentNotice kind="closed" />
+  if (!id) return <ConsentNotice kind="closed" device={device} />
   let record: ConsentRecord | undefined
   try {
     record = (await loadConsents()).get(id)
   } catch {
-    return <ConsentNotice kind="error" />
+    return <ConsentNotice kind="error" device={device} />
   }
-  if (!record || record.cancelled) return <ConsentNotice kind="closed" />
-  if (record.signed) return <ConsentNotice kind="signed" />
-  return <ConsentFlow token={token} prepared={record.prepared} device={await isDevice()} />
+  if (!record || record.cancelled) return <ConsentNotice kind="closed" device={device} />
+  if (record.signed) return <ConsentNotice kind="signed" device={device} />
+  return <ConsentFlow token={token} prepared={record.prepared} device={device} />
 }

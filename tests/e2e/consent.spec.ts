@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 import { E2E_ADMIN_PASSWORD, fakeState, resetFake } from './fake'
-import { expectNoHorizontalOverflow, GUARDIAN, PHONE, writeApply } from './fill'
+import { drawSignature, expectNoHorizontalOverflow, GUARDIAN, PHONE, writeApply } from './fill'
 
 // 보호자 서명 화면. 사장님이 사장님 화면에서 만든 링크를 보호자가 연다. 가짜 시트·메일·슬랙만 쓴다.
 
@@ -52,26 +52,6 @@ const title = (page: Page, name: string) => page.getByRole('heading', { level: 2
 
 async function next(page: Page): Promise<void> {
   await page.locator('[data-action="next"]').click()
-}
-
-/**
- * 사인 칸에 손가락으로 획 하나를 긋는다(진짜 터치: 브라우저가 스크롤할지 정하는 길을 지난다). 손가락을 위로 끌어서,
- * 사인 칸이 터치 스크롤을 막지 않으면 화면이 아래로 밀린다. 그린 뒤 스크롤 위치가 그대로인지 본다.
- */
-async function drawSignature(page: Page): Promise<void> {
-  const pad = page.getByLabel('서명 칸')
-  await expect(pad).toBeVisible()
-  const before = await page.evaluate(() => window.scrollY)
-  const box = (await pad.boundingBox())!
-  const at = (fx: number, fy: number) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy })
-  const stroke = [at(0.1, 0.9), at(0.3, 0.6), at(0.5, 0.75), at(0.7, 0.35), at(0.9, 0.1)]
-  const cdp = await page.context().newCDPSession(page)
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [stroke[0]] })
-  for (const p of stroke.slice(1)) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [p] })
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
-  await cdp.detach()
-  await expect(page.getByText('여기에 사인해 주세요')).toHaveCount(0)
-  expect(await page.evaluate(() => window.scrollY)).toBe(before)
 }
 
 /** 정보 확인부터 완료까지: 견종을 고치고 이메일을 적고, 세 장에 동의하고, 사인해 서명하기. */

@@ -102,6 +102,27 @@ export function consentMails(r: {
   ]
 }
 
+/**
+ * 보관용·보호자 사본 두 통을 따로 보낸다: 한 통이 실패해도 다른 통은 간다. 메일 꼴 만들기(보관 주소 설정 읽기)가 실패해도
+ * 그 통의 실패로 친다. 실패마다 '메일 전송 실패' 와 동의서 ID 만 남긴다. 메일 다시 보내기도 이것을 쓴다.
+ */
+export async function deliverConsentMails(
+  input: Parameters<typeof consentMails>[0],
+  id: string,
+  sendMail: typeof defaultSendMail = defaultSendMail,
+): Promise<{ archive: boolean; guardian: boolean }> {
+  const deliver = async (pick: (mails: [Mail, Mail]) => Mail): Promise<boolean> => {
+    try {
+      await sendMail(pick(consentMails(input)))
+      return true
+    } catch {
+      console.error('메일 전송 실패', id)
+      return false
+    }
+  }
+  return { archive: await deliver(([archive]) => archive), guardian: await deliver(([, copy]) => copy) }
+}
+
 /** 본문: `{ token, info: { guardianName, phone, petName, breed, email }, agreed: PageId[], esign: true, signature, website? }`. */
 export async function submitConsent(body: unknown, userAgent: string, deps: ConsentDeps = {}): Promise<ConsentResult> {
   if (!isObject(body)) return { status: 'invalid', errors: [] }
@@ -169,26 +190,18 @@ export async function submitConsent(body: unknown, userAgent: string, deps: Cons
     return { status: 'failed' }
   }
 
-  // 두 통은 따로 보낸다: 한 통이 실패해도 다른 통은 간다. 메일 꼴 만들기(보관 주소 설정 읽기)가 실패해도 그 통의 실패로 친다.
-  const sendMail = deps.sendMail ?? defaultSendMail
-  const mailInput = {
-    bundleLabel: bundle.label,
-    guardianName: info.guardianName,
-    petName: info.petName,
-    email: info.email,
-    signedAt,
-    pdf: pdf.bytes,
-  }
-  const deliver = async (pick: (mails: [Mail, Mail]) => Mail): Promise<boolean> => {
-    try {
-      await sendMail(pick(consentMails(mailInput)))
-      return true
-    } catch {
-      console.error('메일 전송 실패', id)
-      return false
-    }
-  }
-  const mail = { archive: await deliver(([archive]) => archive), guardian: await deliver(([, copy]) => copy) }
+  const mail = await deliverConsentMails(
+    {
+      bundleLabel: bundle.label,
+      guardianName: info.guardianName,
+      petName: info.petName,
+      email: info.email,
+      signedAt,
+      pdf: pdf.bytes,
+    },
+    id,
+    deps.sendMail,
+  )
 
   try {
     await appendRow('동의서', mailRow(id, now(), mail))

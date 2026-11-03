@@ -1,9 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useActionState, useState } from 'react'
+import { useActionState, useState, useTransition } from 'react'
 
-import { type CreateState, createConsentAction } from '../app/admin/actions'
+import { type CreateState, createConsentAction, startDeviceSign } from '../app/admin/actions'
 import { BUNDLES, GROOMING_PARTS, GUARDIAN_TEXT_MAX, OWNER_TEXT_MAX, bundleOf } from '../lib/consent-docs'
 import type { Applicant } from '../lib/applicants'
 import styles from './Admin.module.css'
@@ -49,6 +49,33 @@ export function CopyLink({ url, showField = false }: { url: string; showField?: 
   )
 }
 
+/**
+ * '이 기기에서 바로 서명'. 누르면 사장님 로그인은 그대로 두고 이 기기를 잠근 뒤 그 동의서의 서명 화면으로 간다.
+ * 잠긴 동안 사장님 화면은 PIN 으로만 다시 열린다. 링크 끝(`{동의서 ID}-{서명}`)을 서버가 다시 확인한다.
+ */
+export function SignHere({ url, primary = false }: { url: string; primary?: boolean }) {
+  const [error, setError] = useState('')
+  const [pending, startTransition] = useTransition()
+  function start() {
+    startTransition(async () => {
+      const out = await startDeviceSign(url.slice(url.lastIndexOf('/') + 1))
+      if (out?.error) setError(out.error)
+    })
+  }
+  return (
+    <div className={styles.form}>
+      <button className={primary ? styles.primary : styles.small} type="button" disabled={pending} onClick={start}>
+        이 기기에서 바로 서명
+      </button>
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function Counter({ value, max }: { value: string; max: number }) {
   return <p className={styles.counter}>{`${value.length}/${max}`}</p>
 }
@@ -76,6 +103,10 @@ export function ConsentCreate({ applicant, notFound }: { applicant: Applicant | 
         <h1 className={styles.title}>링크를 만들었어요</h1>
         <p className={styles.text}>아래 링크를 복사해서 보호자에게 카카오톡으로 보내 주세요.</p>
         <CopyLink url={state.url} showField />
+        <p className={styles.text}>
+          매장에서 바로 받으려면 아래 버튼을 누르고 이 기기를 보호자에게 건네주세요. 기기가 잠겨서 사장님 화면은 PIN 을 넣어야 다시 열려요.
+        </p>
+        <SignHere url={state.url} primary />
         <div className={styles.section}>
           <Link className={styles.secondary} href="/admin">
             사장님 화면으로

@@ -5,8 +5,8 @@ import { redirect } from 'next/navigation'
 import { readSession, requireAdmin, writeSession } from '../../lib/admin-guard'
 import { checkPassword, checkPin, MAX_PIN_FAILS, SESSION_DAYS } from '../../lib/admin-session'
 import { mailAddress } from '../../lib/config'
-import { cancelConsent, createConsent } from '../../lib/consent-admin'
-import { newConsentId } from '../../lib/consent-link'
+import { cancelConsent, createConsent, resendConsentMail } from '../../lib/consent-admin'
+import { consentIdOf, newConsentId } from '../../lib/consent-link'
 import { isSubmissionId } from '../../lib/id'
 import { sendMail } from '../../lib/mail'
 
@@ -116,5 +116,30 @@ export async function cancelConsentAction(id: string): Promise<{ result?: 'ok' |
     if (!isSheetError(e)) throw e
     console.error('시트 저장 실패', id)
     return { error: SHEET_WRITE_ERROR }
+  }
+}
+
+/**
+ * 매장 아이패드로 바로 서명받는다. 사장님 로그인은 그대로 두고 기기를 잠근 뒤(실패 횟수 0) 서명 화면으로 보낸다.
+ * 잠긴 동안 사장님 화면·액션은 requireAdmin 이 /admin(PIN 화면)으로 보낸다. 틀린 링크면 잠그지 않는다.
+ */
+export async function startDeviceSign(token: string): Promise<ActionState> {
+  const session = await requireAdmin()
+  if (consentIdOf(token) === null) return { error: '링크가 올바르지 않아요.' }
+  await writeSession({ ...session, locked: true, fails: 0 })
+  redirect(`/consent/${token}`)
+}
+
+/** 서명했는데 메일이 실패한(또는 메일 줄이 없는) 동의서의 PDF 를 다시 만들어 두 통을 보낸다. */
+export async function resendConsentMailAction(
+  id: string,
+): Promise<{ result?: { archive: boolean; guardian: boolean } | 'not-signed'; error?: string }> {
+  await requireAdmin()
+  try {
+    return { result: await resendConsentMail(id) }
+  } catch (e) {
+    // 시트 읽기 실패만 안내한다(사장님이 화면에서 바로 본다). PDF 실패 등은 그대로 던져 오류 화면이 뜨게 한다.
+    if (!isSheetError(e)) throw e
+    return { error: '지금은 시트를 읽을 수 없어요. 잠시 뒤 다시 눌러 주세요.' }
   }
 }

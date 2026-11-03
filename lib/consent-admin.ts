@@ -1,10 +1,22 @@
-import { bundleOf, GROOMING_PARTS, GUARDIAN_TEXT_MAX, OWNER_TEXT_MAX } from './consent-docs'
-import { cancelRow, type GuardianInfo, parseConsents, type Prepared, preparedRow } from './consent-store'
+import { agreedSentences, bundleOf, GROOMING_PARTS, GUARDIAN_TEXT_MAX, OWNER_TEXT_MAX } from './consent-docs'
+import { buildConsentPdf } from './consent-pdf'
+import {
+  cancelRow,
+  type GuardianInfo,
+  loadConsents as storeLoadConsents,
+  loadSignature as storeLoadSignature,
+  mailRow,
+  parseConsents,
+  type Prepared,
+  preparedRow,
+} from './consent-store'
+import { deliverConsentMails } from './consent-submit'
 import { consentUrl, newConsentId } from './consent-link'
 import { nowKst } from './format'
+import type { sendMail as defaultSendMail } from './mail'
 import { appendRow as sheetAppend, readRange as sheetRead } from './sheets'
 
-// 사장님이 동의서를 만들고 취소하는 규칙. 시트에는 준비·취소 줄을 덧붙이기만 한다.
+// 사장님이 동의서를 만들고 취소하고 메일을 다시 보내는 규칙. 시트에는 준비·취소·메일 줄을 덧붙이기만 한다.
 
 export interface CreateInput {
   applyId: string
@@ -107,4 +119,73 @@ export async function cancelConsent(
   if (record.cancelled) return 'ok'
   await (deps.appendRow ?? sheetAppend)('동의서', cancelRow(id, (deps.now ?? nowKst)()))
   return 'ok'
+}
+
+interface ResendDeps {
+  loadConsents?: typeof storeLoadConsents
+  loadSignature?: typeof storeLoadSignature
+  buildPdf?: typeof buildConsentPdf
+  sendMail?: typeof defaultSendMail
+  appendRow?: typeof sheetAppend
+  now?: () => string
+}
+
+/**
+ * 서명된 동의서의 PDF 를 시트 기록으로 다시 만들어 보관용·보호자 사본 두 통을 보내고 '메일' 줄을 붙인다.
+ * 입력은 제출 때와 같다(묶음·사장님 칸·신청 ID 는 기록, 보호자 값·서명 시각·기기·고친 값은 서명 줄, 사인은 T칸).
+ * 그래서 서명 내용 고유값이 시트에 남은 값과 같다. 기록·사인 읽기 실패는 `Error('sheets')` 로, PDF 실패는 `Error('pdf')` 로 던진다.
+ */
+export async function resendConsentMail(
+  id: string,
+  deps: ResendDeps = {},
+): Promise<{ archive: boolean; guardian: boolean } | 'not-signed'> {
+  const record = (await (deps.loadConsents ?? storeLoadConsents)()).get(id)
+  if (!record?.signed) return 'not-signed'
+  const { prepared, signed } = record
+  const signature = await (deps.loadSignature ?? storeLoadSignature)(signed.row)
+  const bundle = bundleOf(prepared.bundle)!
+  let pdf: Awaited<ReturnType<typeof buildConsentPdf>>
+  try {
+    pdf = await (deps.buildPdf ?? buildConsentPdf)({
+      bundle: bundle.id,
+      consentId: id,
+      applyId: prepared.applyId,
+      guardian: signed.guardian,
+      owner: {
+        programName: prepared.programName,
+        goal: prepared.goal,
+        classTime: prepared.classTime,
+        groomingParts: prepared.groomingParts,
+      },
+      signature,
+      signedAt: signed.signedAt,
+      device: signed.device,
+      agreed: agreedSentences(bundle.id),
+      changes: signed.changes,
+    })
+  } catch {
+    // 오류 객체에는 배포 경로 등이 들어 있을 수 있어서 버리고, 무엇이 실패했는지만 남긴다.
+    console.error('PDF 만들기 실패', id)
+    throw new Error('pdf')
+  }
+
+  // 제출과 같은 메일(제목·첨부 이름)을 같은 방식(두 통 따로, 실패마다 로그)으로 보낸다.
+  const mail = await deliverConsentMails(
+    {
+      bundleLabel: bundle.label,
+      guardianName: signed.guardian.guardianName,
+      petName: signed.guardian.petName,
+      email: signed.guardian.email,
+      signedAt: signed.signedAt,
+      pdf: pdf.bytes,
+    },
+    id,
+    deps.sendMail,
+  )
+  try {
+    await (deps.appendRow ?? sheetAppend)('동의서', mailRow(id, (deps.now ?? nowKst)(), mail))
+  } catch {
+    // 메일 줄을 못 붙여도 결과는 사장님 화면에 바로 보인다. 목록에는 다시 보내기가 남아 있다.
+  }
+  return mail
 }

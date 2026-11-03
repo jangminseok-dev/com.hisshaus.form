@@ -24,6 +24,8 @@ function toItem(r: ConsentRecord): ConsentItem {
     guardianName: r.signed?.guardian.guardianName || p.shown?.guardianName || '신청서 없음',
     status: r.signed ? '서명함' : r.cancelled ? '취소함' : '서명 대기',
     mail: r.mail ? `보관 ${r.mail.archive ? '보냄' : '실패'} · 사본 ${r.mail.guardian ? '보냄' : '실패'}` : null,
+    // 메일 줄을 못 붙였거나 응답 전에 끊긴 서명은 메일 결과가 없다. 보냈는지 모르니 다시 보낼 수 있게 한다.
+    resend: r.signed !== null && (r.mail === null || !r.mail.archive || !r.mail.guardian),
     createdAt: p.createdAt,
     url: waiting ? consentUrl(p.id) : null,
   }

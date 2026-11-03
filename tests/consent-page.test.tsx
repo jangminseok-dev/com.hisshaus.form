@@ -58,21 +58,21 @@ describe('동의서 링크 페이지', () => {
     for (const token of [`${ID}-${'0'.repeat(32)}`, ID, 'hello']) {
       const page = await open(token)
       expect(page.type).toBe(ConsentNotice)
-      expect(page.props).toEqual({ kind: 'closed' })
+      expect(page.props).toEqual({ kind: 'closed', device: false })
     }
     expect(loadConsents).not.toHaveBeenCalled()
 
     loadConsents.mockResolvedValue(new Map([[ID, record({ cancelled: true })]]))
-    expect((await open(TOKEN)).props).toEqual({ kind: 'closed' })
+    expect((await open(TOKEN)).props).toEqual({ kind: 'closed', device: false })
 
     loadConsents.mockResolvedValue(new Map())
-    expect((await open(TOKEN)).props).toEqual({ kind: 'closed' })
+    expect((await open(TOKEN)).props).toEqual({ kind: 'closed', device: false })
 
     loadConsents.mockResolvedValue(new Map([[ID, record({ signed: SIGNED })]]))
-    expect((await open(TOKEN)).props).toEqual({ kind: 'signed' })
+    expect((await open(TOKEN)).props).toEqual({ kind: 'signed', device: false })
 
     loadConsents.mockRejectedValue(new Error('sheets'))
-    expect((await open(TOKEN)).props).toEqual({ kind: 'error' })
+    expect((await open(TOKEN)).props).toEqual({ kind: 'error', device: false })
 
     loadConsents.mockResolvedValue(new Map([[ID, record()], ['Other12345', record({ prepared: { ...PREPARED, id: 'Other12345' } })]]))
     const page = await open(TOKEN)
@@ -88,6 +88,15 @@ describe('동의서 링크 페이지', () => {
     expect((await open(TOKEN)).props.device).toBe(false)
     readSession.mockRejectedValue(new Error('cookie'))
     expect((await open(TOKEN)).props.device).toBe(false)
+  })
+
+  it('잠긴 아이패드에서는 안내(틀린 링크·서명함·읽기 실패)에도 device 를 넘긴다', async () => {
+    readSession.mockResolvedValue(session(true))
+    expect((await open('hello')).props).toEqual({ kind: 'closed', device: true })
+    loadConsents.mockResolvedValue(new Map([[ID, record({ signed: SIGNED })]]))
+    expect((await open(TOKEN)).props).toEqual({ kind: 'signed', device: true })
+    loadConsents.mockRejectedValue(new Error('sheets'))
+    expect((await open(TOKEN)).props).toEqual({ kind: 'error', device: true })
   })
 
   it('요청마다 새로 그리고, 미리보기는 히스하우스 동의서와 매장 사진이다', () => {
@@ -107,5 +116,12 @@ describe('ConsentNotice', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(title)
     expect(screen.getByText(text)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /카카오톡 채널로 문의하기/ })).toBeInTheDocument()
+    // 보호자 기기에는 사장님 화면으로 가는 길이 없다.
+    expect(screen.queryByRole('link', { name: '사장님 화면으로' })).toBeNull()
+  })
+
+  it.each(['closed', 'signed', 'error'] as const)('잠긴 아이패드의 %s 안내에는 사장님 화면(PIN)으로 가는 길이 있다', (kind) => {
+    render(<ConsentNotice kind={kind} device />)
+    expect(screen.getByRole('link', { name: '사장님 화면으로' })).toHaveAttribute('href', '/admin')
   })
 })

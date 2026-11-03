@@ -4,10 +4,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 
-import { cancelConsentAction } from '../app/admin/actions'
+import { cancelConsentAction, resendConsentMailAction } from '../app/admin/actions'
 import type { Applicant } from '../lib/applicants'
 import styles from './Admin.module.css'
-import { CopyLink } from './ConsentCreate'
+import { CopyLink, SignHere } from './ConsentCreate'
 
 export interface ConsentItem {
   id: string
@@ -16,6 +16,8 @@ export interface ConsentItem {
   status: '서명 대기' | '서명함' | '취소함'
   /** 메일 결과 글. 메일 줄이 있을 때만. */
   mail: string | null
+  /** 서명했는데 메일 결과에 실패가 있거나 메일 줄이 없으면 '메일 다시 보내기' 를 둔다. */
+  resend: boolean
   createdAt: string
   /** 서명 대기일 때만 있는 보호자 링크 */
   url: string | null
@@ -27,6 +29,8 @@ export function AdminHome({ applicants, consents }: { applicants: Applicant[] | 
   const [query, setQuery] = useState('')
   const [confirming, setConfirming] = useState<string | null>(null)
   const [error, setError] = useState('')
+  /** 동의서 ID → '다시 보냈어요: …' 한 줄 */
+  const [resent, setResent] = useState<Record<string, string>>({})
   const [pending, startTransition] = useTransition()
 
   const q = query.trim().toLowerCase()
@@ -45,6 +49,21 @@ export function AdminHome({ applicants, consents }: { applicants: Applicant[] | 
       if (out.error) setError(out.error)
       else if (out.result === 'signed') setError('이미 서명한 동의서는 취소할 수 없어요.')
       else setError('')
+      router.refresh()
+    })
+  }
+
+  function resend(id: string) {
+    startTransition(async () => {
+      const out = await resendConsentMailAction(id)
+      if (out.error) setError(out.error)
+      else if (out.result === 'not-signed') setError('서명한 동의서만 다시 보낼 수 있어요.')
+      else if (out.result) {
+        const sent = (ok: boolean) => (ok ? '보냄' : '실패')
+        const line = `다시 보냈어요: 보관 ${sent(out.result.archive)} · 사본 ${sent(out.result.guardian)}`
+        setError('')
+        setResent((cur) => ({ ...cur, [id]: line }))
+      }
       router.refresh()
     })
   }
@@ -113,10 +132,23 @@ export function AdminHome({ applicants, consents }: { applicants: Applicant[] | 
                 {c.url && (
                   <div className={styles.row}>
                     <CopyLink url={c.url} />
+                    <SignHere url={c.url} />
                     <button className={styles.small} type="button" onClick={() => setConfirming(c.id)}>
                       취소
                     </button>
                   </div>
+                )}
+                {c.resend && (
+                  <div className={styles.row}>
+                    <button className={styles.small} type="button" disabled={pending} onClick={() => resend(c.id)}>
+                      메일 다시 보내기
+                    </button>
+                  </div>
+                )}
+                {resent[c.id] && (
+                  <p className={styles.muted} role="status">
+                    {resent[c.id]}
+                  </p>
                 )}
               </li>
             ))}

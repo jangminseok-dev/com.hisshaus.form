@@ -21,8 +21,9 @@ const COPY = {
 /**
  * 동의서 서명 화면 대신 보이는 안내. closed: 링크가 틀렸거나 취소됐거나 모르는 동의서다. signed: 이 링크로 이미 서명했다.
  * error: 시트를 못 읽었다(묶음·사장님이 채운 칸이 시트에 있어서 서명 화면을 그릴 수 없다).
+ * device 는 사장님이 잠근 매장 아이패드다. 새로 고쳐 이 안내가 떠도 갇히지 않게 사장님 화면(PIN)으로 가는 길을 둔다.
  */
-export function ConsentNotice({ kind }: { kind: 'closed' | 'signed' | 'error' }) {
+export function ConsentNotice({ kind, device = false }: { kind: 'closed' | 'signed' | 'error'; device?: boolean }) {
   const { title, text } = COPY[kind]
   return (
     <div className={styles.screen} data-notice={kind}>
@@ -33,6 +34,11 @@ export function ConsentNotice({ kind }: { kind: 'closed' | 'signed' | 'error' })
         <Link className={styles.primary} href="/">
           처음으로
         </Link>
+        {device && (
+          <Link className={styles.secondary} href="/admin">
+            사장님 화면으로
+          </Link>
+        )}
       </div>
     </div>
   )
