@@ -168,6 +168,23 @@ describe('createConsentAction — 동의서 만들기', () => {
   })
 })
 
+describe('시트 오류가 아닌 예외', () => {
+  it('만들기에서 다른 예외는 안내 문구로 바꾸지 않고 던지며 로그도 남기지 않는다', async () => {
+    requireAdmin.mockResolvedValue({})
+    createConsent.mockRejectedValue(new Error('SURVEY_LINK_SECRET'))
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(createConsentAction({}, createForm())).rejects.toThrow('SURVEY_LINK_SECRET')
+    expect(log).not.toHaveBeenCalled()
+    log.mockRestore()
+  })
+
+  it('취소에서 다른 예외도 그대로 던진다', async () => {
+    requireAdmin.mockResolvedValue({})
+    cancelConsent.mockRejectedValue(new Error('other'))
+    await expect(cancelConsentAction('AAAAAAAAAA')).rejects.toThrow('other')
+  })
+})
+
 describe('cancelConsentAction — 동의서 취소', () => {
   it('로그인(잠금 해제)을 먼저 확인한다', async () => {
     requireAdmin.mockRejectedValue(new Error('REDIRECT:/admin'))

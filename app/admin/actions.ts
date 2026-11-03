@@ -64,6 +64,8 @@ export async function sendTestMail(): Promise<ActionState & { ok?: boolean }> {
   }
 }
 
+const isSheetError = (e: unknown) => e instanceof Error && e.message === 'sheets'
+
 const SHEET_WRITE_ERROR = '지금은 시트에 쓸 수 없어요. 잠시 뒤 다시 눌러 주세요.'
 
 export type CreateState = ActionState & { errors?: Record<string, string>; id?: string; url?: string }
@@ -97,7 +99,9 @@ export async function createConsentAction(_prev: CreateState, form: FormData): P
       { id },
     )
     return out
-  } catch {
+  } catch (e) {
+    // 시트 오류만 안내한다. 그 밖의 예외(비밀값 없음 등)는 그대로 던져 오류 화면이 뜨게 한다.
+    if (!isSheetError(e)) throw e
     console.error('시트 저장 실패', id)
     return { error: SHEET_WRITE_ERROR }
   }
@@ -108,7 +112,8 @@ export async function cancelConsentAction(id: string): Promise<{ result?: 'ok' |
   await requireAdmin()
   try {
     return { result: await cancelConsent(id) }
-  } catch {
+  } catch (e) {
+    if (!isSheetError(e)) throw e
     console.error('시트 저장 실패', id)
     return { error: SHEET_WRITE_ERROR }
   }

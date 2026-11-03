@@ -4,12 +4,11 @@ import Link from 'next/link'
 import { useActionState, useState } from 'react'
 
 import { type CreateState, createConsentAction } from '../app/admin/actions'
-import { BUNDLES, GROOMING_PARTS, bundleOf } from '../lib/consent-docs'
+import { BUNDLES, GROOMING_PARTS, GUARDIAN_TEXT_MAX, OWNER_TEXT_MAX, bundleOf } from '../lib/consent-docs'
 import type { Applicant } from '../lib/applicants'
 import styles from './Admin.module.css'
 
-// 글자 수 상한(lib/consent-admin.ts 의 MAX 와 같다. 그 파일은 서버 전용 모듈을 끌어와서 여기서 쓰지 않는다)
-const LIMIT = { programName: 30, goal: 60, classTime: 30, guardian: 50 }
+const LIMIT = { ...OWNER_TEXT_MAX, guardian: GUARDIAN_TEXT_MAX }
 
 /** 링크 복사 버튼. 카카오톡 앱 안 브라우저처럼 복사가 막히면 길게 눌러 복사하라고 안내한다. */
 export function CopyLink({ url, showField = false }: { url: string; showField?: boolean }) {

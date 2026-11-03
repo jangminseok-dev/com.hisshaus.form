@@ -1,4 +1,4 @@
-import { bundleOf, GROOMING_PARTS } from './consent-docs'
+import { bundleOf, GROOMING_PARTS, GUARDIAN_TEXT_MAX, OWNER_TEXT_MAX } from './consent-docs'
 import { cancelRow, type GuardianInfo, parseConsents, type Prepared, preparedRow } from './consent-store'
 import { consentUrl, newConsentId } from './consent-link'
 import { nowKst } from './format'
@@ -17,9 +17,6 @@ export interface CreateInput {
   shown: GuardianInfo | null
 }
 
-/** 칸마다 글자 수 상한: PDF 칸에 들어갈 만큼만. */
-export const MAX = { programName: 30, goal: 60, classTime: 30, guardian: 50 } as const
-
 const GUARDIAN_LABEL: Record<keyof GuardianInfo, string> = {
   guardianName: '성함',
   phone: '연락처',
@@ -35,7 +32,7 @@ export function validateCreate(input: CreateInput): Record<string, string> {
     if (!bundle.ownerFields.includes(key)) return
     const v = input[key].trim()
     if (!v) errors[key] = '적어 주세요'
-    else if (v.length > MAX[key]) errors[key] = `${MAX[key]}자 이내로 적어 주세요`
+    else if (v.length > OWNER_TEXT_MAX[key]) errors[key] = `${OWNER_TEXT_MAX[key]}자 이내로 적어 주세요`
   }
   text('programName')
   text('goal')
@@ -48,7 +45,7 @@ export function validateCreate(input: CreateInput): Record<string, string> {
   }
   if (input.shown) {
     for (const key of Object.keys(GUARDIAN_LABEL) as (keyof GuardianInfo)[]) {
-      if (input.shown[key].trim().length > MAX.guardian) errors[key] = `${MAX.guardian}자 이내로 적어 주세요`
+      if (input.shown[key].trim().length > GUARDIAN_TEXT_MAX) errors[key] = `${GUARDIAN_TEXT_MAX}자 이내로 적어 주세요`
     }
   }
   return errors
@@ -92,8 +89,10 @@ export async function createConsent(
     shown,
     createdAt: (deps.now ?? nowKst)(),
   }
+  // 링크를 먼저 만든다: 만들 수 없는데(비밀값 없음 등) 준비 줄만 남는 일이 없게.
+  const url = consentUrl(id)
   await (deps.appendRow ?? sheetAppend)('동의서', preparedRow(prepared))
-  return { id, url: consentUrl(id) }
+  return { id, url }
 }
 
 /** 서명 전의 동의서에 취소 줄을 붙인다. 이미 취소했으면 줄을 또 붙이지 않는다. */

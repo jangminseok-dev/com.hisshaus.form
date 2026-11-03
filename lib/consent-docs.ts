@@ -206,3 +206,8 @@ export const LAYOUT: Record<PageId, FieldBox[]> = {
   ],
   guidelines: [],
 }
+
+// 사장님이 적는 글의 글자 수 상한: PDF 칸에 들어갈 만큼만. 화면(maxLength·세는 글자)과 검증이 같이 쓴다.
+export const OWNER_TEXT_MAX = { programName: 30, goal: 60, classTime: 30 } as const
+/** 보호자 정보 칸(성함·연락처·반려견 이름·견종) 상한 */
+export const GUARDIAN_TEXT_MAX = 50

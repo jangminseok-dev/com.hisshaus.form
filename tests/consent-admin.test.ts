@@ -97,6 +97,13 @@ describe('createConsent', () => {
     expect(appendRow).not.toHaveBeenCalled()
   })
 
+  it('링크를 만들 수 없으면(비밀값 없음) 줄을 붙이기 전에 던진다', async () => {
+    vi.stubEnv('SURVEY_LINK_SECRET', '')
+    const appendRow = vi.fn(async () => {})
+    await expect(createConsent(base, { appendRow, now })).rejects.toThrow()
+    expect(appendRow).not.toHaveBeenCalled()
+  })
+
   it('시트 실패는 던진다', async () => {
     const appendRow = vi.fn(async () => {
       throw new Error('sheets')
