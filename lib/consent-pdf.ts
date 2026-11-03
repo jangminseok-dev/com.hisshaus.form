@@ -12,8 +12,7 @@ import { Readable } from 'node:stream'
 import * as fontkit from 'fontkit'
 import { LineCapStyle, PDFDocument, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
 
-import { bundleOf, LAYOUT, PAGE_SIZE, PAGES, type BundleId, type FieldBox, type FieldKey } from './consent-docs'
-import { formatKoreanPhone } from './phone'
+import { bundleOf, fieldValues, LAYOUT, PAGE_SIZE, PAGES, parseSignedAt, type BundleId, type FieldBox } from './consent-docs'
 import { decodeSignature, SIG_H, SIG_W, type Stroke } from './signature'
 
 export interface ConsentPdfInput {
@@ -98,38 +97,6 @@ export function consentContentHash(input: ConsentPdfInput): string {
       ['changes', j(input.changes)],
     ]),
   )
-}
-
-/** 'YYYY-MM-DD HH:mm:ss'(한국 시각)를 나눈다. 꼴이 틀리면 던진다. */
-function parseSignedAt(signedAt: string) {
-  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(signedAt)
-  if (!m) throw new Error('서명 시각 꼴이 틀렸어요')
-  const date = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}+09:00`)
-  if (Number.isNaN(date.getTime())) throw new Error('서명 시각 꼴이 틀렸어요')
-  return { year: m[1], month: String(Number(m[2])), day: String(Number(m[3])), date }
-}
-
-/** 글자 칸(사인·체크 칸 말고)에 쓸 값. 연락처는 인쇄된 '010 - -' 뒤의 두 칸, 작성일은 서명한 날이다. */
-export function fieldValues(input: ConsentPdfInput): Partial<Record<FieldKey, string>> {
-  const { guardian, owner } = input
-  const parts = formatKoreanPhone(guardian.phone.trim()).split('-')
-  const [phoneMid, phoneLast] = parts.length === 3 ? [parts[1], parts[2]] : ['', guardian.phone]
-  const { year, month, day } = parseSignedAt(input.signedAt)
-  return {
-    guardianName: guardian.guardianName,
-    phoneMid,
-    phoneLast,
-    petName: guardian.petName,
-    breed: guardian.breed,
-    yearSuffix: year.slice(2),
-    month,
-    day,
-    manager: '히스하우스',
-    signerName: guardian.guardianName,
-    programName: owner.programName,
-    goal: owner.goal,
-    classTime: owner.classTime,
-  }
 }
 
 // 칸 폭에서 띄어쓰기마다 줄을 바꾼다. 한 낱말이 줄보다 길면 글자 단위로 자른다.

@@ -1,6 +1,8 @@
-// 동의서 문서 정의: 묶음(사장님이 고르는 것)·장(원본 PDF 의 한 쪽)·칸 좌표.
+// 동의서 문서 정의: 묶음(사장님이 고르는 것)·장(원본 PDF 의 한 쪽)·칸 좌표와 칸에 들어갈 값.
 // PDF 만들기(lib/consent-pdf.ts)와 보호자 화면이 모두 이것을 읽는다. 칸 좌표가 단일 출처다.
+// 보호자 화면의 JS 에 실리므로 서버 전용 모듈을 불러오지 않는다.
 import { BASE_PATH } from './base-path'
+import { formatKoreanPhone } from './phone'
 
 export type PageId =
   | 'agreement'
@@ -218,6 +220,56 @@ export const LAYOUT: Record<PageId, FieldBox[]> = {
     ...partBoxes([43.37, 173.76, 304.16, 434.55], [444.68, 425.99, 407.29, 388.6]),
   ],
   guidelines: [],
+}
+
+/** 'YYYY-MM-DD HH:mm:ss'(한국 시각)를 나눈다. 꼴이 틀리면 던진다. */
+export function parseSignedAt(signedAt: string) {
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(signedAt)
+  if (!m) throw new Error('서명 시각 꼴이 틀렸어요')
+  const date = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}+09:00`)
+  if (Number.isNaN(date.getTime())) throw new Error('서명 시각 꼴이 틀렸어요')
+  return { year: m[1], month: String(Number(m[2])), day: String(Number(m[3])), date }
+}
+
+/**
+ * 글자 칸(사인·체크 칸 말고)에 쓸 값. 연락처는 인쇄된 '010 - -' 뒤의 두 칸, 작성일은 서명한 날이다.
+ * PDF 와 보호자 화면의 미리보기가 같이 쓴다(화면은 지금 시각을 넘긴다).
+ */
+export function fieldValues(input: {
+  guardian: { guardianName: string; phone: string; petName: string; breed: string }
+  owner: { programName: string; goal: string; classTime: string }
+  signedAt: string
+}): Partial<Record<FieldKey, string>> {
+  const { guardian, owner } = input
+  const parts = formatKoreanPhone(guardian.phone.trim()).split('-')
+  const [phoneMid, phoneLast] = parts.length === 3 ? [parts[1], parts[2]] : ['', guardian.phone]
+  const { year, month, day } = parseSignedAt(input.signedAt)
+  return {
+    guardianName: guardian.guardianName,
+    phoneMid,
+    phoneLast,
+    petName: guardian.petName,
+    breed: guardian.breed,
+    yearSuffix: year.slice(2),
+    month,
+    day,
+    manager: '히스하우스',
+    signerName: guardian.guardianName,
+    programName: owner.programName,
+    goal: owner.goal,
+    classTime: owner.classTime,
+  }
+}
+
+// 파일 이름에 쓸 수 없는 글자(윈도우 기준)와 제어문자
+const FILENAME_FORBIDDEN = /[/\\:*?"<>|\u0000-\u001f\u007f]/g
+
+/**
+ * 서명한 PDF 의 파일 이름(메일 첨부·완료 화면 내려받기). date 는 'YYYY-MM-DD'.
+ * 금지 문자·제어문자는 `_` 로 바꾼다(반려견 이름의 '/' 등).
+ */
+export function consentFilename(bundleLabel: string, petName: string, date: string): string {
+  return `히스하우스_동의서_${bundleLabel}_${petName}_${date.replace(/-/g, '')}.pdf`.replace(FILENAME_FORBIDDEN, '_')
 }
 
 // 사장님이 적는 글의 글자 수 상한: PDF 칸에 들어갈 만큼만. 화면(maxLength·세는 글자)과 검증이 같이 쓴다.

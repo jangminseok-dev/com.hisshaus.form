@@ -5,12 +5,11 @@ import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { decodePDFRawStream, PDFArray, PDFDocument, type PDFRawStream } from 'pdf-lib'
 import { describe, expect, it } from 'vitest'
-import { BUNDLES, LAYOUT, type BundleId, type PageId } from '../lib/consent-docs'
+import { BUNDLES, fieldValues, LAYOUT, type BundleId, type PageId } from '../lib/consent-docs'
 import {
   buildConsentPdf,
   consentContentHash,
   embedKoreanFont,
-  fieldValues,
   fitText,
   recordRows,
   type ConsentPdfInput,
