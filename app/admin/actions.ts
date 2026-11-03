@@ -130,10 +130,10 @@ export async function startDeviceSign(token: string): Promise<ActionState> {
   redirect(`/consent/${token}`)
 }
 
-/** 서명했는데 메일이 실패한(또는 메일 줄이 없는) 동의서의 PDF 를 다시 만들어 두 통을 보낸다. */
+/** 서명했는데 메일이 실패한(또는 메일 줄이 없는) 동의서의 PDF 를 다시 만들어 실패한 통만 다시 보낸다. */
 export async function resendConsentMailAction(
   id: string,
-): Promise<{ result?: { archive: boolean; guardian: boolean } | 'not-signed'; error?: string }> {
+): Promise<{ result?: { archive: boolean; guardian: boolean } | 'not-signed' | 'already-sent'; error?: string }> {
   await requireAdmin()
   try {
     return { result: await resendConsentMail(id) }

@@ -104,12 +104,14 @@ export function consentMails(r: {
 
 /**
  * 보관용·보호자 사본 두 통을 따로 보낸다: 한 통이 실패해도 다른 통은 간다. 메일 꼴 만들기(보관 주소 설정 읽기)가 실패해도
- * 그 통의 실패로 친다. 실패마다 '메일 전송 실패' 와 동의서 ID 만 남긴다. 메일 다시 보내기도 이것을 쓴다.
+ * 그 통의 실패로 친다. 실패마다 '메일 전송 실패' 와 동의서 ID 만 남긴다. 메일 다시 보내기도 이것을 쓴다:
+ * `already` 에 이미 보낸 통을 넘기면 그 통은 보내지 않고 보냄(true)으로 친다(돌려주는 값이 곧 합친 결과다).
  */
 export async function deliverConsentMails(
   input: Parameters<typeof consentMails>[0],
   id: string,
   sendMail: typeof defaultSendMail = defaultSendMail,
+  already: { archive: boolean; guardian: boolean } = { archive: false, guardian: false },
 ): Promise<{ archive: boolean; guardian: boolean }> {
   const deliver = async (pick: (mails: [Mail, Mail]) => Mail): Promise<boolean> => {
     try {
@@ -120,7 +122,10 @@ export async function deliverConsentMails(
       return false
     }
   }
-  return { archive: await deliver(([archive]) => archive), guardian: await deliver(([, copy]) => copy) }
+  return {
+    archive: already.archive || (await deliver(([archive]) => archive)),
+    guardian: already.guardian || (await deliver(([, copy]) => copy)),
+  }
 }
 
 /** 본문: `{ token, info: { guardianName, phone, petName, breed, email }, agreed: PageId[], esign: true, signature, website? }`. */

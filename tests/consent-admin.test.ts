@@ -224,8 +224,8 @@ describe('resendConsentMail — 메일 다시 보내기', () => {
     vi.stubEnv('MAIL_ADDRESS', 'archive@example.invalid')
   })
 
-  it('메일 다시 보내기는 서명된 기록의 사인으로 PDF 를 다시 만들어 두 통을 보내고 메일 줄을 붙인다', async () => {
-    const { loadConsents, loadSignature } = sheet()
+  it('메일 줄이 없으면 서명된 기록의 사인으로 PDF 를 다시 만들어 두 통을 보내고 메일 줄을 붙인다', async () => {
+    const { loadConsents, loadSignature } = sheet(signed, null)
     const buildPdf = vi.fn(async (_input: ConsentPdfInput) => ({ bytes: PDF, docHash: 'x', fileHash: 'y' }))
     const sendMail = vi.fn(async (_mail: Mail) => {})
     const appendRow = vi.fn(async () => {})
@@ -284,7 +284,7 @@ describe('resendConsentMail — 메일 다시 보내기', () => {
       if (mail.to === 'archive@example.invalid') throw new Error('smtp 비밀 주소')
     })
     const out = await resendConsentMail(ID, {
-      ...sheet(),
+      ...sheet(signed, null),
       buildPdf: async () => ({ bytes: PDF, docHash: 'x', fileHash: 'y' }),
       sendMail,
       appendRow,
@@ -295,6 +295,66 @@ describe('resendConsentMail — 메일 다시 보내기', () => {
     expect(log.mock.calls).toEqual([['메일 전송 실패', ID]])
     expect(appendRow).toHaveBeenCalledWith('동의서', mailRow(ID, '2026-11-04 09:00:00', { archive: false, guardian: true }))
     log.mockRestore()
+  })
+
+  it('보관용만 실패했으면 보관용 한 통만 보내고, 메일 줄에는 이전에 보낸 사본을 합쳐 적는다', async () => {
+    const sendMail = vi.fn(async (_mail: Mail) => {})
+    const appendRow = vi.fn(async () => {})
+    const out = await resendConsentMail(ID, {
+      ...sheet(signed, { archive: false, guardian: true }),
+      buildPdf: async () => ({ bytes: PDF, docHash: 'x', fileHash: 'y' }),
+      sendMail,
+      appendRow,
+      now,
+    })
+    expect(out).toEqual({ archive: true, guardian: true })
+    expect(sendMail.mock.calls.map(([m]) => m.to)).toEqual(['archive@example.invalid'])
+    expect(appendRow).toHaveBeenCalledWith('동의서', mailRow(ID, '2026-11-04 09:00:00', { archive: true, guardian: true }))
+  })
+
+  it('사본만 실패했으면 사본 한 통만 보낸다', async () => {
+    const sendMail = vi.fn(async (_mail: Mail) => {})
+    const appendRow = vi.fn(async () => {})
+    const out = await resendConsentMail(ID, {
+      ...sheet(signed, { archive: true, guardian: false }),
+      buildPdf: async () => ({ bytes: PDF, docHash: 'x', fileHash: 'y' }),
+      sendMail,
+      appendRow,
+      now,
+    })
+    expect(out).toEqual({ archive: true, guardian: true })
+    expect(sendMail.mock.calls.map(([m]) => m.to)).toEqual(['hana@example.com'])
+    expect(appendRow).toHaveBeenCalledWith('동의서', mailRow(ID, '2026-11-04 09:00:00', { archive: true, guardian: true }))
+  })
+
+  it('다시 보낸 한 통이 또 실패하면 메일 줄은 그 통만 실패로 적는다', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const appendRow = vi.fn(async () => {})
+    const out = await resendConsentMail(ID, {
+      ...sheet(signed, { archive: false, guardian: true }),
+      buildPdf: async () => ({ bytes: PDF, docHash: 'x', fileHash: 'y' }),
+      sendMail: async () => {
+        throw new Error('smtp')
+      },
+      appendRow,
+      now,
+    })
+    expect(out).toEqual({ archive: false, guardian: true })
+    expect(log.mock.calls).toEqual([['메일 전송 실패', ID]])
+    expect(appendRow).toHaveBeenCalledWith('동의서', mailRow(ID, '2026-11-04 09:00:00', { archive: false, guardian: true }))
+    log.mockRestore()
+  })
+
+  it('두 통 다 이미 보냈으면 already-sent 이고 사인을 읽지도, PDF 를 만들지도, 보내지도, 줄을 붙이지도 않는다', async () => {
+    const { loadConsents, loadSignature } = sheet(signed, { archive: true, guardian: true })
+    const buildPdf = vi.fn()
+    const sendMail = vi.fn()
+    const appendRow = vi.fn()
+    expect(await resendConsentMail(ID, { loadConsents, loadSignature, buildPdf, sendMail, appendRow, now })).toBe('already-sent')
+    expect(loadSignature).not.toHaveBeenCalled()
+    expect(buildPdf).not.toHaveBeenCalled()
+    expect(sendMail).not.toHaveBeenCalled()
+    expect(appendRow).not.toHaveBeenCalled()
   })
 
   it('메일 줄을 못 붙여도 결과를 돌려주고 로그를 남기지 않는다', async () => {

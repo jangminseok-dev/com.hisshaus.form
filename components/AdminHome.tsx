@@ -58,7 +58,10 @@ export function AdminHome({ applicants, consents }: { applicants: Applicant[] | 
       const out = await resendConsentMailAction(id)
       if (out.error) setError(out.error)
       else if (out.result === 'not-signed') setError('서명한 동의서만 다시 보낼 수 있어요.')
-      else if (out.result) {
+      else if (out.result === 'already-sent') {
+        setError('')
+        setResent((cur) => ({ ...cur, [id]: '이미 두 통 다 보냈어요.' }))
+      } else if (out.result) {
         const sent = (ok: boolean) => (ok ? '보냄' : '실패')
         const line = `다시 보냈어요: 보관 ${sent(out.result.archive)} · 사본 ${sent(out.result.guardian)}`
         setError('')

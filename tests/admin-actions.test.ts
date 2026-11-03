@@ -256,13 +256,15 @@ describe('resendConsentMailAction — 메일 다시 보내기', () => {
     expect(resendConsentMail).not.toHaveBeenCalled()
   })
 
-  it('보낸 결과(또는 not-signed)를 돌려준다', async () => {
+  it('보낸 결과(또는 not-signed·already-sent)를 돌려준다', async () => {
     requireAdmin.mockResolvedValue({})
     resendConsentMail.mockResolvedValue({ archive: true, guardian: false })
     expect(await resendConsentMailAction('AAAAAAAAAA')).toEqual({ result: { archive: true, guardian: false } })
     expect(resendConsentMail).toHaveBeenCalledWith('AAAAAAAAAA')
     resendConsentMail.mockResolvedValue('not-signed')
     expect(await resendConsentMailAction('AAAAAAAAAA')).toEqual({ result: 'not-signed' })
+    resendConsentMail.mockResolvedValue('already-sent')
+    expect(await resendConsentMailAction('AAAAAAAAAA')).toEqual({ result: 'already-sent' })
   })
 
   it('시트를 못 읽으면 안내 문구를 주고 로그는 남기지 않는다', async () => {

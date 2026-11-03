@@ -110,6 +110,14 @@ describe('AdminHome 메일 다시 보내기', () => {
     expect(refresh).toHaveBeenCalled()
   })
 
+  it('이미 두 통 다 보냈다고 답하면 그 동의서에 그렇게 보이고 목록을 새로 읽는다', async () => {
+    resendConsentMailAction.mockResolvedValue({ result: 'already-sent' })
+    render(<AdminHome applicants={[]} consents={[signed('S1S1S1S1S1', '보관 실패 · 사본 보냄', true)]} />)
+    fireEvent.click(screen.getByRole('button', { name: '메일 다시 보내기' }))
+    expect(await card('S1S1S1S1S1').findByRole('status')).toHaveTextContent('이미 두 통 다 보냈어요.')
+    expect(refresh).toHaveBeenCalled()
+  })
+
   it('시트를 못 읽었다고 답하면 그 문구를 보인다', async () => {
     resendConsentMailAction.mockResolvedValue({ error: '지금은 시트를 읽을 수 없어요. 잠시 뒤 다시 눌러 주세요.' })
     render(<AdminHome applicants={[]} consents={[signed('S1S1S1S1S1', null, true)]} />)
