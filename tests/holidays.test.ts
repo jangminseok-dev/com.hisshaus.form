@@ -52,8 +52,8 @@ describe('공휴일 받기', () => {
     expect(urls.map((u) => u.searchParams.get('solYear'))).toEqual(['2026', '2027'])
     // Decoding 키를 넣으면 주소에 한 번만 인코딩돼 원래 값으로 읽힌다.
     expect(urls.every((u) => u.searchParams.get('ServiceKey') === 'a+b/c=' && u.searchParams.get('numOfRows') === '100')).toBe(true)
-    // 같은 응답을 한 시간 동안 다시 쓴다.
-    expect(fetchFn.mock.calls.every(([, init]) => (init as { next?: { revalidate?: number } })?.next?.revalidate === 3600)).toBe(true)
+    // 같은 응답을 12시간 동안 다시 쓴다(사용자 결정 2026-11-03).
+    expect(fetchFn.mock.calls.every(([, init]) => (init as { next?: { revalidate?: number } })?.next?.revalidate === 43200)).toBe(true)
   })
 
   it('부르기가 실패하거나 응답이 200 이 아니면 빈 목록이다 — 신청은 막지 않는다', async () => {

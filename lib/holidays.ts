@@ -16,7 +16,7 @@ export function parseHolidays(xml: string): string[] {
 }
 
 /**
- * 올해·내년 공휴일('YYYY-MM-DD', 날짜순). 서버만 부르고(브라우저는 이 웹만 부른다) 같은 응답을 한 시간 동안 다시 쓴다.
+ * 올해·내년 공휴일('YYYY-MM-DD', 날짜순). 서버만 부르고(브라우저는 이 웹만 부른다) 같은 응답을 12시간 동안 다시 쓴다(사용자 결정 2026-11-03).
  * 키가 없거나 부르기가 실패하면 빈 목록이다 — 화요일만 막고 신청은 그대로 받는다.
  * 로그는 남기지 않는다(주소에 키가 들어 있고, 로그 규칙은 시트·슬랙 실패만 적는다).
  */
@@ -27,7 +27,7 @@ export async function holidays(year = Number(todayKst().slice(0, 4)), fetchFn: t
     const lists = await Promise.all(
       [year, year + 1].map(async (y) => {
         const res = await fetchFn(`${ENDPOINT}?${new URLSearchParams({ ServiceKey: key, solYear: String(y), numOfRows: '100' })}`, {
-          next: { revalidate: 3600 },
+          next: { revalidate: 43200 },
         })
         return res.ok ? parseHolidays(await res.text()) : []
       }),
