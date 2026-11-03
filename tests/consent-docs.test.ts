@@ -1,7 +1,8 @@
+import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CONSENT_TEXT } from '../content/consent-text'
+import { CONSENT_SOURCE_SHA256, CONSENT_TEXT } from '../content/consent-text'
 import { BASE_PATH } from '../lib/base-path'
 import {
   BUNDLES,
@@ -200,5 +201,15 @@ describe('칸 좌표', () => {
 
   it('안내사항에는 칸이 없다', () => {
     expect(LAYOUT.guidelines).toEqual([])
+  })
+})
+
+describe('원본 PDF 교체 안전장치', () => {
+  it('지금 원본 PDF 둘의 sha256 이 장 그림·글·표본을 만들 때 적어 둔 값과 같다(원본만 바꾸고 스크립트를 다시 돌리지 않으면 실패)', () => {
+    const sha256 = (file: string) => createHash('sha256').update(readFileSync(join(process.cwd(), 'content', file))).digest('hex')
+    expect(CONSENT_SOURCE_SHA256).toEqual({
+      agreement: sha256('consent-agreement.pdf'),
+      guidelines: sha256('consent-guidelines.pdf'),
+    })
   })
 })

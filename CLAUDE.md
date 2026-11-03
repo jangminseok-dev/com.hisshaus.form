@@ -29,15 +29,15 @@
 
 교육미용 동의서 전자 서명(설계 `docs/superpowers/specs/2026-11-03-consent-signing-design.md`, 사장님 사용법은 README '동의서').
 
-- 묶음·장·칸 좌표·칸 값은 `lib/consent-docs.ts` 가 단일 출처다. PDF(`lib/consent-pdf.ts`)·보호자 화면·사장님 화면이 모두 그것을 읽는다. 보호자 화면 JS 에 실리므로 그 파일은 서버 전용 모듈을 불러오지 않는다. 원본 PDF(`content/consent-*.pdf`)는 칸 위치가 같을 때만 파일째 바꾸고(위치가 바뀌면 좌표를 다시 잰다), 장 그림을 다시 만들면 이름을 `v2` 로 올린다.
+- 묶음·장·칸 좌표·칸 값은 `lib/consent-docs.ts` 가 단일 출처다. PDF(`lib/consent-pdf.ts`)·보호자 화면·사장님 화면이 모두 그것을 읽는다. 보호자 화면 JS 에 실리므로 그 파일은 서버 전용 모듈을 불러오지 않는다. 원본 PDF(`content/consent-*.pdf`)는 칸 위치가 같을 때만 파일째 바꾸고(위치가 바뀌면 좌표를 다시 잰다), 장 그림을 다시 만들면 이름을 `v2` 로 올린다. 원본을 바꾸면 `scripts/consent-pages.mjs` 를 다시 돌린다: 원본 둘의 sha256 을 `content/consent-text.ts` 의 `CONSENT_SOURCE_SHA256` 에 적고, 테스트가 지금 원본과 견준다.
 - 시트 '동의서' 탭은 줄을 붙이기만 하는 기록장이다(준비·취소·서명·메일). 줄을 고치지 않고, 읽을 때 동의서 ID 마다 합친다(`lib/consent-store.ts`, 열은 `CONSENT_HEADER`). 사인은 길어서 맨 끝 열(T)이고, 목록 읽기는 `A:S` 만 읽는다. 서명 줄은 준비 값을 되풀이해 적어 그 줄과 사인만으로 PDF 를 다시 만들 수 있다.
-- 서명 제출 순서는 검증 → PDF → 시트(서명 줄) → 메일 두 통 → 시트(메일 줄) → 슬랙이다(`lib/consent-submit.ts`). PDF·시트 실패는 실패로 답하고, 서명 줄이 남은 뒤의 메일·슬랙 실패는 성공으로 답한다(사장님 화면에서 메일을 다시 보낸다). 이미 서명한 링크로 다시 내면 쓰지도 보내지도 않고 성공으로 답한다. 메일 다시 보내기(`lib/consent-admin.ts` 의 `resendConsentMail`)는 제출과 같은 PDF 입력을 만들고, 실패한 통만(메일 줄이 없으면 두 통) 제출과 같은 함수(`deliverConsentMails` → `consentMails`)로 보낸다. 메일 줄에는 전에 보낸 통과 합친 결과를 적는다.
+- 서명 제출 순서는 검증 → PDF → 시트(서명 줄) → 메일 두 통 → 시트(메일 줄) → 슬랙이다(`lib/consent-submit.ts`). PDF·시트 실패는 실패로 답하고, 서명 줄이 남은 뒤의 메일·슬랙 실패는 성공으로 답한다(사장님 화면에서 메일을 다시 보낸다). 메일 두 통은 함께 보내고 통마다 12초가 지나면 실패로 친다(`deliverConsentMails`, SMTP 가 멈춰도 `/api/consent` 30초 안에 메일 줄·슬랙까지 남기려고). 차례로 보내게 바꾸지 않는다. 이미 서명한 링크로 다시 내면 쓰지도 보내지도 않고 성공으로 답한다. 메일 다시 보내기(`lib/consent-admin.ts` 의 `resendConsentMail`)는 제출과 같은 PDF 입력을 만들고, 실패한 통만(메일 줄이 없으면 두 통) 제출과 같은 함수(`deliverConsentMails` → `consentMails`)로 보낸다. 메일 줄에는 전에 보낸 통과 합친 결과를 적는다. 다시 만든 서명 내용 고유값이 서명 줄의 값과 다르면(원본 PDF 교체·시트 수정) 보호자가 본 적 없는 내용이라 보내지도 줄을 붙이지도 않고 `'changed'` 다.
 - 서명 링크(`/consent/{동의서 ID}-{서명}`, `lib/consent-link.ts`)는 검사지 링크와 같은 모양·비밀값에 용도 접두 `consent:` 를 붙인다. 그래서 두 링크는 서로 열리지 않는다.
 - 서명 내용 고유값(`consentContentHash`, 시트 R열·기록 페이지)은 원본 PDF 둘의 sha256 과 서명 값을 정해진 키 순서의 JSON(v1)으로 묶은 것의 SHA-256 이다. 시트 기록과 원본으로 언제든 다시 계산해 서명 뒤 바뀌지 않았음을 보인다. 서명 시각은 한 번 정해 PDF 와 서명 줄 A열에 같이 쓴다. 키·순서·동의 문구 규칙(`agreedSentences`)을 바꾸면 v 를 올린다.
 - 한글 글꼴(`pretendard` 패키지의 Pretendard OTF)은 서버가 PDF 안에만 넣는다(foliojs `fontkit` 과 `lib/consent-pdf.ts` 의 이음 코드). 브라우저가 받는 글꼴이 아니다. 원본 PDF 둘과 글꼴은 `next.config.ts` 의 `outputFileTracingIncludes`(`/api/consent`·`/admin`)에 적혀 있다. PDF 를 만드는 경로를 더하면 거기에도 적고, 빌드 뒤 그 경로의 `.next/server/app/**/*.nft.json` 에 세 파일이 있는지 본다.
 - 출처 문구 'ⓒ 어글리독 All rights reserved' 는 서명 화면 맨 아래와 PDF 기록 페이지 맨 아래에만 둔다. 사장님 문서 장 위에는 찍지 않는다.
 - IP 주소는 기록하지 않는다. 서명 기기(User-Agent)는 300자에서 자른다.
-- 사장님 화면(`/admin`)과 그 서버 액션은 모두 `requireAdmin()` 을 먼저 부른다(`lib/admin-guard.ts`, 서명된 HttpOnly 쿠키). '이 기기에서 바로 서명'(`startDeviceSign`)은 로그인을 둔 채 쿠키를 잠그고, 잠긴 동안 `requireAdmin` 이 `/admin`(PIN 화면)으로 보낸다. PIN 을 5번 틀리면 로그아웃이다. 잠긴 기기의 서명 완료 화면과 동의서 안내에는 '사장님 화면으로' 길을 둔다(갇히지 않게).
+- 사장님 홈(`/admin`)은 `readSession()` 으로 로그인·PIN·홈 중 무엇을 그릴지 고른다. 그 밖의 사장님 화면(`/admin/new`)과 사장님 서버 액션은 로그인·로그아웃·잠금 해제(`login`·`logout`·`unlock`)를 빼고 모두 `requireAdmin()` 을 먼저 부른다(`lib/admin-guard.ts`, 서명된 HttpOnly 쿠키). '이 기기에서 바로 서명'(`startDeviceSign`)은 로그인을 둔 채 쿠키를 잠그고, 잠긴 동안 `requireAdmin` 이 `/admin`(PIN 화면)으로 보낸다. PIN 을 5번 틀리면 로그아웃이다. 잠긴 기기의 서명 완료 화면과 동의서 안내에는 '사장님 화면으로' 길을 둔다(갇히지 않게).
 - e2e 는 진짜 메일을 보내지 않는다. 가짜 메일(`MAIL_FAKE_URL`, `tests/e2e/fake-services.mjs`)만 쓴다.
 
 ## 폴더
@@ -48,7 +48,7 @@
 |---|---|
 | `app` | 화면(`/`, `/apply`, `/survey`, `/consent`, 사장님 화면 `/admin` 과 그 하위)과 API 경로(`app/api`). 실제 주소는 모두 `/hisshaus` 아래다 |
 | `components` | 화면 조각, `StepForm`, 필드(`components/fields`) |
-| `forms` | 문항 정의(`apply.ts`, `survey.ts`)·형(`types.ts`)·규칙(`rules.ts`) |
+| `forms` | 문항 정의(`apply.ts`, `survey.ts`, 동의서 보호자 정보 `consent.ts`)·형(`types.ts`)·규칙(`rules.ts`) |
 | `content` | 매장 정보(`shop.ts`), 동의서 원본 PDF 둘·장 글(`consent-text.ts`) |
 | `lib` | 설정·검증·시트·슬랙·초안 저장 |
 | `public` | 사진(`hero.jpg`, 미리보기 `og-shop.jpg` — 그림을 바꾸면 파일 이름도 바꾼다, 카카오톡이 주소별로 저장), 동의서 장 그림(`consent-v1-*.png`) |

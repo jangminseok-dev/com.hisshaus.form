@@ -1,10 +1,12 @@
 // 동의서 원본 PDF 에서 보호자 화면에 쓸 장 그림(public/consent-v1-<장>.png)과 장별 글(content/consent-text.ts)을 만든다.
 // 장마다 인쇄된 글자 상자(tests/consent-words.json)도 뽑는다. 테스트가 칸 좌표를 원본 글자와 견준다.
+// 원본 PDF 둘의 sha256 도 content/consent-text.ts 에 적는다. 원본만 바꾸고 이 스크립트를 다시 돌리지 않으면 테스트가 실패한다.
 //   pnpm exec tsx scripts/consent-pages.mjs
 // poppler 의 pdftoppm·pdftotext 가 있어야 한다(brew install poppler). 만든 파일은 커밋한다.
 // 그림이 바뀌면 lib/consent-docs.ts 의 그림 이름을 v2 로 올린다(카톡·브라우저가 주소별로 저장). 파일 이름은 PAGES[].image 를 따른다.
 import { execFileSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { PAGES } from '../lib/consent-docs'
 
 const pdfOf = (page) => `content/consent-${page.source}.pdf`
@@ -39,6 +41,9 @@ for (const page of Object.values(PAGES)) {
 const body = Object.entries(text)
   .map(([id, t]) => `  ${id}: ${JSON.stringify(t)},`)
   .join('\n')
+const sources = [...new Set(Object.values(PAGES).map((page) => page.source))]
+  .map((source) => `  ${source}: '${createHash('sha256').update(readFileSync(`content/consent-${source}.pdf`)).digest('hex')}',`)
+  .join('\n')
 writeFileSync(
   'content/consent-text.ts',
   `// scripts/consent-pages.mjs 가 원본 PDF 에서 뽑은 장별 글이다(pdftotext -layout). 손으로 고치지 말고 스크립트를 다시 돌린다.
@@ -47,6 +52,11 @@ import type { PageId } from '../lib/consent-docs'
 
 export const CONSENT_TEXT: Record<PageId, string> = {
 ${body}
+}
+
+// 장 그림·글·글자 상자 표본을 만든 원본 PDF 의 sha256. 원본만 바꾸고 스크립트를 다시 돌리지 않으면 테스트(tests/consent-docs.test.ts)가 실패한다.
+export const CONSENT_SOURCE_SHA256 = {
+${sources}
 }
 `,
 )
