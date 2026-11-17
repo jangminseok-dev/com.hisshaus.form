@@ -1,6 +1,6 @@
 # CLAUDE.md — 히스하우스 예약 신청서
 
-히스하우스(Hiss Haus)의 예약 신청서와 교육미용 행동 분석 검사지를 받는 웹이다(Next.js 16 App Router · TypeScript · pnpm). 에이전트는 코드·설정·명령을 제안하거나 실행하기 전에 이 문서를 먼저 읽는다. 설정과 운영은 `README.md`, 설계·문항·계획은 `docs/superpowers/` 에 있다.
+히스하우스(Hiss Haus)의 예약 신청서와 교육미용 행동 분석 검사지를 받는 웹이다(Next.js 16 App Router · TypeScript · pnpm). 에이전트는 코드·설정·명령을 제안하거나 실행하기 전에 이 문서를 먼저 읽는다. 설정은 `docs/SETUP.md`, 비용·운영은 `docs/OPERATIONS.md`, 설계·문항·계획은 `docs/superpowers/` 에 있다.
 
 ## 꼭 지킬 것
 
@@ -23,11 +23,11 @@
 - 뒤로 가기·방문 기록 코드(`components/StepForm.tsx`)를 고치면 e2e 로 확인한다. jsdom 은 실제 Next 의 `popstate` 를 재현하지 못한다.
 - e2e 는 진짜 서비스를 부르지 않는다. 포트 3030·3031 의 전용 서버와 가짜 슬랙·시트만 쓰고 `reuseExistingServer: false` 를 유지한다. `pnpm e2e` 전에 개발 서버(3020)를 끈다.
 - 웹은 `chagocnote.com/hisshaus` 아래에서 열린다(`next.config.ts` 의 `basePath`, 값은 `lib/base-path.ts` 의 `BASE_PATH`). `Link`·`router` 주소에는 Next 가 붙여 주지만 `fetch` 주소(`lib/post.ts`), `<img>` 주소(`content/shop.ts`), 미리보기 그림 주소(`app/layout.tsx`·`app/survey/[token]/page.tsx`·`app/consent/[token]/page.tsx`), 동의서 장 그림 주소(`lib/consent-docs.ts`)에는 붙여 주지 않아서 `BASE_PATH` 를 직접 붙인다. 이런 주소를 새로 만들면 같이 붙인다. 도메인 첫 주소 `/` 는 `/hisshaus` 로 보낸다(임시 307, 나중에 차곡노트 플랫폼이 첫 주소를 맡으면 지운다).
-- 외부 서비스나 유료 기능을 더하기 전에 무료 한도와 유료로 바뀌는 지점을 사용자에게 먼저 밝히고 README 의 비용 표에 적는다.
+- 외부 서비스나 유료 기능을 더하기 전에 무료 한도와 유료로 바뀌는 지점을 사용자에게 먼저 밝히고 `docs/OPERATIONS.md` 의 비용 표에 적는다.
 
 ## 동의서
 
-교육미용 동의서 전자 서명(설계 `docs/superpowers/specs/2026-11-03-consent-signing-design.md`, 사장님 사용법은 README '동의서').
+교육미용 동의서 전자 서명(설계 `docs/superpowers/specs/2026-11-03-consent-signing-design.md`, 사장님 사용법은 `docs/OPERATIONS.md` '동의서').
 
 - 묶음·장·칸 좌표·칸 값은 `lib/consent-docs.ts` 가 단일 출처다. PDF(`lib/consent-pdf.ts`)·보호자 화면·사장님 화면이 모두 그것을 읽는다. 보호자 화면 JS 에 실리므로 그 파일은 서버 전용 모듈을 불러오지 않는다. 원본 PDF(`content/consent-*.pdf`)는 칸 위치가 같을 때만 파일째 바꾸고(위치가 바뀌면 좌표를 다시 잰다), 장 그림을 다시 만들면 이름을 `v2` 로 올린다. 원본을 바꾸면 `scripts/consent-pages.mjs` 를 다시 돌린다: 원본 둘의 sha256 을 `content/consent-text.ts` 의 `CONSENT_SOURCE_SHA256` 에 적고, 테스트가 지금 원본과 견준다.
 - 시트 '동의서' 탭은 줄을 붙이기만 하는 기록장이다(준비·취소·서명·메일). 줄을 고치지 않고, 읽을 때 동의서 ID 마다 합친다(`lib/consent-store.ts`, 열은 `CONSENT_HEADER`). 사인은 길어서 맨 끝 열(T)이고, 목록 읽기는 `A:S` 만 읽는다. 서명 줄은 준비 값을 되풀이해 적어 그 줄과 사인만으로 PDF 를 다시 만들 수 있다.
@@ -73,4 +73,4 @@ pnpm survey:link [신청ID]    # 검사지 링크 출력(.env.local 의 SURVEY_L
 - 설계: `docs/superpowers/specs/2026-10-23-hisshaus-form-design.md`, 검사지 링크: `docs/superpowers/specs/2026-10-30-survey-link-design.md`, 동의서: `docs/superpowers/specs/2026-11-03-consent-signing-design.md`
 - 문항 원문: `docs/superpowers/specs/2026-10-23-hisshaus-form-questions.md`
 - 구현 계획: `docs/superpowers/plans/2026-10-23-hisshaus-form.md`, 동의서: `docs/superpowers/plans/2026-11-03-consent-signing.md`
-- 설정·운영: `README.md`
+- 설정: `docs/SETUP.md`, 비용·운영: `docs/OPERATIONS.md`

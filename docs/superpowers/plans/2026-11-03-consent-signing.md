@@ -135,7 +135,7 @@ it('비밀번호·PIN 비교는 맞을 때만 참이고 문자열이 아니면 �
 - [ ] **Step 4: 문서** — README 변수 표에 `MAIL_ADDRESS`·`MAIL_APP_PASSWORD`·`ADMIN_PASSWORD`(10자 이상)·`ADMIN_PIN`(4자리) — 동의서 기능에만 필요, 없으면 사장님 화면·서명만 500. 비용 표에 '네이버 메일(SMTP)' 줄: 무료, 하루 발송 한도는 공개 숫자를 못 찾음, **메일함 용량이 유료로 바뀌는 지점**(한 건 크기 × 미용 건수 계산은 Task 6 뒤 채움). `CLAUDE.md`: 변수 줄에 동의서 변수 넷, 로그 규칙에 `메일 전송 실패`.
 - [ ] **Step 5: 통과 확인** — `pnpm test` 전부 PASS, `pnpm exec tsc --noEmit`, `pnpm build`.
 - [ ] **Step 6: Commit** — `git commit -m "feat: 사장님 화면에 메일 시험 보내기 — 운영에서 네이버 발송 확인용"`
-- [ ] **Step 7: 사용자 확인(멈춤)** — 사용자에게 Vercel 에 `ADMIN_PASSWORD`(Secret)·`ADMIN_PIN`(Secret) 를 넣게 하고, 배포 뒤 사장님 화면에서 '메일 시험 보내기' → `hisshaus@naver.com` 수신 확인을 받는다. 실패하면 다음 Task 로 가지 않는다: Vercel 함수 지역을 서울(`icn1`, Settings → Functions)로 바꾸고 다시 시험한다. 그래도 실패하면 사용자에게 보고하고 멈춘다. 보낸메일함에도 남는지 함께 확인해 README 에 적는다.
+- [ ] **Step 7: 사용자 확인(멈춤)** — 사용자에게 Vercel 에 `ADMIN_PASSWORD`(Secret)·`ADMIN_PIN`(Secret) 를 넣게 하고, 배포 뒤 사장님 화면에서 '메일 시험 보내기' → `hisshaus@naver.com` 수신 확인을 받는다. 실패하면 다음 Task 로 가지 않는다: Vercel 함수 지역을 서울(`icn1`, Settings → Functions)로 바꾸고 다시 시험한다. 그래도 실패하면 사용자에게 보고하고 멈춘다. 보낸메일함에도 남는지 함께 확인해 `docs/OPERATIONS.md`(옛 README 비용 표) 에 적는다.
 
 ---
 
